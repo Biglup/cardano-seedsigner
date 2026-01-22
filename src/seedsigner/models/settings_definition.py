@@ -188,19 +188,20 @@ class SettingsConstants:
 
         Scans the filesystem to autodiscover which language codes are onboard.
         """
-        # Will normally be the launch dir (where main.py is located)...
-        cwd = os.getcwd()
-
-        # ...except when running the tests which happens one dir higher
-        if "src" not in cwd:
-            cwd = os.path.join(cwd, "src")
+        import pathlib
+        # Use file location to get consistent path regardless of working directory
+        translations_path = os.path.join(
+            pathlib.Path(__file__).parent.resolve().parent.resolve().parent.resolve().parent.resolve(),
+            "l10n",
+            "translations"
+        )
 
         # Pre-load English since there's no "en" entry in the translations folder; also
         # it should always appear first in the list anyway.
         detected_languages = [(cls.LOCALE__ENGLISH, cls.ALL_LOCALES[cls.LOCALE__ENGLISH])]
 
         locales_present = set()
-        for root, dirs, files in os.walk(os.path.join(cwd, "..", "l10n", "translations")):
+        for root, dirs, files in os.walk(translations_path):
             for file in [f for f in files if f.endswith(".mo")]:
                 # `root` will be [...]/l10n/translations/pt_BR/LC_MESSAGES
                 locales_present.add(root.split(f"translations{ os.sep }")[1].split(os.sep)[0])

@@ -1,4 +1,5 @@
 import os
+import pathlib
 from unittest.mock import Mock
 
 from base import BaseTest
@@ -22,11 +23,12 @@ class TestSettingsDefinition(BaseTest):
             if language_code not in detected_languages:
                 absent_language_code = language_code
                 break
-        
+
         # Should only fail if we've absolutely crushed the global translations!!!
         assert absent_language_code is not None
 
-        root = os.path.join(os.getcwd(), "l10n", "translations")
+        # Use pathlib to match how the code resolves the path
+        root = os.path.join(pathlib.Path(__file__).parent.resolve().parent.resolve(), "l10n", "translations")
 
         # We're going to mock the `root` results to include the absent language code's .mo file
         mocked_results = [(os.path.join(root, "en", "LC_MESSAGES"), [], ["messages.po", "messages.mo"])]
