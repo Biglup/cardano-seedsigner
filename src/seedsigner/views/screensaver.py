@@ -105,6 +105,23 @@ class OpeningSplashScreen(LogoScreen):
         version_y = int(self.canvas_height/2) + int(logo_height/2) + logo_offset_y + GUIConstants.COMPONENT_PADDING
         self.renderer.draw.text(xy=(version_x, version_y), text=version, font=font, fill=GUIConstants.ACCENT_COLOR, anchor="mt")
 
+        # Display cometa version (Cardano support)
+        # Use minimal import for fast splash - full cometa loads in background thread
+        small_font = Fonts.get_font(GUIConstants.get_body_font_name(), GUIConstants.get_body_font_size() - 2)
+        cometa_y = version_y + GUIConstants.COMPONENT_PADDING + 10
+        cometa_text = "cardano"
+        try:
+            # Minimal import - just the version function, not the full library
+            from cometa.cardano import get_lib_version
+            cometa_version = get_lib_version()
+            cometa_text = f"cometa {cometa_version}"
+        except ImportError:
+            pass  # cometa not installed, show "cardano" fallback
+        except Exception as e:
+            logger.warning(f"Could not get cometa version: {e}")
+
+        self.renderer.draw.text(xy=(version_x, cometa_y), text=cometa_text, font=small_font, fill="white", anchor="mt")
+
         if not self.renderer.is_screenshot_generator:
             self.renderer.show_image()
 

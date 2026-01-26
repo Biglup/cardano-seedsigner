@@ -38,16 +38,7 @@ class Settings(Singleton):
                 with open(Settings.SETTINGS_FILENAME) as settings_file:
                     settings.update(json.load(settings_file))
 
-            # Setup multilanguage support
-            path = os.path.join(
-                pathlib.Path(__file__).parent.resolve().parent.resolve().parent.resolve().parent.resolve(),
-                "l10n",
-                "translations"
-            )
-            gettext.bindtextdomain('messages', localedir=path)
-            gettext.textdomain('messages')
-
-            # Load default/persistent locale setting
+            # Load default/persistent locale setting (also initializes gettext)
             settings.load_locale()
 
         return cls._instance
@@ -247,8 +238,27 @@ class Settings(Singleton):
         locale = self.get_value(SettingsConstants.SETTING__LOCALE)
         os.environ['LANGUAGE'] = locale
 
-        # Re-initialize with the new locale
-        print(f"Set LANGUAGE locale to {os.environ['LANGUAGE']}")
+        # Re-initialize gettext with the new locale
+        path = os.path.join(
+            pathlib.Path(__file__).parent.resolve().parent.resolve().parent.resolve().parent.resolve(),
+            "l10n",
+            "translations"
+        )
+
+        try:
+            if os.path.exists(path):
+                # Install the translation for the selected locale
+                translation = gettext.translation('messages', localedir=path, languages=[locale], fallback=True)
+                translation.install()
+                logger.info(f"Loaded locale {locale} from {path}")
+            else:
+                # No translations directory - use null translations
+                logger.warning(f"Translations path does not exist: {path}")
+                gettext.NullTranslations().install()
+        except Exception as e:
+            # Fall back to NullTranslations if locale loading fails
+            logger.warning(f"Could not load locale {locale}: {e}")
+            gettext.NullTranslations().install()
 
 
 

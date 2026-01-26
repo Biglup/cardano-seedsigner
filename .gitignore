@@ -51,9 +51,12 @@ coverage.xml
 .pytest_cache/
 cover/
 
-# Translations
-*.mo
+# Translations (keep .mo files in l10n/translations/)
 *.pot
+/l10n/messages.pot
+
+# Build cache (downloaded/built images)
+.build-cache/
 
 # Django stuff:
 *.log
@@ -206,3 +209,8 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 .venv/
+.claude
+buildroot_dl/
+images/
+opt/
+research/
