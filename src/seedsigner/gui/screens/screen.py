@@ -155,8 +155,8 @@ class LoadingScreenThread(BaseThread):
         )
         position = 0
         arc_sweep = 45
-        arc_color = "#ff9416"
-        arc_trailing_color = "#80490b"
+        arc_color = GUIConstants.SPINNER_COLOR
+        arc_trailing_color = GUIConstants.SPINNER_TRAILING_COLOR
 
         # Need to flush the screen
         with renderer.lock:
@@ -389,13 +389,13 @@ class ButtonListScreen(BaseTopNavScreen):
 
         if self.has_scroll_arrows:
             self.arrow_half_width = 10
-            self.up_arrow_img = Image.new("RGBA", size=(2 * self.arrow_half_width, 8), color="black")
+            self.up_arrow_img = Image.new("RGBA", size=(2 * self.arrow_half_width, 8), color=GUIConstants.BACKGROUND_COLOR)
             self.up_arrow_img_y = self.top_nav.height - 12
             arrow_draw = ImageDraw.Draw(self.up_arrow_img)
             arrow_draw.line((self.arrow_half_width, 1, 0, 7), fill=GUIConstants.BUTTON_FONT_COLOR)
             arrow_draw.line((self.arrow_half_width, 1, 2 * self.arrow_half_width, 7), fill=GUIConstants.BUTTON_FONT_COLOR)
 
-            self.down_arrow_img = Image.new("RGBA", size=(2 * self.arrow_half_width, 8), color="black")
+            self.down_arrow_img = Image.new("RGBA", size=(2 * self.arrow_half_width, 8), color=GUIConstants.BACKGROUND_COLOR)
             self.down_arrow_img_y = self.canvas_height - 16 + 2
             arrow_draw = ImageDraw.Draw(self.down_arrow_img)
             center_x = int(self.canvas_width / 2)
@@ -458,7 +458,7 @@ class ButtonListScreen(BaseTopNavScreen):
                 int(self.canvas_width / 2) - self.arrow_half_width, self.up_arrow_img_y,
                 int(self.canvas_width / 2) + self.arrow_half_width, self.up_arrow_img_y + self.up_arrow_img.height
             ),
-            fill="black"
+            fill=GUIConstants.BACKGROUND_COLOR
         )
 
     def _hide_down_arrow(self):
@@ -467,7 +467,7 @@ class ButtonListScreen(BaseTopNavScreen):
                 int(self.canvas_width / 2) - self.arrow_half_width, self.down_arrow_img_y,
                 int(self.canvas_width / 2) + self.arrow_half_width, self.down_arrow_img_y + self.down_arrow_img.height
             ),
-            fill="black"
+            fill=GUIConstants.BACKGROUND_COLOR
         )
 
 

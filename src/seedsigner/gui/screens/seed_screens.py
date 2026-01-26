@@ -1106,7 +1106,7 @@ class SeedReviewPassphraseScreen(ButtonListScreen):
                 text=line,
                 font_name=GUIConstants.FIXED_WIDTH_FONT_NAME,
                 font_size=font_size,
-                font_color="orange",
+                font_color=GUIConstants.ACCENT_TEXT_COLOR,
                 is_text_centered=True,
                 screen_y=screen_y,
             ))

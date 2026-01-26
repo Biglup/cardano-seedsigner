@@ -81,7 +81,7 @@ class OpeningSplashScreen(LogoScreen):
         else:
             logo_offset_y = 0
 
-        background = Image.new("RGBA", size=self.logo.size, color="black")
+        background = Image.new("RGBA", size=self.logo.size, color=GUIConstants.BACKGROUND_COLOR)
         if not self.renderer.is_screenshot_generator:
             # Fade in alpha
             for i in range(250, -1, -25):
@@ -120,7 +120,7 @@ class OpeningSplashScreen(LogoScreen):
         except Exception as e:
             logger.warning(f"Could not get cometa version: {e}")
 
-        self.renderer.draw.text(xy=(version_x, cometa_y), text=cometa_text, font=small_font, fill="white", anchor="mt")
+        self.renderer.draw.text(xy=(version_x, cometa_y), text=cometa_text, font=small_font, fill=GUIConstants.HIGH_EMPHASIS_COLOR, anchor="mt")
 
         if not self.renderer.is_screenshot_generator:
             self.renderer.show_image()

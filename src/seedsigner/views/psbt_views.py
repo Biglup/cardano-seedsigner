@@ -2,7 +2,7 @@ from gettext import gettext as _
 
 from seedsigner.models.psbt_parser import PSBTParser
 from seedsigner.models.settings import SettingsConstants
-from seedsigner.gui.components import FontAwesomeIconConstants, SeedSignerIconConstants
+from seedsigner.gui.components import FontAwesomeIconConstants, GUIConstants, SeedSignerIconConstants
 from seedsigner.gui.screens.screen import (RET_CODE__BACK_BUTTON, ButtonListScreen, ButtonOption, WarningScreen, DireWarningScreen, QRDisplayScreen)
 from seedsigner.views.view import BackStackView, MainMenuView, NotYetImplementedView, View, Destination
 
@@ -38,7 +38,7 @@ class PSBTSelectSeedView(View):
                 # TRANSLATOR_NOTE: Inserts fingerprint w/"?" to indicate that this seed can't sign the current PSBT
                 button_str = _("{} (?)").format(button_str)
 
-            button_data.append(ButtonOption(button_str, SeedSignerIconConstants.FINGERPRINT))
+            button_data.append(ButtonOption(button_str, SeedSignerIconConstants.FINGERPRINT, icon_color=GUIConstants.ACCENT_TEXT_COLOR))
 
         button_data.append(self.SCAN_SEED)
         button_data.append(self.TYPE_12WORD)

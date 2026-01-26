@@ -362,7 +362,7 @@ class ToolsCalcFinalWordScreen(ButtonListScreen):
             text=self.checksum_bits,
             font_name=GUIConstants.FIXED_WIDTH_EMPHASIS_FONT_NAME,
             font_size=bit_font_size,
-            font_color=GUIConstants.ACCENT_COLOR,
+            font_color=GUIConstants.ACCENT_TEXT_COLOR,
             edge_padding=0,
             screen_x=checksum_x,
             screen_y=screen_y,
@@ -395,7 +395,7 @@ class ToolsCalcFinalWordScreen(ButtonListScreen):
         self.components.append(TextArea(
             text=self.checksum_bits,
             font_name=GUIConstants.FIXED_WIDTH_EMPHASIS_FONT_NAME,
-            font_color=GUIConstants.ACCENT_COLOR,
+            font_color=GUIConstants.ACCENT_TEXT_COLOR,
             font_size=bit_font_size,
             edge_padding=0,
             screen_x=checksum_x,

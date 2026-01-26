@@ -28,17 +28,31 @@ class GUIConstants:
     LIST_ITEM_PADDING = 4
 
     BACKGROUND_COLOR = "#000000"
-    INACTIVE_COLOR = "#414141"
-    ACCENT_COLOR = "#FF9F0A" # Active Color
-    WARNING_COLOR = "#FFD60A"
-    DIRE_WARNING_COLOR = "#FF5700"
-    ERROR_COLOR = "#FF1B0A"
-    SUCCESS_COLOR = "#30D158"
-    INFO_COLOR = "#409CFF"
-    # BITCOIN_ORANGE = "#FF9416"  # not used
-    TESTNET_COLOR = "#00F100"
-    REGTEST_COLOR = "#00CAF1"
-    GREEN_INDICATOR_COLOR = "#00FF00"
+    PRIMARY_COLOR = "#FFFFFF"
+    HIGH_EMPHASIS_COLOR = "#DEDEDE"
+    MEDIUM_EMPHASIS_COLOR = "#9E9E9E"
+    DISABLED_COLOR = "#616161"
+
+    ACCENT_COLOR = "#3F51B5"
+    ACCENT_TEXT_COLOR = "#9FA8DA"
+    CARDANO_BLUE = "#3F51B5"
+    SUCCESS_COLOR = "#4CAF50"
+    WARNING_COLOR = "#FFC107"
+    DIRE_WARNING_COLOR = "#FF9800"
+    ERROR_COLOR = "#F44336"
+    INFO_COLOR = "#7986CB"
+    DESTRUCTIVE_ACTION_COLOR = "#fa4646"
+    INACTIVE_COLOR = "#757575"
+    NOTIFICATION_COLOR = "#009688"
+    TEXT_ENTRY_COLOR = "#C5CAE9"
+    TESTNET_COLOR = "#009688"
+    REGTEST_COLOR = "#00BCD4"
+
+    # Spinner/loading colors
+    SPINNER_COLOR = "#3F51B5"
+    SPINNER_TRAILING_COLOR = "#1A237E"
+
+    GREEN_INDICATOR_COLOR = "#4CAF50"
 
     ICON_FONT_NAME__FONT_AWESOME = "Font_Awesome_6_Free-Solid-900"
     ICON_FONT_NAME__SEEDSIGNER = "seedsigner-icons"
@@ -79,7 +93,7 @@ class GUIConstants:
     }
     BODY_FONT_MAX_SIZE = TOP_NAV_TITLE_FONT_SIZE["default"]
     BODY_FONT_MIN_SIZE = 15
-    BODY_FONT_COLOR = "#FCFCFC"
+    BODY_FONT_COLOR = HIGH_EMPHASIS_COLOR
     BODY_LINE_SPACING = COMPONENT_PADDING
 
     FIXED_WIDTH_FONT_NAME = "Inconsolata-Regular"
@@ -87,7 +101,7 @@ class GUIConstants:
 
     # TODO: this should have a get_label_font_size() method like the others for l10n
     LABEL_FONT_SIZE = BODY_FONT_MIN_SIZE
-    LABEL_FONT_COLOR = "#777777"
+    LABEL_FONT_COLOR = MEDIUM_EMPHASIS_COLOR
 
     BUTTON_FONT_NAME = BASE_LOCALE_FONTS.copy()
     BUTTON_FONT_NAME["default"] = "OpenSans-SemiBold"
@@ -99,12 +113,10 @@ class GUIConstants:
         SettingsConstants.LOCALE__KOREAN: 20,
         SettingsConstants.LOCALE__CHINESE_SIMPLIFIED: 20,
     }
-    BUTTON_FONT_COLOR = "#FCFCFC"
+    BUTTON_FONT_COLOR = HIGH_EMPHASIS_COLOR
     BUTTON_BACKGROUND_COLOR = "#2C2C2C"
     BUTTON_HEIGHT = 32
-    BUTTON_SELECTED_FONT_COLOR = BACKGROUND_COLOR
-    
-    NOTIFICATION_COLOR = "#00F100"
+    BUTTON_SELECTED_FONT_COLOR = PRIMARY_COLOR
 
 
     @staticmethod
@@ -872,7 +884,7 @@ class FormattedAddress(BaseComponent):
     max_lines: int = None
     font_name: str = GUIConstants.FIXED_WIDTH_FONT_NAME
     font_size: int = 24
-    font_accent_color: str = GUIConstants.ACCENT_COLOR
+    font_accent_color: str = GUIConstants.ACCENT_TEXT_COLOR
     font_base_color: str = GUIConstants.LABEL_FONT_COLOR
 
     def __post_init__(self):
@@ -1284,7 +1296,7 @@ class Button(BaseComponent):
     icon_name: str = None   # Optional icon to accompany the text
     icon_size: int = GUIConstants.ICON_INLINE_FONT_SIZE
     icon_color: str = GUIConstants.BUTTON_FONT_COLOR
-    selected_icon_color: str = "black"
+    selected_icon_color: str = GUIConstants.PRIMARY_COLOR
     icon_y_offset: int = 0
     is_icon_inline: bool = True    # True = render next to text; False = render centered above text
     right_icon_name: str = None    # Optional icon rendered right-justified

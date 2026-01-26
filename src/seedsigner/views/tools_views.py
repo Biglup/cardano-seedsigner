@@ -438,7 +438,7 @@ class ToolsCalcFinalWordShowFinalWordView(View):
 
 class ToolsCalcFinalWordDoneView(View):
     LOAD = ButtonOption("Load seed")
-    DISCARD = ButtonOption("Discard", button_label_color="red")
+    DISCARD = ButtonOption("Discard", button_label_color=GUIConstants.DESTRUCTIVE_ACTION_COLOR)
 
     def run(self):
         from seedsigner.gui.screens.tools_screens import ToolsCalcFinalWordDoneScreen
@@ -486,7 +486,7 @@ class ToolsAddressExplorerSelectSourceView(View):
         button_data = []
         for seed in seeds:
             button_str = seed.get_fingerprint(self.settings.get_value(SettingsConstants.SETTING__NETWORK))
-            button_data.append(ButtonOption(button_str, SeedSignerIconConstants.FINGERPRINT))
+            button_data.append(ButtonOption(button_str, SeedSignerIconConstants.FINGERPRINT, icon_color=GUIConstants.ACCENT_TEXT_COLOR))
         button_data = button_data + [self.SCAN_SEED, self.SCAN_DESCRIPTOR, self.TYPE_12WORD, self.TYPE_24WORD]
         if self.settings.get_value(SettingsConstants.SETTING__ELECTRUM_SEEDS) == SettingsConstants.OPTION__ENABLED:
             button_data.append(self.TYPE_ELECTRUM)

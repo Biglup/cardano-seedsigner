@@ -127,7 +127,7 @@ class ScanScreen(BaseScreen):
                                         self.renderer.canvas_height - GUIConstants.EDGE_PADDING + 2
                                      ),
                                      text=scan_text,
-                                     fill="black",
+                                     fill=GUIConstants.BACKGROUND_COLOR,
                                      font=instructions_font,
                                      anchor="ms")
 
@@ -212,7 +212,7 @@ class ScanScreen(BaseScreen):
                                         (self.renderer.canvas_width - GUIConstants.EDGE_PADDING, self.renderer.canvas_height - GUIConstants.EDGE_PADDING - GUIConstants.BUTTON_HEIGHT - GUIConstants.COMPONENT_PADDING)
                                     ),
                                     fill=status_color,
-                                    outline="black",
+                                    outline=GUIConstants.BACKGROUND_COLOR,
                                     width=1,
                                 )
 

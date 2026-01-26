@@ -195,7 +195,7 @@ class IOTestScreen(BaseTopNavScreen):
                             -1, int((self.canvas_height - msg_height)/ 2) - 1,
                             self.canvas_width + 1, int((self.canvas_height + msg_height)/ 2) + 1
                         ),
-                        fill="black",
+                        fill=GUIConstants.BACKGROUND_COLOR,
                         outline=GUIConstants.ACCENT_COLOR,
                         width=1,
                     )
@@ -303,7 +303,7 @@ class DonateScreen(BaseTopNavScreen):
             text="seedsigner.com",
             font_name=GUIConstants.get_body_font_name(),
             font_size=28,
-            font_color=GUIConstants.ACCENT_COLOR,
+            font_color=GUIConstants.ACCENT_TEXT_COLOR,
             supersampling_factor=1,
             screen_y=self.components[-1].screen_y + self.components[-1].height + GUIConstants.COMPONENT_PADDING
         ))

@@ -4,7 +4,7 @@ from gettext import gettext as _
 from typing import Type
 
 from seedsigner.helpers.l10n import mark_for_translation as _mft
-from seedsigner.gui.components import SeedSignerIconConstants
+from seedsigner.gui.components import GUIConstants, SeedSignerIconConstants
 from seedsigner.gui.screens import RET_CODE__POWER_BUTTON, RET_CODE__BACK_BUTTON
 from seedsigner.gui.screens.screen import BaseScreen, ButtonOption, LargeButtonScreen, WarningScreen, ErrorScreen
 from seedsigner.models.settings import Settings, SettingsConstants
@@ -448,6 +448,7 @@ class RemoveMicroSDWarningView(View):
             WarningScreen,
             title=_("Action Required"),
             status_icon_name=SeedSignerIconConstants.MICROSD,
+            status_color=GUIConstants.ACCENT_COLOR,
             status_headline=None,
             text=_("You must remove the\nMicroSD card to continue."),
             show_back_button=False,

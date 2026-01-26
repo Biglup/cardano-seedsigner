@@ -7,7 +7,7 @@ from gettext import gettext as _
 
 from embit.descriptor import Descriptor
 
-from seedsigner.gui.components import FontAwesomeIconConstants, SeedSignerIconConstants
+from seedsigner.gui.components import FontAwesomeIconConstants, GUIConstants, SeedSignerIconConstants
 from seedsigner.gui.screens import (RET_CODE__BACK_BUTTON, ButtonListScreen,
     WarningScreen, DireWarningScreen, seed_screens)
 from seedsigner.gui.screens.screen import ButtonOption, ButtonOptionWithoutTranslation
@@ -42,7 +42,7 @@ class SeedsMenuView(View):
 
         button_data = []
         for seed in self.seeds:
-            button_data.append(ButtonOption(seed["fingerprint"], SeedSignerIconConstants.FINGERPRINT))
+            button_data.append(ButtonOption(seed["fingerprint"], SeedSignerIconConstants.FINGERPRINT, icon_color=GUIConstants.ACCENT_TEXT_COLOR))
         button_data.append(self.LOAD)
 
         selected_menu_num = self.run_screen(
@@ -106,7 +106,7 @@ class SeedSelectSeedView(View):
         button_data = []
         for seed in seeds:
             button_str = seed.get_fingerprint(self.settings.get_value(SettingsConstants.SETTING__NETWORK))
-            button_data.append(ButtonOption(button_str, SeedSignerIconConstants.FINGERPRINT, icon_color="blue"))
+            button_data.append(ButtonOption(button_str, SeedSignerIconConstants.FINGERPRINT, icon_color=GUIConstants.ACCENT_TEXT_COLOR))
         
         button_data.append(self.SCAN_SEED)
         button_data.append(self.TYPE_12WORD)
@@ -269,7 +269,7 @@ class SeedMnemonicEntryView(View):
 
 class SeedMnemonicInvalidView(View):
     EDIT = ButtonOption("Review & edit")
-    DISCARD = ButtonOption("Discard", button_label_color="red")
+    DISCARD = ButtonOption("Discard", button_label_color=GUIConstants.DESTRUCTIVE_ACTION_COLOR)
 
     def __init__(self):
         super().__init__()
@@ -376,7 +376,7 @@ class SeedAddPassphraseView(View):
 
 class SeedAddPassphraseExitDialogView(View):
     EDIT = ButtonOption("Edit passphrase")
-    DISCARD = ButtonOption("Discard passphrase", button_label_color="red")
+    DISCARD = ButtonOption("Discard passphrase", button_label_color=GUIConstants.DESTRUCTIVE_ACTION_COLOR)
     SKIP = ButtonOption("Skip passphrase")  # NOT red since we're not throwing anything away
 
     def __init__(self):
@@ -457,7 +457,7 @@ class SeedReviewPassphraseView(View):
             
 class SeedDiscardView(View):
     KEEP = ButtonOption("Keep seed")
-    DISCARD = ButtonOption("Discard", button_label_color="red")
+    DISCARD = ButtonOption("Discard", button_label_color=GUIConstants.DESTRUCTIVE_ACTION_COLOR)
 
     def __init__(self, seed_num: int = None):
         super().__init__()
@@ -530,7 +530,7 @@ class SeedOptionsView(View):
     SIGN_MESSAGE = ButtonOption("Sign message")
     BACKUP = ButtonOption("Backup seed", right_icon_name=SeedSignerIconConstants.CHEVRON_RIGHT)
     BIP85_CHILD_SEED = ButtonOption("BIP-85 child seed")
-    DISCARD = ButtonOption("Discard seed", button_label_color="red")
+    DISCARD = ButtonOption("Discard seed", button_label_color=GUIConstants.DESTRUCTIVE_ACTION_COLOR)
 
 
     def __init__(self, seed_num: int):
