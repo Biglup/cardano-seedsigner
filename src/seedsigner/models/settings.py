@@ -239,21 +239,35 @@ class Settings(Singleton):
         os.environ['LANGUAGE'] = locale
 
         # Re-initialize gettext with the new locale
-        path = os.path.join(
-            pathlib.Path(__file__).parent.resolve().parent.resolve().parent.resolve().parent.resolve(),
-            "l10n",
-            "translations"
-        )
+        # Try multiple paths to find translations:
+        # 1. Relative to source file (works when running from source)
+        # 2. Relative to current working directory (works when installed via pip)
+        possible_paths = [
+            # Path relative to this source file (4 parents up from settings.py)
+            os.path.join(
+                pathlib.Path(__file__).parent.resolve().parent.resolve().parent.resolve().parent.resolve(),
+                "l10n",
+                "translations"
+            ),
+            # Path relative to current working directory
+            os.path.join(os.getcwd(), "l10n", "translations"),
+        ]
+
+        path = None
+        for p in possible_paths:
+            if os.path.exists(p):
+                path = p
+                break
 
         try:
-            if os.path.exists(path):
+            if path:
                 # Install the translation for the selected locale
                 translation = gettext.translation('messages', localedir=path, languages=[locale], fallback=True)
                 translation.install()
                 logger.info(f"Loaded locale {locale} from {path}")
             else:
                 # No translations directory - use null translations
-                logger.warning(f"Translations path does not exist: {path}")
+                logger.warning(f"Translations path does not exist in any of: {possible_paths}")
                 gettext.NullTranslations().install()
         except Exception as e:
             # Fall back to NullTranslations if locale loading fails

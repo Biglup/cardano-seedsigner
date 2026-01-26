@@ -1,4 +1,4 @@
-from gettext import gettext as _
+import builtins
 
 from base import BaseTest
 from seedsigner.gui.screens.screen import ButtonOption
@@ -6,6 +6,13 @@ from seedsigner.helpers.l10n import mark_for_translation as _mft
 from seedsigner.models.settings import Settings
 from seedsigner.models.settings_definition import SettingsConstants
 from seedsigner.views.view import MainMenuView
+
+
+def _(message: str) -> str:
+    """Get translation from builtins._ which is installed by Settings.load_locale()"""
+    if hasattr(builtins, '_'):
+        return builtins._(message)
+    return message
 
 
 

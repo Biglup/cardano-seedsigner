@@ -1,4 +1,4 @@
-from gettext import gettext as _
+import builtins
 
 # Must import test base before the Controller
 from base import FlowTest, FlowStep
@@ -7,6 +7,13 @@ from seedsigner.gui.screens.screen import RET_CODE__BACK_BUTTON, ButtonOption
 from seedsigner.models.settings_definition import SettingsConstants, SettingsDefinition
 from seedsigner.views import settings_views
 from seedsigner.views.view import MainMenuView
+
+
+def _(message: str) -> str:
+    """Get translation from builtins._ which is installed by Settings.load_locale()"""
+    if hasattr(builtins, '_'):
+        return builtins._(message)
+    return message
 
 
 
