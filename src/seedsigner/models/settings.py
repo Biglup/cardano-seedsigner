@@ -263,7 +263,11 @@ class Settings(Singleton):
             if path:
                 # Install the translation for the selected locale
                 translation = gettext.translation('messages', localedir=path, languages=[locale], fallback=True)
+                # Install into builtins._ (for code using builtins._)
                 translation.install()
+                # Also set up the global gettext domain (for code using `from gettext import gettext as _`)
+                gettext.bindtextdomain('messages', path)
+                gettext.textdomain('messages')
                 logger.info(f"Loaded locale {locale} from {path}")
             else:
                 # No translations directory - use null translations
