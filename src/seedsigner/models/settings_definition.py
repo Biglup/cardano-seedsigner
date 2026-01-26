@@ -189,26 +189,38 @@ class SettingsConstants:
         Scans the filesystem to autodiscover which language codes are onboard.
         """
         import pathlib
-        # Use file location to get consistent path regardless of working directory
-        translations_path = os.path.join(
-            pathlib.Path(__file__).parent.resolve().parent.resolve().parent.resolve().parent.resolve(),
-            "l10n",
-            "translations"
-        )
+        # Try multiple paths to find translations:
+        # 1. Relative to source file (works when running from source)
+        # 2. Relative to current working directory (works when installed via pip)
+        possible_paths = [
+            os.path.join(
+                pathlib.Path(__file__).parent.resolve().parent.resolve().parent.resolve().parent.resolve(),
+                "l10n",
+                "translations"
+            ),
+            os.path.join(os.getcwd(), "l10n", "translations"),
+        ]
+
+        translations_path = None
+        for p in possible_paths:
+            if os.path.exists(p):
+                translations_path = p
+                break
 
         # Pre-load English since there's no "en" entry in the translations folder; also
         # it should always appear first in the list anyway.
         detected_languages = [(cls.LOCALE__ENGLISH, cls.ALL_LOCALES[cls.LOCALE__ENGLISH])]
 
-        locales_present = set()
-        for root, dirs, files in os.walk(translations_path):
-            for file in [f for f in files if f.endswith(".mo")]:
-                # `root` will be [...]/l10n/translations/pt_BR/LC_MESSAGES
-                locales_present.add(root.split(f"translations{ os.sep }")[1].split(os.sep)[0])
+        if translations_path:
+            locales_present = set()
+            for root, dirs, files in os.walk(translations_path):
+                for file in [f for f in files if f.endswith(".mo")]:
+                    # `root` will be [...]/l10n/translations/pt_BR/LC_MESSAGES
+                    locales_present.add(root.split(f"translations{ os.sep }")[1].split(os.sep)[0])
 
-        for locale in cls.ALL_LOCALES.keys():
-            if locale in locales_present:
-                detected_languages.append((locale, cls.ALL_LOCALES[locale]))
+            for locale in cls.ALL_LOCALES.keys():
+                if locale in locales_present:
+                    detected_languages.append((locale, cls.ALL_LOCALES[locale]))
 
         return detected_languages
 
