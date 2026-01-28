@@ -215,3 +215,6 @@ images/
 opt/
 research/
 seedsigner-screenshots/
+
+# Emulator build folder
+build/emulation/
