@@ -145,7 +145,7 @@ class LoadingScreenThread(BaseThread):
         from seedsigner.gui.renderer import Renderer
         renderer: Renderer = Renderer.get_instance()
 
-        center_image = load_image("btc_logo_60x60.png")
+        center_image = load_image("ada_logo_60x60.png")
         orbit_gap = 2*GUIConstants.COMPONENT_PADDING
         bounding_box = (
             int((renderer.canvas_width - center_image.width)/2 - orbit_gap),

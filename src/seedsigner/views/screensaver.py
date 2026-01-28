@@ -22,23 +22,8 @@ class LogoScreen(BaseScreen):
         super().__init__()
         self.logo = load_image("logo_black_240.png")
 
-        self.partners = [
-            "hrf",
-        ]
-
-        self.partner_logos: dict = {}
-        for partner in self.partners:
-            logo_url = os.path.join("partners", f"{partner}_logo.png")
-            self.partner_logos[partner] = load_image(logo_url)
-
-
     def _run(self):
         pass
-
-
-    def get_random_partner(self) -> str:
-        return self.partners[random.randrange(len(self.partners))]
-
 
 
 @dataclass
@@ -123,31 +108,6 @@ class OpeningSplashScreen(LogoScreen):
         self.renderer.draw.text(xy=(version_x, cometa_y), text=cometa_text, font=small_font, fill=GUIConstants.HIGH_EMPHASIS_COLOR, anchor="mt")
 
         if not self.renderer.is_screenshot_generator:
-            self.renderer.show_image()
-
-        if show_partner_logos:
-            if not self.renderer.is_screenshot_generator:
-                # Hold on the version num for a moment
-                time.sleep(1)
-
-            # Set up the partner logo
-            partner_logo: Image.Image = self.partner_logos[self.get_random_partner()]
-            font = Fonts.get_font(GUIConstants.get_top_nav_title_font_name(), GUIConstants.get_body_font_size())
-            # TRANSLATOR_NOTE: This is on the opening splash screen, displayed above the HRF logo
-            sponsor_text = _("With support from:")
-            (left, top, tw, th) = font.getbbox(sponsor_text, anchor="lt")
-
-            x = int((self.renderer.canvas_width) / 2)
-            y = self.canvas_height - GUIConstants.COMPONENT_PADDING - partner_logo.height - int(GUIConstants.COMPONENT_PADDING/2) - th
-            self.renderer.draw.text(xy=(x, y), text=sponsor_text, font=font, fill="#ccc", anchor="mt")
-            self.renderer.canvas.paste(
-                partner_logo,
-                (
-                    int((self.renderer.canvas_width - partner_logo.width) / 2),
-                    y + th + int(GUIConstants.COMPONENT_PADDING/2)
-                )
-            )
-
             self.renderer.show_image()
 
         if not self.renderer.is_screenshot_generator:
