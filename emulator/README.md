@@ -21,6 +21,28 @@ Or with clean rebuild:
 python scripts/emulate.py --clean
 ```
 
+## Display Options
+
+The emulator supports multiple display sizes:
+
+```bash
+# Default 240x240 (original SeedSigner display)
+python scripts/emulate.py
+
+# Larger 320x240 display
+python scripts/emulate.py --display st7789_320x240
+
+# ILI9341 320x240 (beta)
+python scripts/emulate.py --display ili9341_320x240
+```
+
+Available configurations:
+| Option | Resolution | Notes |
+|--------|------------|-------|
+| `st7789_240x240` | 240x240 | Default, original Waveshare 1.3" |
+| `st7789_320x240` | 320x240 | Larger ST7789 display |
+| `ili9341_320x240` | 320x240 | ILI9341 driver (beta) |
+
 This will:
 1. Create a `build/emulation` folder with the patched source
 2. Launch the emulator in a Tkinter window

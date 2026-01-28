@@ -9,10 +9,17 @@ Based on seedsigner-emulator by @EnteroPositivo
 https://github.com/enteropositivo/seedsigner-emulator
 
 Usage:
-    python emulate.py [--clean]
+    python scripts/emulate.py [--clean] [--display DISPLAY]
 
 Options:
-    --clean     Force rebuild of the emulation folder
+    --clean              Force rebuild of the emulation folder
+    --display DISPLAY    Display configuration (default: st7789_240x240)
+                         Options: st7789_240x240, st7789_320x240, ili9341_320x240
+
+Examples:
+    python scripts/emulate.py                          # 240x240 (default)
+    python scripts/emulate.py --display st7789_320x240 # 320x240 larger screen
+    python scripts/emulate.py --clean --display st7789_320x240
 """
 
 import os
@@ -154,7 +161,7 @@ def check_dependencies():
         sys.exit(1)
 
 
-def run_emulator(build_dir: Path):
+def run_emulator(build_dir: Path, display_config: str = "st7789_240x240"):
     """Run the emulator."""
     print("\nStarting Cardano SeedSigner Emulator...")
     print("=" * 60)
@@ -171,8 +178,18 @@ def run_emulator(build_dir: Path):
     # Add build directory to Python path
     sys.path.insert(0, str(build_dir))
 
+    # Set display configuration via environment variable
+    # This will be read by settings before the GUI starts
+    os.environ["SEEDSIGNER_DISPLAY_CONFIG"] = display_config
+
     # Import and run main
     try:
+        # Pre-configure display setting before importing main
+        from seedsigner.models.settings import Settings
+        from seedsigner.models.settings_definition import SettingsConstants
+        settings = Settings.get_instance()
+        settings.set_value(SettingsConstants.SETTING__DISPLAY_CONFIGURATION, display_config)
+
         # Import main module and call main()
         import main
         main.main([])
@@ -181,6 +198,13 @@ def run_emulator(build_dir: Path):
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
+
+DISPLAY_CONFIGS = {
+    "st7789_240x240": ("st7789", 240, 240),
+    "st7789_320x240": ("st7789", 320, 240),
+    "ili9341_320x240": ("ili9341", 320, 240),
+}
 
 
 def main():
@@ -192,12 +216,20 @@ def main():
         action="store_true",
         help="Force rebuild of the emulation folder"
     )
+    parser.add_argument(
+        "--display",
+        choices=list(DISPLAY_CONFIGS.keys()),
+        default="st7789_240x240",
+        help="Display configuration (default: st7789_240x240)"
+    )
     args = parser.parse_args()
 
     project_root = get_project_root()
 
+    display_type, width, height = DISPLAY_CONFIGS[args.display]
     print("Cardano SeedSigner Emulator")
     print("Based on seedsigner-emulator by @EnteroPositivo")
+    print(f"Display: {args.display} ({width}x{height})")
     print()
 
     # Check dependencies
@@ -206,8 +238,8 @@ def main():
     # Setup emulation folder
     build_dir = setup_emulation_folder(project_root, force_clean=args.clean)
 
-    # Run emulator
-    run_emulator(build_dir)
+    # Run emulator with display config
+    run_emulator(build_dir, args.display)
 
 
 if __name__ == "__main__":
