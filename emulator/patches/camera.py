@@ -15,6 +15,11 @@ from seedsigner.models.settings import Settings, SettingsConstants
 from seedsigner.models.singleton import Singleton
 
 
+class CameraConnectionError(Exception):
+    """Camera connection error (emulator stub)."""
+    pass
+
+
 class Camera(Singleton):
     _video_stream = None
     _picamera = None
