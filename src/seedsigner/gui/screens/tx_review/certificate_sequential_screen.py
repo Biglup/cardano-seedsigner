@@ -117,6 +117,7 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
             "value_highlight_no": self._value_highlight_height,
             "value_large": self._value_large_height,
             "value_large_warn": self._value_large_height,
+            "value_large_yes": self._value_large_height,
             "hash_line": self._hash_line_height,
             "value_text": self._value_text_height,
             "spacer": self._spacer_height,
@@ -172,8 +173,12 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
                         fill=color,
                         anchor="mm",
                     )
-                elif line_type in ("value_large", "value_large_warn"):
-                    color = "#CF6679" if line_type == "value_large_warn" else GUIConstants.ACCENT_TEXT_COLOR
+                elif line_type in ("value_large", "value_large_warn", "value_large_yes"):
+                    _VL_COLORS = {
+                        "value_large_warn": "#CF6679",
+                        "value_large_yes": "#66BB6A",
+                    }
+                    color = _VL_COLORS.get(line_type, GUIConstants.ACCENT_TEXT_COLOR)
                     self.renderer.draw.text(
                         (center_x, y + 2),
                         text,

@@ -24,7 +24,7 @@ class MintReviewView(BaseSequentialSectionView):
             if is_burn:
                 content.append(("value_highlight_warn", "Burn"))
             else:
-                content.append(("value_highlight", "Mint"))
+                content.append(("value_highlight_yes", "Mint"))
 
             # Asset fingerprint
             content.append(("spacer_small", ""))
@@ -38,7 +38,7 @@ class MintReviewView(BaseSequentialSectionView):
             if is_burn:
                 content.append(("value_large_warn", f"{sign}{qty:,}"))
             else:
-                content.append(("value_large", f"+{qty:,}"))
+                content.append(("value_large_yes", f"+{qty:,}"))
 
         return self.run_screen(
             CardanoCertificateSequentialScreen,

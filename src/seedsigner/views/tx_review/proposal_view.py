@@ -161,7 +161,7 @@ class ProposalReviewView(BaseSequentialSectionView):
                 continue
             lines.append(("spacer_small", ""))
             val_str = self._format_param_value(field_name, val)
-            lines.append(("value_text", f"{friendly_name}: {val_str}"))
+            lines.append(("value_highlight", f"{friendly_name}: {val_str}"))
 
         # Voting thresholds
         self._add_voting_thresholds(lines, ppu)
@@ -202,7 +202,7 @@ class ProposalReviewView(BaseSequentialSectionView):
                     pct = float(val) * 100
                     pct_str = f"{int(pct)}%" if pct == int(pct) else f"{pct:.2f}%"
                     lines.append(("spacer_small", ""))
-                    lines.append(("value_text", f"{friendly}: {pct_str}"))
+                    lines.append(("value_highlight", f"{friendly}: {pct_str}"))
 
         pool = getattr(ppu, "pool_voting_thresholds", None)
         if pool:
@@ -220,7 +220,7 @@ class ProposalReviewView(BaseSequentialSectionView):
                     pct = float(val) * 100
                     pct_str = f"{int(pct)}%" if pct == int(pct) else f"{pct:.2f}%"
                     lines.append(("spacer_small", ""))
-                    lines.append(("value_text", f"{friendly}: {pct_str}"))
+                    lines.append(("value_highlight", f"{friendly}: {pct_str}"))
 
     def _add_hard_fork(self, lines, action):
         self._add_gov_action_id(lines, action.governance_action_id)
@@ -274,7 +274,7 @@ class ProposalReviewView(BaseSequentialSectionView):
                 lines.append(("spacer", ""))
                 lines.append(("hash_display", fmt, hn, tn))
                 lines.append(("spacer_small", ""))
-                lines.append(("value_text", f"Term: epoch {epoch}"))
+                lines.append(("value_highlight", f"Term: epoch {epoch}"))
 
         # Members to remove
         if len(action.members_to_be_removed) > 0:
@@ -294,8 +294,17 @@ class ProposalReviewView(BaseSequentialSectionView):
 
         # Constitution anchor
         lines.append(("spacer", ""))
-        lines.append(("label", "Constitution:"))
-        _add_anchor(lines, constitution.anchor)
+        lines.append(("label", "Constitution URL:"))
+        lines.append(("spacer_small", ""))
+        lines.append(("value_highlight", str(constitution.anchor.url)))
+        anchor_hash = constitution.anchor.hash_hex
+        if anchor_hash:
+            lines.append(("spacer", ""))
+            lines.append(("label", "Constitution Hash:"))
+            lines.append(("spacer_small", ""))
+            from .certificate_view import _format_hex_display
+            fmt = _format_hex_display(anchor_hash)
+            lines.append(("hash_display", fmt, 8, 8))
 
         # Script hash
         if constitution.script_hash:

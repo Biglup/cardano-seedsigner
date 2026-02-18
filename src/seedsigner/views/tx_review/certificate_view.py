@@ -44,7 +44,7 @@ def _add_anchor(lines, anchor):
     lines.append(("spacer", ""))
     lines.append(("label", "Anchor URL:"))
     lines.append(("spacer_small", ""))
-    lines.append(("value_text", str(anchor.url)))
+    lines.append(("value_highlight", str(anchor.url)))
     anchor_hash = anchor.hash_hex
     if anchor_hash:
         lines.append(("spacer", ""))
@@ -129,7 +129,7 @@ class CertificateReviewView(BaseSequentialSectionView):
                 lines.append(("spacer", ""))
                 lines.append(("label", "Margin:"))
                 lines.append(("spacer_small", ""))
-                lines.append(("value_text", margin_str))
+                lines.append(("value_highlight", margin_str))
                 self._add_bech32_hash(lines, "VRF Key:", p.vrf_vk_hash, "vrf_vk")
                 self._add_bech32_display(lines, "Reward Account:", str(p.reward_account))
                 if len(p.owners) > 0:
@@ -150,7 +150,13 @@ class CertificateReviewView(BaseSequentialSectionView):
                     lines.append(("spacer", ""))
                     lines.append(("label", "Metadata URL:"))
                     lines.append(("spacer_small", ""))
-                    lines.append(("value_text", str(p.metadata.url)))
+                    lines.append(("value_highlight", str(p.metadata.url)))
+                    lines.append(("spacer", ""))
+                    lines.append(("label", "Metadata Hash:"))
+                    lines.append(("spacer_small", ""))
+                    meta_hash = p.metadata.hash.to_hex()
+                    fmt = _format_hex_display(meta_hash)
+                    lines.append(("hash_display", fmt, 8, 8))
 
             elif ct.name == "POOL_RETIREMENT":
                 pr = cert.to_pool_retirement()
@@ -290,16 +296,16 @@ class CertificateReviewView(BaseSequentialSectionView):
                 addr = r.ipv6.to_string()
             if r.port is not None:
                 addr = f"{addr}:{r.port}" if addr else f"port {r.port}"
-            lines.append(("value_text", addr or "(no address)"))
+            lines.append(("value_highlight", addr or "(no address)"))
         elif rt == RelayType.SINGLE_HOST_NAME:
             r = relay.to_single_host_name()
             text = r.dns
             if r.port is not None:
                 text += f":{r.port}"
-            lines.append(("value_text", text))
+            lines.append(("value_highlight", text))
         elif rt == RelayType.MULTI_HOST_NAME:
             r = relay.to_multi_host_name()
-            lines.append(("value_text", r.dns))
+            lines.append(("value_highlight", r.dns))
 
     def _add_drep(self, lines, drep):
         from cometa import DRepType
