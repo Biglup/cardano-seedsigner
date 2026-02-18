@@ -5,10 +5,12 @@ Provides the shared frame (top nav, side chevrons, scroll indicators,
 input loop) so subclasses only implement _render_content().
 """
 
+import time
 from dataclasses import dataclass
 
 from seedsigner.gui.components import GUIConstants, Fonts
 from seedsigner.hardware.buttons import HardwareButtonsConstants
+from seedsigner.models.threads import BaseThread
 
 from ..screen import BaseScreen
 from .utils import RET_CODE__LEFT_BUTTON, RET_CODE__RIGHT_BUTTON
@@ -55,8 +57,14 @@ class CardanoSequentialBaseScreen(BaseScreen):
 
         self._active_chevron = None  # "left" or "right" when pressed
         self._active_scroll = None  # "up" or "down" when pressed
+        self._blink_state = False  # toggles each render for down chevron blink
+        self._reached_bottom = False  # stops blinking once user scrolled to bottom
 
         self._calculate_scroll()
+
+        # Blink thread for the down chevron — hints at more content below
+        if self.max_scroll > 0:
+            self.threads.append(self._BlinkThread(self))
 
     def _calculate_scroll(self):
         """Override to set self.max_scroll (and optionally self.scroll_unit)."""
@@ -147,59 +155,111 @@ class CardanoSequentialBaseScreen(BaseScreen):
         if self.max_scroll <= 0:
             return
 
-        # Match side chevron size: 10px wide, 20px tall (base=20)
         mid_y = self.canvas_height - self.bottom_bar_height // 2
 
-        if self.scroll_offset > 0:
-            # Up chevron at 1/3 screen width — triangle pointing up
-            cx = self.canvas_width // 3
-            up_color = "#ffffff" if self._active_scroll == "up" else GUIConstants.ACCENT_COLOR
-            self.renderer.draw.polygon(
-                [(cx, mid_y - 5), (cx - 10, mid_y + 5), (cx + 10, mid_y + 5)],
-                fill=up_color,
-            )
+        # Scroll percentage — centered between the two chevron positions
+        pct = int(self.scroll_offset / self.max_scroll * 100) if self.max_scroll > 0 else 0
+        pct_font = Fonts.get_font(
+            GUIConstants.get_body_font_name(), GUIConstants.BODY_FONT_MIN_SIZE
+        )
+        self.renderer.draw.text(
+            (self.canvas_width // 2, mid_y),
+            f"{pct}%",
+            font=pct_font,
+            fill=GUIConstants.LABEL_FONT_COLOR,
+            anchor="mm",
+        )
 
-        if self.scroll_offset < self.max_scroll:
-            # Down chevron at 2/3 screen width — triangle pointing down
-            cx = 2 * self.canvas_width // 3
-            down_color = "#ffffff" if self._active_scroll == "down" else GUIConstants.ACCENT_COLOR
-            self.renderer.draw.polygon(
-                [(cx, mid_y + 5), (cx - 10, mid_y - 5), (cx + 10, mid_y - 5)],
-                fill=down_color,
-            )
+        disabled_color = "#333333"
+
+        # Up chevron at 1/4 screen width — grey when at top
+        cx = self.canvas_width // 4
+        if self._active_scroll == "up":
+            up_color = "#ffffff"
+        elif self.scroll_offset > 0:
+            up_color = GUIConstants.ACCENT_COLOR
+        else:
+            up_color = disabled_color
+        self.renderer.draw.polygon(
+            [(cx, mid_y - 5), (cx - 10, mid_y + 5), (cx + 10, mid_y + 5)],
+            fill=up_color,
+        )
+
+        # Down chevron at 3/4 screen width — grey when at bottom
+        cx = 3 * self.canvas_width // 4
+        if self._active_scroll == "down":
+            down_color = "#ffffff"
+        elif self.scroll_offset >= self.max_scroll:
+            down_color = disabled_color
+        elif not self._reached_bottom:
+            # Blink between accent and light accent to hint at more content
+            down_color = GUIConstants.ACCENT_TEXT_COLOR if self._blink_state else GUIConstants.ACCENT_COLOR
+        else:
+            down_color = GUIConstants.ACCENT_COLOR
+        self.renderer.draw.polygon(
+            [(cx, mid_y + 5), (cx - 10, mid_y - 5), (cx + 10, mid_y - 5)],
+            fill=down_color,
+        )
+
+    class _BlinkThread(BaseThread):
+        """Blinks the down chevron to hint at scrollable content below."""
+        def __init__(self, screen):
+            super().__init__()
+            self.screen = screen
+
+        def run(self):
+            while self.keep_running:
+                time.sleep(0.4)
+                if not self.keep_running:
+                    break
+                s = self.screen
+                if s._reached_bottom or s.max_scroll <= 0 or s._active_scroll is not None:
+                    continue
+                s._blink_state = not s._blink_state
+                with s.renderer.lock:
+                    s._render_scroll_indicators()
+                    s.renderer.show_image()
 
     def _run(self):
         while True:
-            self._render()
-            self.renderer.show_image()
+            with self.renderer.lock:
+                self._render()
+                self.renderer.show_image()
 
             user_input = self.hw_inputs.wait_for(HardwareButtonsConstants.ALL_KEYS)
 
             if user_input == HardwareButtonsConstants.KEY_LEFT:
                 if self.has_left:
                     self._active_chevron = "left"
-                    self._render()
-                    self.renderer.show_image()
+                    with self.renderer.lock:
+                        self._render()
+                        self.renderer.show_image()
                     return RET_CODE__LEFT_BUTTON
             elif user_input == HardwareButtonsConstants.KEY_RIGHT:
                 if self.has_right:
                     self._active_chevron = "right"
-                    self._render()
-                    self.renderer.show_image()
+                    with self.renderer.lock:
+                        self._render()
+                        self.renderer.show_image()
                     return RET_CODE__RIGHT_BUTTON
             elif user_input == HardwareButtonsConstants.KEY_UP:
                 self.scroll_offset = max(0, self.scroll_offset - self.scroll_unit)
                 self._active_scroll = "up"
-                self._render()
-                self.renderer.show_image()
+                with self.renderer.lock:
+                    self._render()
+                    self.renderer.show_image()
+                time.sleep(0.15)
                 self._active_scroll = None
             elif user_input == HardwareButtonsConstants.KEY_DOWN:
                 self.scroll_offset = min(
                     self.max_scroll, self.scroll_offset + self.scroll_unit
                 )
+                self._reached_bottom = True
                 self._active_scroll = "down"
-                self._render()
-                self.renderer.show_image()
+                with self.renderer.lock:
+                    self._render()
+                    self.renderer.show_image()
+                time.sleep(0.15)
                 self._active_scroll = None
             elif user_input == HardwareButtonsConstants.KEY1:
                 return -1  # Back

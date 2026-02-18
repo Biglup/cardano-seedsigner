@@ -37,6 +37,17 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
         else:
             self.token_list = []
 
+        # Compute chars_per_line dynamically from screen width.
+        # Renderer is available as a singleton before super().__post_init__().
+        from seedsigner.gui.renderer import Renderer
+        renderer = Renderer.get_instance()
+        side_button_width = 20
+        content_margin = 8
+        usable_width = renderer.canvas_width - 2 * side_button_width - 2 * content_margin
+        addr_font = Fonts.get_font(GUIConstants.FIXED_WIDTH_FONT_NAME, 22)
+        char_w = addr_font.getlength("A")
+        self._chars_per_line = max(10, int(usable_width / char_w))
+
         # Pre-build the list of renderable lines before calling super
         # so _calculate_scroll can compute total height.
         self._build_lines()
@@ -46,7 +57,7 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
         """Build a list of (type, text) tuples representing the content."""
         self._lines = []
         self._token_ranges = []  # [(start_idx, end_idx, display_len), ...]
-        self._addr_tail_n = 7  # chars to highlight at end
+        self._addr_tail_n = 6  # chars to highlight at end
         self._token_highlight_n = 7  # chars to highlight at start/end of asset ID
 
         # Amount
@@ -79,10 +90,16 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
             self._addr_display = f"{addr[:head_n]} {addr[head_n:-tail_n]} {addr[-tail_n:]}"
         else:
             self._addr_display = addr
-        # Split into even lines
-        chars_per_line = 18
-        for i in range(0, len(self._addr_display), chars_per_line):
-            self._lines.append(("addr_line", self._addr_display[i:i + chars_per_line]))
+        # Split into lines, skipping leading spaces at line boundaries
+        self._addr_line_gpos = []  # global position in display string per addr_line
+        pos = 0
+        while pos < len(self._addr_display):
+            if self._addr_display[pos] == " ":
+                pos += 1
+            chunk = self._addr_display[pos:pos + self._chars_per_line]
+            self._addr_line_gpos.append(pos)
+            self._lines.append(("addr_line", chunk))
+            pos += len(chunk)
 
         # Verified address indicator for change outputs
         if self.is_change:
@@ -110,12 +127,11 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
                     fp_display = f"{fingerprint[:head_n]} {fingerprint[head_n:-tail_n]} {fingerprint[-tail_n:]}"
                 else:
                     fp_display = fingerprint
-                token_chars_per_line = 18
                 token_start = len(self._lines)
-                for i in range(0, len(fp_display), token_chars_per_line):
-                    self._lines.append(("token_id_line", fp_display[i:i + token_chars_per_line]))
+                for i in range(0, len(fp_display), self._chars_per_line):
+                    self._lines.append(("token_id_line", fp_display[i:i + self._chars_per_line]))
                 token_end = len(self._lines)
-                self._token_ranges.append((token_start, token_end, len(fp_display)))
+                self._token_ranges.append((token_start, token_end, len(fp_display), head_n, tail_n))
                 # Amount + unknown decimals warning
                 self._lines.append(("spacer_small", ""))
                 self._lines.append(("token_amount", f"{token_amount:,}"))
@@ -154,8 +170,8 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
                     self._datum_head_n = highlight
                     self._datum_tail_n = highlight
                 self._datum_display = display
-                for i in range(0, len(display), 18):
-                    self._lines.append(("datum_hex_line", display[i:i + 18]))
+                for i in range(0, len(display), self._chars_per_line):
+                    self._lines.append(("datum_hex_line", display[i:i + self._chars_per_line]))
 
         # Reference Script
         if self.script_ref_lang:
@@ -232,7 +248,7 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
 
         y = self.content_y - self.scroll_offset
         center_x = self.canvas_width // 2
-        addr_char_offset = 0  # tracks position within the display address
+        addr_line_idx = 0  # index into self._addr_line_gpos
         token_char_offset = 0  # tracks position within current token display
         token_range_idx = 0  # index into self._token_ranges
         datum_char_offset = 0  # tracks position within datum display
@@ -281,6 +297,7 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
                     head_n = self._addr_head_n + 1  # +1 for the space after head
                     tail_n = self._addr_tail_n + 1  # +1 for the space before tail
                     display_len = len(self._addr_display)
+                    gpos = self._addr_line_gpos[addr_line_idx]
                     char_w = addr_font.getlength("A")
                     line_w = char_w * len(text)
                     x_cursor = int(center_x - line_w // 2)
@@ -289,7 +306,7 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
                     segments = []
                     seg_start = 0
                     for ci in range(len(text)):
-                        gp = addr_char_offset + ci
+                        gp = gpos + ci
                         is_accent = gp < head_n or gp >= display_len - tail_n
                         if ci == 0:
                             cur_accent = is_accent
@@ -311,12 +328,16 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
                         )
                         x_cursor += int(char_w * len(seg_text))
                 elif line_type == "token_id_line":
-                    # Render like address: accent for first/last N, grey for middle
-                    n = self._token_highlight_n
+                    # Render like address: accent for prefix+N at start, N at end
                     if token_range_idx < len(self._token_ranges):
-                        _, _, display_len = self._token_ranges[token_range_idx]
+                        _, _, display_len, tok_head_n, tok_tail_n = self._token_ranges[token_range_idx]
                     else:
                         display_len = len(text)
+                        tok_head_n = self._token_highlight_n
+                        tok_tail_n = self._token_highlight_n
+                    # +1 accounts for the space separator in the display string
+                    head_accent = tok_head_n + 1
+                    tail_accent = tok_tail_n + 1
                     char_w = addr_font.getlength("A")
                     line_w = char_w * len(text)
                     x_cursor = int(center_x - line_w // 2)
@@ -325,7 +346,7 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
                     seg_start = 0
                     for ci in range(len(text)):
                         gp = token_char_offset + ci
-                        is_accent = gp < n or gp >= display_len - n
+                        is_accent = gp < head_accent or gp >= display_len - tail_accent
                         if ci == 0:
                             cur_accent = is_accent
                         if is_accent != cur_accent:
@@ -439,7 +460,7 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
                 # spacer and spacer_small: render nothing
 
             if line_type == "addr_line":
-                addr_char_offset += len(text)
+                addr_line_idx += 1
             elif line_type == "token_id_line":
                 token_char_offset += len(text)
             elif line_type == "datum_hex_line":
