@@ -39,6 +39,21 @@ def _format_hex_display(hex_str, highlight_n=8):
     return hex_str
 
 
+def _add_anchor(lines, anchor):
+    """Add anchor URL and hash entries to content lines."""
+    lines.append(("spacer", ""))
+    lines.append(("label", "Anchor URL:"))
+    lines.append(("spacer_small", ""))
+    lines.append(("value_text", str(anchor.url)))
+    anchor_hash = anchor.hash_hex
+    if anchor_hash:
+        lines.append(("spacer", ""))
+        lines.append(("label", "Anchor Hash:"))
+        lines.append(("spacer_small", ""))
+        fmt = _format_hex_display(anchor_hash)
+        lines.append(("hash_display", fmt, 8, 8))
+
+
 def _format_bech32(bech32_str):
     """Format a bech32 string with spaces for display highlighting.
 
@@ -194,20 +209,14 @@ class CertificateReviewView(BaseSequentialSectionView):
                 rcc = cert.to_resign_committee_cold()
                 self._add_bech32_credential(lines, "Cold:", rcc.committee_cold_credential, "cc_cold")
                 if rcc.anchor:
-                    lines.append(("spacer", ""))
-                    lines.append(("label", "Anchor:"))
-                    lines.append(("spacer_small", ""))
-                    lines.append(("value_text", str(rcc.anchor.url)))
+                    _add_anchor(lines, rcc.anchor)
 
             elif ct.name == "DREP_REGISTRATION":
                 rd = cert.to_register_drep()
                 self._add_drep_credential(lines, rd.credential)
                 self._add_amount_field(lines, "Deposit:", rd.deposit)
                 if rd.anchor:
-                    lines.append(("spacer", ""))
-                    lines.append(("label", "Anchor:"))
-                    lines.append(("spacer_small", ""))
-                    lines.append(("value_text", str(rd.anchor.url)))
+                    _add_anchor(lines, rd.anchor)
 
             elif ct.name == "DREP_UNREGISTRATION":
                 ud = cert.to_unregister_drep()
@@ -218,10 +227,7 @@ class CertificateReviewView(BaseSequentialSectionView):
                 ud = cert.to_update_drep()
                 self._add_drep_credential(lines, ud.credential)
                 if ud.anchor:
-                    lines.append(("spacer", ""))
-                    lines.append(("label", "Anchor:"))
-                    lines.append(("spacer_small", ""))
-                    lines.append(("value_text", str(ud.anchor.url)))
+                    _add_anchor(lines, ud.anchor)
 
             else:
                 lines.append(("spacer", ""))

@@ -3,7 +3,7 @@
 from cometa import Bech32, VoterType
 
 from .base import BaseSequentialSectionView
-from .certificate_view import _format_bech32
+from .certificate_view import _format_bech32, _add_anchor
 
 
 # Voter type -> (friendly name, bech32 prefix)
@@ -35,6 +35,8 @@ class VotingReviewView(BaseSequentialSectionView):
         # Vote
         vote_name = proc.vote.name
         display_text, line_type = _VOTE_DISPLAY.get(vote_name, (vote_name, "value_highlight"))
+        content.append(("label", "Vote:"))
+        content.append(("spacer_small", ""))
         content.append((line_type, display_text))
 
         # Voter
@@ -57,10 +59,7 @@ class VotingReviewView(BaseSequentialSectionView):
         content.append(("hash_display", gov_fmt, gov_hn, gov_tn))
 
         if proc.anchor:
-            content.append(("spacer", ""))
-            content.append(("label", "Anchor:"))
-            content.append(("spacer_small", ""))
-            content.append(("value_text", str(proc.anchor.url)))
+            _add_anchor(content, proc.anchor)
 
         return self.run_screen(
             CardanoCertificateSequentialScreen,
