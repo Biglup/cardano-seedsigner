@@ -291,7 +291,9 @@ class CardanoParsedTx:
         # Key 2: Fee (always present)
         pages.append(ReviewPage("fee", 0, 1, self.fee))
 
-        # Key 3: TTL
+        # Validity window: Valid From (key 8) then Valid Until (key 3)
+        if self.has_validity_interval_start:
+            pages.append(ReviewPage("validity_start", 0, 1, self.validity_interval_start))
         if self.has_ttl:
             pages.append(ReviewPage("ttl", 0, 1, self.ttl))
 
@@ -310,10 +312,6 @@ class CardanoParsedTx:
         # Key 7: Auxiliary data hash
         if self.has_auxiliary_data_hash:
             pages.append(ReviewPage("aux_data_hash", 0, 1, self.auxiliary_data_hash))
-
-        # Key 8: Validity interval start
-        if self.has_validity_interval_start:
-            pages.append(ReviewPage("validity_start", 0, 1, self.validity_interval_start))
 
         # Key 9: Mint
         if self.has_minting:
