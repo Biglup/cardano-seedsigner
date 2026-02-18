@@ -10,7 +10,6 @@ class DonationReviewView(BaseSequentialSectionView):
 
     def render(self, page, title, has_left, has_right, total_pages):
         content_lines = [
-            "### Donation",
-            f"**{format_ada(page.data)}",
+            f"^^{format_ada(page.data)}",
         ]
         return self.render_generic(content_lines, title, has_left, has_right, total_pages)

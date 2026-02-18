@@ -323,8 +323,8 @@ class CardanoParsedTx:
         if self.has_script_data_hash:
             pages.append(ReviewPage("script_data_hash", 0, 1, self.script_data_hash))
 
-        # Key 13: Collateral
-        if self.has_collateral:
+        # Key 13: Collateral (only show individual inputs when total_collateral is absent)
+        if self.has_collateral and not self.has_total_collateral:
             items = list(self.collateral)
             for i, inp in enumerate(items):
                 pages.append(ReviewPage("collateral", i, len(items), inp))

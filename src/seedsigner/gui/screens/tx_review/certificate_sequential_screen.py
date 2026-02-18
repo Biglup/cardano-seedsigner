@@ -62,9 +62,9 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
             line_type = entry[0]
             text = entry[1]
 
-            if line_type == "value_highlight" and vh_font.getlength(text) > max_w:
+            if line_type in ("value_highlight", "value_highlight_warn", "value_highlight_yes", "value_highlight_no") and vh_font.getlength(text) > max_w:
                 for wrapped in self._wrap_text(text, vh_font, max_w):
-                    self._lines.append(("value_highlight", wrapped))
+                    self._lines.append((line_type, wrapped))
             elif line_type == "value_text" and vt_font.getlength(text) > max_w:
                 for wrapped in self._wrap_text(text, vt_font, max_w):
                     self._lines.append(("value_text", wrapped))
@@ -112,7 +112,11 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
         heights = {
             "label": self._label_height,
             "value_highlight": self._value_highlight_height,
+            "value_highlight_warn": self._value_highlight_height,
+            "value_highlight_yes": self._value_highlight_height,
+            "value_highlight_no": self._value_highlight_height,
             "value_large": self._value_large_height,
+            "value_large_warn": self._value_large_height,
             "hash_line": self._hash_line_height,
             "value_text": self._value_text_height,
             "spacer": self._spacer_height,
@@ -154,20 +158,27 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
                         fill="#ffffff",
                         anchor="lt",
                     )
-                elif line_type == "value_highlight":
+                elif line_type in ("value_highlight", "value_highlight_warn", "value_highlight_yes", "value_highlight_no"):
+                    _VH_COLORS = {
+                        "value_highlight_warn": "#CF6679",
+                        "value_highlight_yes": "#66BB6A",
+                        "value_highlight_no": "#CF6679",
+                    }
+                    color = _VH_COLORS.get(line_type, GUIConstants.ACCENT_TEXT_COLOR)
                     self.renderer.draw.text(
                         (center_x, y + h // 2),
                         text,
                         font=value_highlight_font,
-                        fill=GUIConstants.ACCENT_TEXT_COLOR,
+                        fill=color,
                         anchor="mm",
                     )
-                elif line_type == "value_large":
+                elif line_type in ("value_large", "value_large_warn"):
+                    color = "#CF6679" if line_type == "value_large_warn" else GUIConstants.ACCENT_TEXT_COLOR
                     self.renderer.draw.text(
                         (center_x, y + 2),
                         text,
                         font=value_large_font,
-                        fill=GUIConstants.ACCENT_TEXT_COLOR,
+                        fill=color,
                         anchor="mt",
                     )
                 elif line_type == "hash_line":

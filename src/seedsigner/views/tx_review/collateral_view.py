@@ -4,16 +4,21 @@ from .base import BaseSequentialSectionView
 
 
 class CollateralReviewView(BaseSequentialSectionView):
-    section_title = "Collateral"
+    section_title = "Collateral Input"
 
     def render(self, page, title, has_left, has_right, total_pages):
+        from seedsigner.gui.screens.tx_review import CardanoAuxDataHashScreen
+
         inp = page.data
-        tx_id = str(inp.transaction_id)
-        content_lines = [
-            "### Input",
-            f"TX Hash:",
-            f"  {tx_id[:24]}...",
-            f"  ...{tx_id[-16:]}",
-            f"Index: {inp.index}",
-        ]
-        return self.render_generic(content_lines, title, has_left, has_right, total_pages)
+        tx_id = inp.transaction_id.hex() if isinstance(inp.transaction_id, bytes) else inp.transaction_id.to_hex()
+        utxo_ref = f"{tx_id}#{inp.index}"
+
+        return self.run_screen(
+            CardanoAuxDataHashScreen,
+            title=title,
+            page_num=self.global_index + 1,
+            total_pages=total_pages,
+            has_left=has_left,
+            has_right=has_right,
+            hash_hex=utxo_ref,
+        )

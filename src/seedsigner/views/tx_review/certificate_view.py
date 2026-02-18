@@ -32,6 +32,13 @@ _CERT_TYPE_NAMES = {
 _TAIL_HIGHLIGHT = 6
 
 
+def _format_hex_display(hex_str, highlight_n=8):
+    """Format a hex hash with spaces for highlighting (byte-aligned)."""
+    if len(hex_str) > 2 * highlight_n:
+        return f"{hex_str[:highlight_n]} {hex_str[highlight_n:-highlight_n]} {hex_str[-highlight_n:]}"
+    return hex_str
+
+
 def _format_bech32(bech32_str):
     """Format a bech32 string with spaces for display highlighting.
 
