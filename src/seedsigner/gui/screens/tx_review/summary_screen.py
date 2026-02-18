@@ -5,6 +5,8 @@ Transaction summary screen showing overview with tokens and fee.
 from dataclasses import dataclass
 from gettext import gettext as _
 
+from cometa import NetworkId
+
 from seedsigner.gui.components import (
     GUIConstants,
     TextArea,
@@ -26,7 +28,7 @@ class CardanoTxSummaryScreen(ButtonListScreen):
     fee_amount: int = 0
     num_recipients: int = 0
     change_amount: int = 0
-    network: str = "mainnet"
+    network: NetworkId = NetworkId.MAINNET
 
     def __post_init__(self):
         self.title = _("Review Tx")
@@ -41,7 +43,7 @@ class CardanoTxSummaryScreen(ButtonListScreen):
         cur_y = self.top_nav.height + GUIConstants.COMPONENT_PADDING
 
         # Network badge (if testnet)
-        if self.network != "mainnet":
+        if self.network != NetworkId.MAINNET:
             network_text = TextArea(
                 text=_("TESTNET"),
                 font_size=GUIConstants.BODY_FONT_MIN_SIZE,

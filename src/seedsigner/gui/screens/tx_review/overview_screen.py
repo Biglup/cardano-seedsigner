@@ -7,6 +7,8 @@ from gettext import gettext as _
 
 from PIL import Image, ImageDraw, ImageFilter
 
+from cometa import NetworkId
+
 from seedsigner.gui.components import (
     GUIConstants,
     Fonts,
@@ -29,7 +31,7 @@ class CardanoTxOverviewScreen(ButtonListScreen):
     num_change_outputs: int = 0
     fee_amount: int = 0
     has_tokens: bool = False
-    network: str = "mainnet"
+    network: NetworkId = NetworkId.MAINNET
 
     def __post_init__(self):
         self.title = _("Review Tx")

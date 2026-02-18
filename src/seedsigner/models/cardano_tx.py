@@ -5,6 +5,8 @@ Cardano Transaction Signing Request Data Structures
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from cometa import NetworkId
+
 
 
 @dataclass
@@ -53,7 +55,8 @@ class CardanoSignRequest:
             3: bstr,                ; sign_data (transaction body CBOR)
             4: [* SigningInput],    ; inputs
             5: [* ChangeOutput],    ; change_outputs
-            6: [* ExtraSigner]      ; extra_signers
+            6: [* ExtraSigner],     ; extra_signers
+            7: uint                 ; network (0 = testnet, 1 = mainnet)
         }
     """
     request_id: str                                  # UUID for tracking
@@ -61,6 +64,7 @@ class CardanoSignRequest:
     sign_data: bytes                                 # raw transaction body CBOR
     inputs: list[SigningInput]                       # inputs that need signing
     change_outputs: list[ChangeOutput]               # change outputs with paths to verify
+    network: NetworkId                               # intended network for this transaction
     extra_signers: list[ExtraSigner] = field(default_factory=list)
 
 
@@ -76,6 +80,10 @@ class CardanoParsedTx:
         self.body = TransactionBody.from_cbor(reader)
         self.sign_request = sign_request
         self.verified_change_indices = verified_change_indices
+        self.network_mismatch_error = (
+            self.body.network_id is not None
+            and self.body.network_id != sign_request.network
+        )
 
     @property
     def outputs(self):
@@ -135,6 +143,7 @@ class CardanoParsedTx:
 
     @property
     def sending_tokens(self) -> dict:
+        from cometa import Blake2bHash, Bech32
         tokens = {}
         for i, output in enumerate(self.outputs):
             if i not in self.verified_change_indices:
@@ -142,7 +151,9 @@ class CardanoParsedTx:
                 if ma:
                     for policy_id, asset_map in ma.items():
                         for asset_name, qty in asset_map.items():
-                            key = f"{policy_id}.{asset_name}"
+                            data = policy_id.to_bytes() + asset_name.to_bytes()
+                            h = Blake2bHash.compute(data, hash_size=20)
+                            key = Bech32.encode("asset", h.to_bytes())
                             tokens[key] = tokens.get(key, 0) + qty
         return tokens
 
@@ -152,12 +163,8 @@ class CardanoParsedTx:
                 if i not in self.verified_change_indices]
 
     @property
-    def network(self) -> str:
-        if len(self.outputs) > 0:
-            addr = str(self.outputs[0].address)
-            if addr.startswith("addr1"):
-                return "mainnet"
-        return "testnet"
+    def network(self) -> NetworkId:
+        return self.sign_request.network
 
     @property
     def has_certificates(self):

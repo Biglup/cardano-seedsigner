@@ -40,7 +40,9 @@ from seedsigner.models.seed import Seed
 from seedsigner.models.settings import Settings
 from seedsigner.models.settings_definition import SettingsConstants, SettingsDefinition
 from seedsigner.views import (MainMenuView, PowerOptionsView, RestartView, RemoveMicroSDWarningView, NotYetImplementedView, UnhandledExceptionView,
-    psbt_views, seed_views, settings_views, tools_views, scan_views, cardano_tx_views)
+    psbt_views, seed_views, settings_views, tools_views, scan_views)
+from seedsigner.views import tx_review as cardano_tx_views
+from cometa import NetworkId
 from seedsigner.models.cardano_tx import CardanoSignRequest, CardanoParsedTx, SigningInput, ChangeOutput, ExtraSigner
 from seedsigner.views.screensaver import OpeningSplashView
 from seedsigner.views.view import CameraConnectionErrorView, NetworkMismatchErrorView, OptionDisabledView, PowerOffView
@@ -157,6 +159,7 @@ def _build_cardano_parsed_tx() -> CardanoParsedTx:
                 path=[2147485500, 2147485463, 2147483648, 0, 2],
             ),
         ],
+        network=NetworkId.MAINNET,
         extra_signers=[],
     )
     # For screenshots, use a simple verified_change_indices without actual key derivation

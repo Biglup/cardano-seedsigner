@@ -7,8 +7,12 @@ def verify_change_outputs(sign_request, seed, body) -> list[int]:
     """Verify which claimed change outputs actually belong to this wallet.
 
     Derives addresses from the paths in sign_request.change_outputs using
-    the seed's mnemonic, then compares against the actual output addresses
-    in the transaction body.
+    the seed's mnemonic and the sign request's declared network, then
+    compares against the actual output addresses in the transaction body.
+
+    If an output's address doesn't match the derived address (wrong network,
+    wrong keys, etc.), it is not included — safe failure mode: unverified
+    outputs are treated as external (user sees inflated spending amount).
 
     Returns a list of output indices that are verified as change.
     """
@@ -16,12 +20,12 @@ def verify_change_outputs(sign_request, seed, body) -> list[int]:
         Bip32PrivateKey,
         BaseAddress,
         Credential,
-        NetworkId,
         mnemonic_to_entropy,
     )
 
     entropy = mnemonic_to_entropy(seed.mnemonic_list)
     root_key = Bip32PrivateKey.from_bip39_entropy(b"", entropy)
+    network_id = sign_request.network
     verified = []
 
     for change_output in sign_request.change_outputs:
@@ -39,11 +43,8 @@ def verify_change_outputs(sign_request, seed, body) -> list[int]:
             stake_key.get_public_key().to_ed25519_key().to_hash()
         )
 
-        # Detect network from output address
-        actual_addr = str(body.outputs[change_output.index].address)
-        network_id = NetworkId.MAINNET if actual_addr.startswith("addr1") else NetworkId.TESTNET
-
         derived_addr = BaseAddress.from_credentials(network_id, payment_cred, stake_cred)
+        actual_addr = str(body.outputs[change_output.index].address)
         if str(derived_addr) == actual_addr:
             verified.append(change_output.index)
 
