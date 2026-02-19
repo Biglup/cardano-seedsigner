@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 class ToolsMenuView(View):
     # Mock Cardano TX review (for development) - FIRST for easy access
     CARDANO_TX_MOCK = ButtonOption("Review Cardano TX", SeedSignerIconConstants.CHECK)
+    CARDANO_MSG_MOCK = ButtonOption("Review Cardano Msg", SeedSignerIconConstants.CHECK)
     IMAGE = ButtonOption("New seed", FontAwesomeIconConstants.CAMERA)
     DICE = ButtonOption("New seed", FontAwesomeIconConstants.DICE)
     KEYBOARD = ButtonOption("Calc 12th/24th word", FontAwesomeIconConstants.KEYBOARD)
@@ -29,7 +30,7 @@ class ToolsMenuView(View):
     VERIFY_ADDRESS = ButtonOption("Verify address")
 
     def run(self):
-        button_data = [self.CARDANO_TX_MOCK, self.IMAGE, self.DICE, self.KEYBOARD, self.ADDRESS_EXPLORER, self.VERIFY_ADDRESS]
+        button_data = [self.CARDANO_TX_MOCK, self.CARDANO_MSG_MOCK, self.IMAGE, self.DICE, self.KEYBOARD, self.ADDRESS_EXPLORER, self.VERIFY_ADDRESS]
 
         selected_menu_num = self.run_screen(
             ButtonListScreen,
@@ -56,6 +57,9 @@ class ToolsMenuView(View):
         elif button_data[selected_menu_num] == self.VERIFY_ADDRESS:
             from seedsigner.views.scan_views import ScanAddressView
             return Destination(ScanAddressView)
+
+        elif button_data[selected_menu_num] == self.CARDANO_MSG_MOCK:
+            return Destination(CardanoMsgMockMenuView)
 
         elif button_data[selected_menu_num] == self.CARDANO_TX_MOCK:
             from seedsigner.views.tx_review import CardanoTxOverviewView
@@ -107,6 +111,129 @@ class ToolsMenuView(View):
 
             return Destination(CardanoTxOverviewView, view_args=dict(parsed_tx=parsed_tx))
 
+
+
+class CardanoMsgMockMenuView(View):
+    """Submenu for CIP-8 message signing test cases."""
+    PAYMENT_JSON = ButtonOption("Payment + JSON")
+    STAKE_TEXT = ButtonOption("Stake + Text")
+    DREP_HEX = ButtonOption("DRep + Hex")
+    HASH_PAYLOAD = ButtonOption("28-byte Hash")
+    INVALID = ButtonOption("Invalid Path")
+
+    # Test mnemonic (shared with TX mock)
+    _TEST_MNEMONIC = "device blind mail nose voice aware link achieve tattoo pulse divide tail nut taste upper fork debris helmet fatal myth genre brick champion february"
+
+    def _ensure_seed(self):
+        test_mnemonic = self._TEST_MNEMONIC.split()
+        test_seed = Seed(mnemonic=test_mnemonic, wordlist_language_code=SettingsConstants.WORDLIST_LANGUAGE__ENGLISH)
+        self.controller.storage.set_pending_seed(test_seed)
+        self.controller.storage.finalize_pending_seed()
+
+    def run(self):
+        from seedsigner.views.msg_sign import CardanoMsgOverviewView
+        from seedsigner.models.cardano_tx import CardanoMessageSignRequest, SigningPath
+
+        button_data = [self.PAYMENT_JSON, self.STAKE_TEXT, self.DREP_HEX, self.HASH_PAYLOAD, self.INVALID]
+
+        selected_menu_num = self.run_screen(
+            ButtonListScreen,
+            title="Message Mock",
+            is_button_text_centered=False,
+            button_data=button_data,
+        )
+
+        if selected_menu_num == RET_CODE__BACK_BUTTON:
+            return Destination(BackStackView)
+
+        self._ensure_seed()
+        choice = button_data[selected_menu_num]
+
+        if choice == self.PAYMENT_JSON:
+            # Base address at m/1852'/1815'/0'/0/0 with JSON payload
+            msg_request = CardanoMessageSignRequest(
+                request_id="a1111111-1111-1111-1111-111111111111",
+                origin="Lace",
+                message_payload=b'{"action":"login","domain":"app.example.com","timestamp":"2026-02-19T12:00:00Z","nonce":"f47ac10b58cc","permissions":["read","write"]}',
+                address_bytes=bytes.fromhex(
+                    "00"
+                    "350d57fd8f9f49f429449d89c893df74210ba70b9f13fc6c9736b7e3"
+                    "1fa4a08fd7daf8f2ede99a7dd4ff3f9bd93b307f7ae16e47f071e60e"
+                ),
+                required_signing_path=SigningPath(
+                    index=0,
+                    path=[2147485500, 2147485463, 2147483648, 0, 0],
+                ),
+            )
+
+        elif choice == self.STAKE_TEXT:
+            # Reward address at m/1852'/1815'/0'/2/0 with plain text
+            msg_request = CardanoMessageSignRequest(
+                request_id="b2222222-2222-2222-2222-222222222222",
+                origin="Eternl",
+                message_payload=b"Please sign this message to verify ownership of your stake address.\n\nNonce: abc123\nTimestamp: 2026-02-19T12:00:00Z",
+                address_bytes=bytes.fromhex(
+                    "e01fa4a08fd7daf8f2ede99a7dd4ff3f9bd93b307f7ae16e47f071e60e"
+                ),
+                required_signing_path=SigningPath(
+                    index=0,
+                    path=[2147485500, 2147485463, 2147483648, 2, 0],
+                ),
+            )
+
+        elif choice == self.DREP_HEX:
+            # DRep key at m/1852'/1815'/0'/3/0, raw 28-byte credential, binary payload
+            msg_request = CardanoMessageSignRequest(
+                request_id="c3333333-3333-3333-3333-333333333333",
+                origin="GovTool",
+                message_payload=bytes(range(256)) + bytes(range(128)),
+                address_bytes=bytes.fromhex(
+                    # Raw 28-byte DRep credential key hash
+                    "6f238b48d0d20b8737c462a0f6b35d6bc3c379bd2f09258207ef8bb5"
+                ),
+                required_signing_path=SigningPath(
+                    index=0,
+                    path=[2147485500, 2147485463, 2147483648, 3, 0],
+                ),
+            )
+
+        elif choice == self.HASH_PAYLOAD:
+            # 28-byte non-ASCII payload (should trigger hash rejection)
+            msg_request = CardanoMessageSignRequest(
+                request_id="e5555555-5555-5555-5555-555555555555",
+                origin="SuspiciousApp",
+                message_payload=bytes.fromhex(
+                    "350d57fd8f9f49f429449d89c893df74210ba70b9f13fc6c9736b7e3"
+                ),
+                address_bytes=bytes.fromhex(
+                    "00"
+                    "350d57fd8f9f49f429449d89c893df74210ba70b9f13fc6c9736b7e3"
+                    "1fa4a08fd7daf8f2ede99a7dd4ff3f9bd93b307f7ae16e47f071e60e"
+                ),
+                required_signing_path=SigningPath(
+                    index=0,
+                    path=[2147485500, 2147485463, 2147483648, 0, 0],
+                ),
+            )
+
+        elif choice == self.INVALID:
+            # Base address but wrong signing path (index 5 instead of 0)
+            msg_request = CardanoMessageSignRequest(
+                request_id="d4444444-4444-4444-4444-444444444444",
+                origin="MaliciousApp",
+                message_payload=b"Sign to claim your airdrop!",
+                address_bytes=bytes.fromhex(
+                    "00"
+                    "350d57fd8f9f49f429449d89c893df74210ba70b9f13fc6c9736b7e3"
+                    "1fa4a08fd7daf8f2ede99a7dd4ff3f9bd93b307f7ae16e47f071e60e"
+                ),
+                required_signing_path=SigningPath(
+                    index=0,
+                    path=[2147485500, 2147485463, 2147483648, 0, 5],
+                ),
+            )
+
+        return Destination(CardanoMsgOverviewView, view_args=dict(msg_request=msg_request))
 
 
 """****************************************************************************

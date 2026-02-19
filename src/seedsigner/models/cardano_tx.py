@@ -383,3 +383,46 @@ class ReviewPage:
     item_index: int
     total_in_section: int
     data: Any
+
+
+@dataclass
+class SigningPath:
+    """A derivation path for message signing."""
+    index: int
+    path: list[int]  # hardened = val + 0x80000000
+
+
+@dataclass
+class CardanoMessageSignRequest:
+    """CIP-8 message signing request.
+
+    UR type: cardano-sign-data-req
+
+    CDDL:
+        CardanoSignDataRequest = {
+            1: tstr,                ; request_id (UUID)
+            ? 2: tstr,             ; origin (optional wallet name)
+            3: bstr,               ; message_payload
+            ? 4: bstr,             ; address_bytes (optional)
+            5: SigningPath,         ; required_signing_path
+        }
+    """
+    request_id: str
+    origin: Optional[str]
+    message_payload: bytes
+    required_signing_path: SigningPath
+    address_bytes: Optional[bytes] = None
+
+
+def format_derivation_path(path: list[int]) -> str:
+    """Convert a derivation path to human-readable format.
+
+    e.g. [2147485500, 2147485463, 2147483648, 0, 2] -> "m/1852'/1815'/0'/0/2"
+    """
+    parts = ["m"]
+    for component in path:
+        if component >= 0x80000000:
+            parts.append(f"{component - 0x80000000}'")
+        else:
+            parts.append(str(component))
+    return "/".join(parts)

@@ -28,6 +28,7 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
     - value_highlight: big blue centered text (certificate type name, key values)
     - value_large: big accent centered text (ADA amounts)
     - hash_display: monospace hash with first/last N chars highlighted (auto-split)
+    - mono_text: left-aligned monospace text (JSON, hex dumps)
     - value_text: regular centered text
     - spacer / spacer_small: vertical spacing
     """
@@ -65,6 +66,13 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
             if line_type in ("value_highlight", "value_highlight_warn", "value_highlight_yes", "value_highlight_no") and vh_font.getlength(text) > max_w:
                 for wrapped in self._wrap_text(text, vh_font, max_w):
                     self._lines.append((line_type, wrapped))
+            elif line_type == "mono_text":
+                # Left-aligned monospace — wrap by character count
+                if len(text) > self._chars_per_line:
+                    for i in range(0, len(text), self._chars_per_line):
+                        self._lines.append(("mono_text", text[i:i + self._chars_per_line]))
+                else:
+                    self._lines.append(("mono_text", text))
             elif line_type == "value_text" and vt_font.getlength(text) > max_w:
                 for wrapped in self._wrap_text(text, vt_font, max_w):
                     self._lines.append(("value_text", wrapped))
@@ -100,6 +108,7 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
         self._value_highlight_height = 28
         self._value_large_height = 30
         self._hash_line_height = 28
+        self._mono_text_height = 26
         self._value_text_height = 20
         self._spacer_height = 16
         self._spacer_small_height = 8
@@ -119,6 +128,7 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
             "value_large_warn": self._value_large_height,
             "value_large_yes": self._value_large_height,
             "hash_line": self._hash_line_height,
+            "mono_text": self._mono_text_height,
             "value_text": self._value_text_height,
             "spacer": self._spacer_height,
             "spacer_small": self._spacer_small_height,
@@ -227,6 +237,14 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
                             anchor="lt",
                         )
                         x_cursor += int(char_w * len(seg_text))
+                elif line_type == "mono_text":
+                    self.renderer.draw.text(
+                        (self.content_x + 4, y),
+                        text,
+                        font=hash_font,
+                        fill=GUIConstants.BODY_FONT_COLOR,
+                        anchor="lt",
+                    )
                 elif line_type == "value_text":
                     self.renderer.draw.text(
                         (center_x, y),
