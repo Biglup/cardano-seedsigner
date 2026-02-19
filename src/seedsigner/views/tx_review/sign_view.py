@@ -22,7 +22,6 @@ class CardanoTxSignView(View):
             CardanoTxSignScreen,
             sending_amount=self.parsed_tx.sending_amount,
             fee_amount=self.parsed_tx.fee,
-            network=self.parsed_tx.network,
         )
 
         if selected_menu_num == RET_CODE__BACK_BUTTON:

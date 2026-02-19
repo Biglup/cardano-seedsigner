@@ -5,8 +5,6 @@ Final confirmation screen before signing a Cardano transaction.
 from dataclasses import dataclass
 from gettext import gettext as _
 
-from cometa import NetworkId
-
 from seedsigner.gui.components import (
     GUIConstants,
     TextArea,
@@ -25,7 +23,6 @@ class CardanoTxSignScreen(ButtonListScreen):
     """
     sending_amount: int = 0
     fee_amount: int = 0
-    network: NetworkId = NetworkId.MAINNET
 
     def __post_init__(self):
         self.title = _("Sign Transaction")
@@ -54,7 +51,6 @@ class CardanoTxSignScreen(ButtonListScreen):
         summary_lines = [
             _("Sending: {}").format(format_ada(self.sending_amount)),
             _("Fee: {}").format(format_ada(self.fee_amount)),
-            _("Network: {}").format(self.network.name),
         ]
 
         for line in summary_lines:

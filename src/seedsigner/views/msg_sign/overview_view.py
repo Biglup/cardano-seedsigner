@@ -54,11 +54,16 @@ class CardanoMsgOverviewView(View):
         from .sign_view import _get_address_info
         network, addr_type = _get_address_info(self.msg_request.address_bytes)
 
+        payload_size = f"{len(self.msg_request.message_payload)} bytes"
+
+        origin = _sanitize_origin(self.msg_request.origin)
+
         selected_menu_num = self.run_screen(
             _MsgOverviewScreen,
-            origin=self.msg_request.origin,
+            origin=origin,
             network=network,
             addr_type=addr_type,
+            payload_size=payload_size,
         )
 
         if selected_menu_num == RET_CODE__BACK_BUTTON:
@@ -93,6 +98,16 @@ class CardanoMsgOverviewView(View):
         self.screen.display()
 
 
+def _sanitize_origin(origin):
+    """Strip non-printable chars and cap at 30 characters."""
+    if not origin:
+        return origin
+    cleaned = "".join(c for c in origin if c.isprintable())
+    if len(cleaned) > 20:
+        cleaned = cleaned[:20] + "..."
+    return cleaned or None
+
+
 from dataclasses import dataclass
 
 from seedsigner.gui.components import GUIConstants, TextArea
@@ -104,6 +119,7 @@ class _MsgOverviewScreen(ButtonListScreen):
     origin: str = None
     network: str = None
     addr_type: str = None
+    payload_size: str = None
 
     def __post_init__(self):
         self.title = "Sign Message"
@@ -112,56 +128,51 @@ class _MsgOverviewScreen(ButtonListScreen):
 
         super().__post_init__()
 
-        cur_y = self.top_nav.height + GUIConstants.COMPONENT_PADDING * 3
-
-        # "Message Signing" heading
-        heading = TextArea(
-            text="Message Signing",
-            font_size=GUIConstants.get_top_nav_title_font_size() + 4,
-            font_color=GUIConstants.BODY_FONT_COLOR,
-            screen_x=0,
-            screen_y=cur_y,
-            is_text_centered=True,
-            auto_line_break=False,
-        )
-        self.components.append(heading)
-        cur_y += heading.height + GUIConstants.COMPONENT_PADDING * 2
-
         rows = []
         if self.origin:
             rows.append(("Origin:", self.origin))
         if self.network:
             rows.append(("Network:", self.network))
         if self.addr_type:
-            rows.append(("Addr Type:", self.addr_type))
+            rows.append(("Sign With:", self.addr_type))
+        if self.payload_size:
+            rows.append(("Payload:", self.payload_size))
+
+        row_spacing = 6
+        cur_y = 50
+
+        # Fixed row advance heights (use "y" to include descender space)
+        label_h = TextArea(text="y", font_size=GUIConstants.get_body_font_size() - 2,
+                           auto_line_break=False).height
+        value_h = TextArea(text="y", font_size=GUIConstants.get_body_font_size(),
+                           auto_line_break=False).height
 
         for label, value in rows:
-            cur_y = self._add_row(cur_y, label, value)
+            cur_y = self._add_row(cur_y, label, value, row_spacing,
+                                  label_h, value_h)
 
-    def _add_row(self, cur_y, label, value):
-        pad = GUIConstants.EDGE_PADDING
-        value_x = self.canvas_width // 2
-
+    def _add_row(self, cur_y, label, value, spacing, label_h, value_h):
         label_area = TextArea(
             text=label,
-            font_size=GUIConstants.get_body_font_size(),
+            font_size=GUIConstants.get_body_font_size() - 2,
             font_color=GUIConstants.BODY_FONT_COLOR,
-            screen_x=pad,
+            screen_x=GUIConstants.EDGE_PADDING,
             screen_y=cur_y,
             is_text_centered=False,
             auto_line_break=False,
         )
         self.components.append(label_area)
+        cur_y += label_h + 4
 
         value_area = TextArea(
             text=value,
             font_size=GUIConstants.get_body_font_size(),
             font_color=GUIConstants.ACCENT_TEXT_COLOR,
-            screen_x=value_x,
+            screen_x=0,
             screen_y=cur_y,
-            is_text_centered=False,
+            is_text_centered=True,
             auto_line_break=False,
         )
         self.components.append(value_area)
-        cur_y += max(label_area.height, value_area.height) + 6
+        cur_y += value_h + spacing
         return cur_y

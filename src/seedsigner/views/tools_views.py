@@ -120,6 +120,7 @@ class CardanoMsgMockMenuView(View):
     DREP_HEX = ButtonOption("DRep + Hex")
     HASH_PAYLOAD = ButtonOption("28-byte Hash")
     INVALID = ButtonOption("Invalid Path")
+    LONG_ORIGIN = ButtonOption("Long Origin")
 
     # Test mnemonic (shared with TX mock)
     _TEST_MNEMONIC = "device blind mail nose voice aware link achieve tattoo pulse divide tail nut taste upper fork debris helmet fatal myth genre brick champion february"
@@ -134,7 +135,7 @@ class CardanoMsgMockMenuView(View):
         from seedsigner.views.msg_sign import CardanoMsgOverviewView
         from seedsigner.models.cardano_tx import CardanoMessageSignRequest, SigningPath
 
-        button_data = [self.PAYMENT_JSON, self.STAKE_TEXT, self.DREP_HEX, self.HASH_PAYLOAD, self.INVALID]
+        button_data = [self.PAYMENT_JSON, self.STAKE_TEXT, self.DREP_HEX, self.HASH_PAYLOAD, self.INVALID, self.LONG_ORIGIN]
 
         selected_menu_num = self.run_screen(
             ButtonListScreen,
@@ -205,6 +206,23 @@ class CardanoMsgMockMenuView(View):
                 message_payload=bytes.fromhex(
                     "350d57fd8f9f49f429449d89c893df74210ba70b9f13fc6c9736b7e3"
                 ),
+                address_bytes=bytes.fromhex(
+                    "00"
+                    "350d57fd8f9f49f429449d89c893df74210ba70b9f13fc6c9736b7e3"
+                    "1fa4a08fd7daf8f2ede99a7dd4ff3f9bd93b307f7ae16e47f071e60e"
+                ),
+                required_signing_path=SigningPath(
+                    index=0,
+                    path=[2147485500, 2147485463, 2147483648, 0, 0],
+                ),
+            )
+
+        elif choice == self.LONG_ORIGIN:
+            # Long origin with non-printable chars to test sanitization
+            msg_request = CardanoMessageSignRequest(
+                request_id="f6666666-6666-6666-6666-666666666666",
+                origin="Super\x00Long\x01Origin\x02Name That Exceeds Thirty Characters Easily",
+                message_payload=b"Test message",
                 address_bytes=bytes.fromhex(
                     "00"
                     "350d57fd8f9f49f429449d89c893df74210ba70b9f13fc6c9736b7e3"
