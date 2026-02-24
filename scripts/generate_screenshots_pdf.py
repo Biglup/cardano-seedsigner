@@ -197,6 +197,22 @@ def build_pdf():
     COL_W = TABLE_W / COLS
     IMG_X_OFFSET = (COL_W - IMG_W) / 2  # center image in cell
 
+    def expand_scroll_captures(dir_name, name_map):
+        """Expand each entry to include auto-discovered scroll captures (_2, _3, ...)."""
+        expanded = []
+        for filename, friendly_name in name_map.items():
+            expanded.append((f"{filename}.png", friendly_name))
+            # Look for scroll captures: filename_2.png, filename_3.png, ...
+            idx = 2
+            while True:
+                scroll_file = f"{filename}_{idx}.png"
+                if os.path.exists(os.path.join(SCREENSHOTS_DIR, dir_name, scroll_file)):
+                    expanded.append((scroll_file, f"{friendly_name} ({idx})"))
+                    idx += 1
+                else:
+                    break
+        return expanded
+
     for dir_name, section_title, name_map in SECTIONS:
         pdf.add_page()
         pdf.set_font("Helvetica", "B", 18)
@@ -204,8 +220,8 @@ def build_pdf():
         pdf.cell(0, 12, section_title, new_x="LMARGIN", new_y="NEXT")
         pdf.ln(4)
 
-        items = list(name_map.items())
-        for i, (filename, friendly_name) in enumerate(items):
+        items = expand_scroll_captures(dir_name, name_map)
+        for i, (img_file, friendly_name) in enumerate(items):
             col = i % COLS
             if col == 0:
                 # Check if we need a new page
@@ -213,7 +229,7 @@ def build_pdf():
                     pdf.add_page()
                 row_y = pdf.get_y()
 
-            img_path = os.path.join(SCREENSHOTS_DIR, dir_name, f"{filename}.png")
+            img_path = os.path.join(SCREENSHOTS_DIR, dir_name, img_file)
             if not os.path.exists(img_path):
                 print(f"  WARNING: missing {img_path}")
                 continue

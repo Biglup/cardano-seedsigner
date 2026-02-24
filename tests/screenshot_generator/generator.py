@@ -167,25 +167,25 @@ def _build_cardano_screenshot_configs():
         ScreenshotConfig(cardano_tx_views.CardanoTxOverviewView, dict(parsed_tx=parsed_tx)),
         ScreenshotConfig(cardano_tx_views.CardanoTxSignView, dict(parsed_tx=parsed_tx)),
 
-        # Sequential review — one sample page per section type
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=0), screenshot_name="SeqReview_output_first"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=1), screenshot_name="SeqReview_output_with_tokens"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=7), screenshot_name="SeqReview_fee"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=8), screenshot_name="SeqReview_validity_start"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=9), screenshot_name="SeqReview_ttl"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=10), screenshot_name="SeqReview_certificate"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=30), screenshot_name="SeqReview_withdrawal"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=31), screenshot_name="SeqReview_aux_data_hash"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=32), screenshot_name="SeqReview_mint"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=47), screenshot_name="SeqReview_script_data_hash"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=48), screenshot_name="SeqReview_required_signer"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=49), screenshot_name="SeqReview_collateral_return"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=50), screenshot_name="SeqReview_total_collateral"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=51), screenshot_name="SeqReview_ref_input"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=52), screenshot_name="SeqReview_voting"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=55), screenshot_name="SeqReview_proposal"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=62), screenshot_name="SeqReview_treasury"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=63), screenshot_name="SeqReview_donation"),
+        # Sequential review — one sample page per section type (scroll_all captures full content)
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=0), screenshot_name="SeqReview_output_first", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=1), screenshot_name="SeqReview_output_with_tokens", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=7), screenshot_name="SeqReview_fee", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=8), screenshot_name="SeqReview_validity_start", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=9), screenshot_name="SeqReview_ttl", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=10), screenshot_name="SeqReview_certificate", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=30), screenshot_name="SeqReview_withdrawal", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=31), screenshot_name="SeqReview_aux_data_hash", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=32), screenshot_name="SeqReview_mint", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=47), screenshot_name="SeqReview_script_data_hash", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=48), screenshot_name="SeqReview_required_signer", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=49), screenshot_name="SeqReview_collateral_return", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=50), screenshot_name="SeqReview_total_collateral", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=51), screenshot_name="SeqReview_ref_input", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=52), screenshot_name="SeqReview_voting", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=55), screenshot_name="SeqReview_proposal", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=62), screenshot_name="SeqReview_treasury", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=63), screenshot_name="SeqReview_donation", scroll_all=True),
 
         # CIP-8 Message signing flow
         # Overview needs address_bytes=None to skip seed-based verification in test env
@@ -196,8 +196,8 @@ def _build_cardano_screenshot_configs():
             required_signing_path=msg_request.required_signing_path,
             address_bytes=None,
         ))),
-        ScreenshotConfig(CardanoMsgAddressView, dict(msg_request=msg_request, page_index=0)),
-        ScreenshotConfig(CardanoMsgPayloadView, dict(msg_request=msg_request, page_index=1)),
+        ScreenshotConfig(CardanoMsgAddressView, dict(msg_request=msg_request, page_index=0), scroll_all=True),
+        ScreenshotConfig(CardanoMsgPayloadView, dict(msg_request=msg_request, page_index=1), scroll_all=True),
         ScreenshotConfig(CardanoMsgSignView, dict(msg_request=msg_request)),
     ]
 
@@ -451,6 +451,32 @@ def generate_screenshots(locale):
                         # Give the Toast a moment to complete its work
                         time.sleep(0.01)
 
+                # Capture additional scroll positions for scrollable screens
+                if screenshot_config.scroll_all:
+                    screen = screenshot_renderer._scrollable_screen
+                    if screen and screen.max_scroll > 0:
+                        step = screen.content_height
+                        pos = step
+                        scroll_idx = 2  # first screenshot is "1" (implicit)
+                        while pos <= screen.max_scroll:
+                            screen.scroll_offset = pos
+                            screen._render()
+                            name = f"{screenshot_config.screenshot_name}_{scroll_idx}.png"
+                            screenshot_renderer.canvas.save(
+                                os.path.join(screenshot_renderer.screenshot_path, name))
+                            screenshot_renderer.render_count += 1
+                            scroll_idx += 1
+                            pos += step
+                        # Always capture the bottom if not already there
+                        if screen.scroll_offset < screen.max_scroll:
+                            screen.scroll_offset = screen.max_scroll
+                            screen._render()
+                            name = f"{screenshot_config.screenshot_name}_{scroll_idx}.png"
+                            screenshot_renderer.canvas.save(
+                                os.path.join(screenshot_renderer.screenshot_path, name))
+                            screenshot_renderer.render_count += 1
+
+                screenshot_renderer._scrollable_screen = None
                 print(f"Completed {screenshot_config.screenshot_name}")
 
         except Exception as e:

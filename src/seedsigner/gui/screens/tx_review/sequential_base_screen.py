@@ -62,6 +62,10 @@ class CardanoSequentialBaseScreen(BaseScreen):
 
         self._calculate_scroll()
 
+        # Allow screenshot generator to capture scrolled states
+        if self.renderer.is_screenshot_generator:
+            self.renderer._scrollable_screen = self
+
         # Blink thread for the down chevron — hints at more content below
         if self.max_scroll > 0:
             self.threads.append(self._BlinkThread(self))
