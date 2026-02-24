@@ -7,7 +7,7 @@ from gettext import gettext as _
 
 from embit.descriptor import Descriptor
 
-from seedsigner.gui.components import FontAwesomeIconConstants, SeedSignerIconConstants
+from seedsigner.gui.components import FontAwesomeIconConstants, GUIConstants, SeedSignerIconConstants
 from seedsigner.gui.screens import (RET_CODE__BACK_BUTTON, ButtonListScreen,
     WarningScreen, DireWarningScreen, seed_screens)
 from seedsigner.gui.screens.screen import ButtonOption, ButtonOptionWithoutTranslation
@@ -31,7 +31,7 @@ class SeedsMenuView(View):
         self.seeds = []
         for seed in self.controller.storage.seeds:
             self.seeds.append({
-                "fingerprint": seed.get_fingerprint(self.settings.get_value(SettingsConstants.SETTING__NETWORK))
+                "fingerprint": seed.get_fingerprint(SettingsConstants.MAINNET)
             })
 
 
@@ -42,7 +42,7 @@ class SeedsMenuView(View):
 
         button_data = []
         for seed in self.seeds:
-            button_data.append(ButtonOption(seed["fingerprint"], SeedSignerIconConstants.FINGERPRINT))
+            button_data.append(ButtonOption(seed["fingerprint"], SeedSignerIconConstants.FINGERPRINT, icon_color=GUIConstants.ACCENT_TEXT_COLOR))
         button_data.append(self.LOAD)
 
         selected_menu_num = self.run_screen(
@@ -105,15 +105,12 @@ class SeedSelectSeedView(View):
 
         button_data = []
         for seed in seeds:
-            button_str = seed.get_fingerprint(self.settings.get_value(SettingsConstants.SETTING__NETWORK))
-            button_data.append(ButtonOption(button_str, SeedSignerIconConstants.FINGERPRINT, icon_color="blue"))
+            button_str = seed.get_fingerprint(SettingsConstants.MAINNET)
+            button_data.append(ButtonOption(button_str, SeedSignerIconConstants.FINGERPRINT, icon_color=GUIConstants.ACCENT_TEXT_COLOR))
         
         button_data.append(self.SCAN_SEED)
         button_data.append(self.TYPE_12WORD)
         button_data.append(self.TYPE_24WORD)
-
-        if self.settings.get_value(SettingsConstants.SETTING__ELECTRUM_SEEDS) == SettingsConstants.OPTION__ENABLED:
-            button_data.append(self.TYPE_ELECTRUM)
 
         selected_menu_num = self.run_screen(
             seed_screens.SeedSelectSeedScreen,
@@ -172,9 +169,6 @@ class LoadSeedView(View):
             self.TYPE_24WORD,
         ]
 
-        if self.settings.get_value(SettingsConstants.SETTING__ELECTRUM_SEEDS) == SettingsConstants.OPTION__ENABLED:
-            button_data.append(self.TYPE_ELECTRUM)
-        
         button_data.append(self.CREATE)
 
         selected_menu_num = self.run_screen(
@@ -269,7 +263,7 @@ class SeedMnemonicEntryView(View):
 
 class SeedMnemonicInvalidView(View):
     EDIT = ButtonOption("Review & edit")
-    DISCARD = ButtonOption("Discard", button_label_color="red")
+    DISCARD = ButtonOption("Discard", button_label_color=GUIConstants.DESTRUCTIVE_ACTION_COLOR)
 
     def __init__(self):
         super().__init__()
@@ -307,7 +301,7 @@ class SeedFinalizeView(View):
 
         if self.seed.get_fingerprint == "":
             # Expected normal user flow
-            self.fingerprint = self.seed.get_fingerprint(network=self.settings.get_value(SettingsConstants.SETTING__NETWORK))
+            self.fingerprint = self.seed.get_fingerprint(network=SettingsConstants.MAINNET)
 
         else:
             # This view should display the "naked" seed's fingerprint. Normally the
@@ -316,7 +310,7 @@ class SeedFinalizeView(View):
             # set.
             passphrase = self.seed.passphrase
             self.seed.set_passphrase("")
-            self.fingerprint = self.seed.get_fingerprint(network=self.settings.get_value(SettingsConstants.SETTING__NETWORK))
+            self.fingerprint = self.seed.get_fingerprint(network=SettingsConstants.MAINNET)
             self.seed.set_passphrase(passphrase)
 
 
@@ -376,7 +370,7 @@ class SeedAddPassphraseView(View):
 
 class SeedAddPassphraseExitDialogView(View):
     EDIT = ButtonOption("Edit passphrase")
-    DISCARD = ButtonOption("Discard passphrase", button_label_color="red")
+    DISCARD = ButtonOption("Discard passphrase", button_label_color=GUIConstants.DESTRUCTIVE_ACTION_COLOR)
     SKIP = ButtonOption("Skip passphrase")  # NOT red since we're not throwing anything away
 
     def __init__(self):
@@ -426,7 +420,7 @@ class SeedReviewPassphraseView(View):
 
     def run(self):
         # Get the before/after fingerprints
-        network = self.settings.get_value(SettingsConstants.SETTING__NETWORK)
+        network = SettingsConstants.MAINNET
         passphrase = self.seed.passphrase
         fingerprint_with = self.seed.get_fingerprint(network=network)
         self.seed.set_passphrase("")
@@ -457,7 +451,7 @@ class SeedReviewPassphraseView(View):
             
 class SeedDiscardView(View):
     KEEP = ButtonOption("Keep seed")
-    DISCARD = ButtonOption("Discard", button_label_color="red")
+    DISCARD = ButtonOption("Discard", button_label_color=GUIConstants.DESTRUCTIVE_ACTION_COLOR)
 
     def __init__(self, seed_num: int = None):
         super().__init__()
@@ -471,7 +465,7 @@ class SeedDiscardView(View):
     def run(self):
         button_data = [self.KEEP, self.DISCARD]
 
-        fingerprint = self.seed.get_fingerprint(self.settings.get_value(SettingsConstants.SETTING__NETWORK))
+        fingerprint = self.seed.get_fingerprint(SettingsConstants.MAINNET)
         # TRANSLATOR_NOTE: Inserts the seed fingerprint
         text = _("Wipe seed {} from the device?").format(fingerprint)
         selected_menu_num = self.run_screen(
@@ -530,7 +524,7 @@ class SeedOptionsView(View):
     SIGN_MESSAGE = ButtonOption("Sign message")
     BACKUP = ButtonOption("Backup seed", right_icon_name=SeedSignerIconConstants.CHEVRON_RIGHT)
     BIP85_CHILD_SEED = ButtonOption("BIP-85 child seed")
-    DISCARD = ButtonOption("Discard seed", button_label_color="red")
+    DISCARD = ButtonOption("Discard seed", button_label_color=GUIConstants.DESTRUCTIVE_ACTION_COLOR)
 
 
     def __init__(self, seed_num: int):
@@ -561,7 +555,7 @@ class SeedOptionsView(View):
 
         if self.controller.psbt:
             from seedsigner.models.psbt_parser import PSBTParser
-            if PSBTParser.has_matching_input_fingerprint(self.controller.psbt, self.seed, network=self.settings.get_value(SettingsConstants.SETTING__NETWORK)):
+            if PSBTParser.has_matching_input_fingerprint(self.controller.psbt, self.seed, network=SettingsConstants.MAINNET):
                 if self.controller.resume_main_flow and self.controller.resume_main_flow == Controller.FLOW__PSBT:
                     # Re-route us directly back to the start of the PSBT flow
                     self.controller.resume_main_flow = None
@@ -578,9 +572,6 @@ class SeedOptionsView(View):
         button_data.append(self.EXPLORER)
         button_data.append(self.BACKUP)
 
-        if self.settings.get_value(SettingsConstants.SETTING__MESSAGE_SIGNING) == SettingsConstants.OPTION__ENABLED:
-            button_data.append(self.SIGN_MESSAGE)
-        
         if self.settings.get_value(SettingsConstants.SETTING__BIP85_CHILD_SEEDS) == SettingsConstants.OPTION__ENABLED and self.seed.bip85_supported:
             button_data.append(self.BIP85_CHILD_SEED)
 
@@ -589,7 +580,7 @@ class SeedOptionsView(View):
         selected_menu_num = self.run_screen(
             seed_screens.SeedOptionsScreen,
             button_data=button_data,
-            fingerprint=self.seed.get_fingerprint(self.settings.get_value(SettingsConstants.SETTING__NETWORK)),
+            fingerprint=self.seed.get_fingerprint(SettingsConstants.MAINNET),
         )
 
         if selected_menu_num == RET_CODE__BACK_BUTTON:
@@ -672,10 +663,6 @@ class SeedExportXpubSigTypeView(View):
 
 
     def run(self):
-        if len(self.settings.get_value(SettingsConstants.SETTING__SIG_TYPES)) == 1:
-            # Nothing to select; skip this screen
-            return Destination(SeedExportXpubScriptTypeView, view_args={"seed_num": self.seed_num, "sig_type": self.settings.get_value(SettingsConstants.SETTING__SIG_TYPES)[0]}, skip_current_view=True)
-
         button_data = [self.SINGLE_SIG, self.MULTISIG]
 
         selected_menu_num = self.run_screen(
@@ -703,7 +690,7 @@ class SeedExportXpubScriptTypeView(View):
         from .tools_views import ToolsAddressExplorerAddressTypeView
         args = {"seed_num": self.seed_num, "sig_type": self.sig_type}
 
-        script_types = self.settings.get_value(SettingsConstants.SETTING__SCRIPT_TYPES)
+        script_types = [SettingsConstants.NATIVE_SEGWIT, SettingsConstants.NESTED_SEGWIT, SettingsConstants.TAPROOT]
 
         seed = self.controller.storage.seeds[self.seed_num]
         if seed.script_override:
@@ -728,7 +715,7 @@ class SeedExportXpubScriptTypeView(View):
 
         button_data = []
         for script_type, display_name in SettingsConstants.ALL_SCRIPT_TYPES:
-            if script_type in self.settings.get_value(SettingsConstants.SETTING__SCRIPT_TYPES):
+            if script_type in [SettingsConstants.NATIVE_SEGWIT, SettingsConstants.NESTED_SEGWIT, SettingsConstants.TAPROOT]:
                 button_data.append(ButtonOption(display_name, return_data=script_type))
 
         selected_menu_num = self.run_screen(
@@ -813,14 +800,17 @@ class SeedExportXpubCoordinatorView(View):
             "script_type": self.script_type,
             "custom_derivation": self.custom_derivation,
         }
-        if len(self.settings.get_value(SettingsConstants.SETTING__COORDINATORS)) == 1:
-            # Nothing to select; skip this screen
-            args["coordinator"] = self.settings.get_value(SettingsConstants.SETTING__COORDINATORS)[0]
-            return Destination(SeedExportXpubWarningView, view_args=args, skip_current_view=True)
+        coordinators = [
+            SettingsConstants.COORDINATOR__BLUE_WALLET,
+            SettingsConstants.COORDINATOR__NUNCHUK,
+            SettingsConstants.COORDINATOR__SPARROW,
+            SettingsConstants.COORDINATOR__SPECTER_DESKTOP,
+        ]
+        coordinator_names = dict(SettingsConstants.ALL_COORDINATORS)
 
         button_data = []
-        for display_name, setting_option in zip(self.settings.get_multiselect_value_display_names(SettingsConstants.SETTING__COORDINATORS), self.settings.get_value(SettingsConstants.SETTING__COORDINATORS)):
-            button_data.append(ButtonOption(display_name, return_data=setting_option))
+        for coord in coordinators:
+            button_data.append(ButtonOption(coordinator_names[coord], return_data=coord))
 
         selected_menu_num = self.run_screen(
             ButtonListScreen,
@@ -908,7 +898,7 @@ class SeedExportXpubDetailsView(View):
         else:
             from seedsigner.helpers import embit_utils
             derivation_path = embit_utils.get_standard_derivation_path(
-                network=self.settings.get_value(SettingsConstants.SETTING__NETWORK),
+                network=SettingsConstants.MAINNET,
                 wallet_type=self.sig_type,
                 script_type=self.script_type
             )
@@ -926,10 +916,10 @@ class SeedExportXpubDetailsView(View):
             try:
                 from embit.bip32 import HDKey
                 from embit.networks import NETWORKS
-                embit_network = NETWORKS[SettingsConstants.map_network_to_embit(self.settings.get_value(SettingsConstants.SETTING__NETWORK))]
+                embit_network = NETWORKS[SettingsConstants.map_network_to_embit(SettingsConstants.MAINNET)]
                 version = self.seed.detect_version(
                     derivation_path,
-                    self.settings.get_value(SettingsConstants.SETTING__NETWORK),
+                    SettingsConstants.MAINNET,
                     self.sig_type
                 )
                 root = HDKey.from_seed(
@@ -974,7 +964,7 @@ class SeedExportXpubQRDisplayView(View):
         encoder_args = dict(
             seed=self.seed,
             derivation=derivation_path,
-            network=self.settings.get_value(SettingsConstants.SETTING__NETWORK),
+            network=SettingsConstants.MAINNET,
             qr_density=self.settings.get_value(SettingsConstants.SETTING__QR_DENSITY),
             sig_type=sig_type
         )
@@ -1893,15 +1883,10 @@ class SeedAddressVerificationView(View):
 
             button_data = [self.SKIP_10, self.CANCEL]
 
-            script_type_settings_entry = SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__SCRIPT_TYPES)
-            script_type_display = script_type_settings_entry.get_selection_option_display_name_by_value(self.script_type)
-
-            sig_type_settings_entry = SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__SIG_TYPES)
-            sig_type_display = sig_type_settings_entry.get_selection_option_display_name_by_value(self.sig_type)
-
-            network_settings_entry = SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__NETWORK)
-            network_display = network_settings_entry.get_selection_option_display_name_by_value(self.network)
-            mainnet = network_settings_entry.get_selection_option_display_name_by_value(SettingsConstants.MAINNET)
+            script_type_display = dict(SettingsConstants.ALL_SCRIPT_TYPES).get(self.script_type, self.script_type)
+            sig_type_display = dict(SettingsConstants.ALL_SIG_TYPES).get(self.sig_type, self.sig_type)
+            network_display = dict(SettingsConstants.ALL_NETWORKS).get(self.network, self.network)
+            mainnet = dict(SettingsConstants.ALL_NETWORKS).get(SettingsConstants.MAINNET)
 
             # Display the Screen to show the brute-forcing progress.
             # Using a loop here to handle the SKIP_10 button presses to increment the counter
@@ -1975,7 +1960,7 @@ class SeedAddressVerificationView(View):
             self.verified_index_is_change = verified_index_is_change
 
             if self.seed:
-                self.xpub = self.seed.get_xpub(wallet_path=self.derivation_path, network=Settings.get_instance().get_value(SettingsConstants.SETTING__NETWORK))
+                self.xpub = self.seed.get_xpub(wallet_path=self.derivation_path, network=SettingsConstants.MAINNET)
 
 
         def run(self):
@@ -2129,10 +2114,6 @@ class SeedSignMessageStartView(View):
         self.derivation_path = derivation_path
         self.message = message
 
-        if self.settings.get_value(SettingsConstants.SETTING__MESSAGE_SIGNING) == SettingsConstants.OPTION__DISABLED:
-            self.set_redirect(Destination(OptionDisabledView, view_args=dict(settings_attr=SettingsConstants.SETTING__MESSAGE_SIGNING)))
-            return
-
         # calculate the actual receive address
         addr_format = embit_utils.parse_derivation_path(derivation_path)
         if not addr_format["clean_match"]:
@@ -2141,7 +2122,7 @@ class SeedSignMessageStartView(View):
             return
 
         # Note: addr_format["network"] can be MAINNET or [TESTNET, REGTEST]
-        if self.settings.get_value(SettingsConstants.SETTING__NETWORK) not in addr_format["network"]:
+        if SettingsConstants.MAINNET not in addr_format["network"]:
             from seedsigner.views.view import NetworkMismatchErrorView
             self.set_redirect(Destination(NetworkMismatchErrorView, view_args=dict(derivation_path=self.derivation_path)))
 
@@ -2221,18 +2202,14 @@ class SeedSignMessageConfirmAddressView(View):
             raise Exception(_("Signing messages for custom derivation paths not supported"))
 
         if addr_format["network"] != SettingsConstants.MAINNET:
-            # We're in either Testnet or Regtest or...?
-            if self.settings.get_value(SettingsConstants.SETTING__NETWORK) in [SettingsConstants.TESTNET, SettingsConstants.REGTEST]:
-                addr_format["network"] = self.settings.get_value(SettingsConstants.SETTING__NETWORK)
-            else:
-                from seedsigner.views.view import NetworkMismatchErrorView
-                self.set_redirect(Destination(NetworkMismatchErrorView, view_args=dict(derivation_path=self.derivation_path)))
+            from seedsigner.views.view import NetworkMismatchErrorView
+            self.set_redirect(Destination(NetworkMismatchErrorView, view_args=dict(derivation_path=self.derivation_path)))
 
-                # cleanup. Note: We could leave this in place so the user can resume the
-                # flow, but for now we avoid complications and keep things simple.
-                self.controller.resume_main_flow = None
-                self.controller.sign_message_data = None
-                return
+            # cleanup. Note: We could leave this in place so the user can resume the
+            # flow, but for now we avoid complications and keep things simple.
+            self.controller.resume_main_flow = None
+            self.controller.sign_message_data = None
+            return
 
         xpub = seed.get_xpub(wallet_path=addr_format["wallet_derivation_path"], network=addr_format["network"])
         embit_network = embit_utils.get_embit_network_name(addr_format["network"])

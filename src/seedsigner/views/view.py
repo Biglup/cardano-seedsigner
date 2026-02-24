@@ -4,7 +4,7 @@ from gettext import gettext as _
 from typing import Type
 
 from seedsigner.helpers.l10n import mark_for_translation as _mft
-from seedsigner.gui.components import SeedSignerIconConstants
+from seedsigner.gui.components import GUIConstants, SeedSignerIconConstants
 from seedsigner.gui.screens import RET_CODE__POWER_BUTTON, RET_CODE__BACK_BUTTON
 from seedsigner.gui.screens.screen import BaseScreen, ButtonOption, LargeButtonScreen, WarningScreen, ErrorScreen
 from seedsigner.models.settings import Settings, SettingsConstants
@@ -337,21 +337,16 @@ class NetworkMismatchErrorView(ErrorView):
     derivation_path: str = None
 
     def __post_init__(self):
-        from seedsigner.views.settings_views import SettingsEntryUpdateSelectionView
-
         # TRANSLATOR_NOTE: The network setting (mainnet/testnet/regtest) doesn't match the provided derivation path
         self.title = _("Network Mismatch")
         self.status_icon_name = SeedSignerIconConstants.WARNING
         self.show_back_button = False
 
-        # TRANSLATOR_NOTE: Button option to alter a setting
-        self.button_text = _("Change Setting")
-        self.next_destination = Destination(SettingsEntryUpdateSelectionView, view_args=dict(attr_name=SettingsConstants.SETTING__NETWORK), clear_history=True)
+        self.button_text = _("OK")
+        self.next_destination = Destination(MainMenuView, clear_history=True)
         super().__post_init__()
 
-        # TRANSLATOR_NOTE: Inserts mainnet/testnet/regtest and derivation path
-        self.text = _("Current network setting ({}) doesn't match {}.").format(
-            self.settings.get_value_display_name(SettingsConstants.SETTING__NETWORK),
+        self.text = _("Mainnet network doesn't match {}.").format(
             self.derivation_path,
         )
 
@@ -448,6 +443,7 @@ class RemoveMicroSDWarningView(View):
             WarningScreen,
             title=_("Action Required"),
             status_icon_name=SeedSignerIconConstants.MICROSD,
+            status_color=GUIConstants.ACCENT_COLOR,
             status_headline=None,
             text=_("You must remove the\nMicroSD card to continue."),
             show_back_button=False,

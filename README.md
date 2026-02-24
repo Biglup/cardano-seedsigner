@@ -1,3 +1,10 @@
+<p align="center">
+  <img align="middle" src=
+  "assets/ada_seed_signer_logo.png"
+  height="160" />
+</p>
+
+
 # Cardano SeedSigner
 
 Use an air-gapped Raspberry Pi Zero to sign for Cardano transactions

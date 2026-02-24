@@ -21,6 +21,7 @@ class ScreenshotComplete(Exception):
 class ScreenshotRenderer(Renderer):
     screenshot_path: str = None
     screenshot_filename: str = None
+    _scrollable_screen = None  # Set by scrollable screens for scroll captures
 
     @property
     def is_screenshot_generator(self) -> bool:
@@ -52,7 +53,7 @@ class ScreenshotRenderer(Renderer):
         self.screenshot_path = path
 
 
-    def show_image(self, image=None, alpha_overlay=None, is_background_thread: bool = False):            
+    def show_image(self, image=None, alpha_overlay=None, is_background_thread: bool = False):
         if is_background_thread:
             return
 
@@ -81,6 +82,7 @@ class ScreenshotConfig:
     toast_thread: BaseToastOverlayManagerThread = None
     run_before: callable = None
     run_after: callable = None
+    scroll_all: bool = False
 
 
     def __post_init__(self):

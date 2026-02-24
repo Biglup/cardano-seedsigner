@@ -214,3 +214,7 @@ buildroot_dl/
 images/
 opt/
 research/
+seedsigner-screenshots/
+
+# Emulator build folder
+build/emulation/

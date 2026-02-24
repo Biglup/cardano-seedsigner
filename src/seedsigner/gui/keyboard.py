@@ -137,14 +137,14 @@ class Keyboard:
                     outline_color = self.keyboard.highlight_color
             elif self.is_selected:
                 rect_color = self.keyboard.highlight_color  # Render solid background with the UI's hero color
-                font_color = "black"
+                font_color = GUIConstants.PRIMARY_COLOR
             else:
                 if self.is_additional_key:
-                    rect_color = "#000"
-                    font_color = "#999"
+                    rect_color = GUIConstants.BACKGROUND_COLOR
+                    font_color = GUIConstants.MEDIUM_EMPHASIS_COLOR
                 else:
                     rect_color = self.keyboard.background_color
-                    font_color = "#e8e8e8"
+                    font_color = GUIConstants.HIGH_EMPHASIS_COLOR
 
             self.keyboard.draw.rounded_rectangle(
                 (
@@ -521,7 +521,7 @@ class TextEntryDisplay(TextEntryDisplayConstants):
     rect: Tuple[int,int,int,int]
     font_name: str = GUIConstants.FIXED_WIDTH_EMPHASIS_FONT_NAME
     font_size: int = 24
-    accent_color: str = GUIConstants.ACCENT_COLOR
+    accent_color: str = GUIConstants.TEXT_ENTRY_COLOR
     background_color: str = GUIConstants.BUTTON_BACKGROUND_COLOR
     cursor_mode: str = TextEntryDisplayConstants.CURSOR_MODE__BLOCK
     is_centered: bool = True
@@ -549,7 +549,7 @@ class TextEntryDisplay(TextEntryDisplayConstants):
             self.cur_text = cur_text
 
         # Start by rendering to a new Image that we'll composite in at the end
-        image = Image.new("RGB", (self.width + 1, self.height + 1), "black")
+        image = Image.new("RGB", (self.width + 1, self.height + 1), GUIConstants.BACKGROUND_COLOR)
         draw = ImageDraw.Draw(image)
 
         draw.rounded_rectangle((0, 0, self.width, self.height), fill=self.background_color, radius=4)
@@ -577,12 +577,12 @@ class TextEntryDisplay(TextEntryDisplayConstants):
                 cursor_block_offset -= end_pos_x - self.width + 1
                 self.text_offset -= end_pos_x - self.width + 1
             
-            draw.text((self.text_offset, self.height - int(text_height/2)), self.cur_text[:-1], fill=GUIConstants.ACCENT_COLOR, font=self.font, anchor="ls")
+            draw.text((self.text_offset, self.height - int(text_height/2)), self.cur_text[:-1], fill=GUIConstants.TEXT_ENTRY_COLOR, font=self.font, anchor="ls")
 
             # Draw the highlighted cursor block
             cursor_color = "#666"
             draw.rectangle((cursor_block_offset, 1, cursor_block_offset + cursor_block_width, self.height - 1), fill=cursor_color)
-            draw.text((cursor_block_offset + 1, self.height - int(text_height/2)), self.cur_text[-1], fill=GUIConstants.ACCENT_COLOR, font=self.font, anchor="ls")
+            draw.text((cursor_block_offset + 1, self.height - int(text_height/2)), self.cur_text[-1], fill=GUIConstants.TEXT_ENTRY_COLOR, font=self.font, anchor="ls")
 
         else:
             cursor_bar_serif_half_width = 4

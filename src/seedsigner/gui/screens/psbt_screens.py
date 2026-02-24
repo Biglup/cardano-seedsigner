@@ -584,7 +584,7 @@ class PSBTMathScreen(ButtonListScreen):
             f" {self.change_amount}",
             # TRANSLATOR_NOTE: Denonination is inserted (e.g. your "btc change" or "sats change")
             info_text=_("{} change").format(denomination),
-            info_text_color="darkorange"  # super-sampling alters the perceived color
+            info_text_color=GUIConstants.ACCENT_TEXT_COLOR
         )
 
         # Resize to target and sharpen final image

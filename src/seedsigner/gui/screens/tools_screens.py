@@ -362,7 +362,7 @@ class ToolsCalcFinalWordScreen(ButtonListScreen):
             text=self.checksum_bits,
             font_name=GUIConstants.FIXED_WIDTH_EMPHASIS_FONT_NAME,
             font_size=bit_font_size,
-            font_color=GUIConstants.ACCENT_COLOR,
+            font_color=GUIConstants.ACCENT_TEXT_COLOR,
             edge_padding=0,
             screen_x=checksum_x,
             screen_y=screen_y,
@@ -395,7 +395,7 @@ class ToolsCalcFinalWordScreen(ButtonListScreen):
         self.components.append(TextArea(
             text=self.checksum_bits,
             font_name=GUIConstants.FIXED_WIDTH_EMPHASIS_FONT_NAME,
-            font_color=GUIConstants.ACCENT_COLOR,
+            font_color=GUIConstants.ACCENT_TEXT_COLOR,
             font_size=bit_font_size,
             edge_padding=0,
             screen_x=checksum_x,
@@ -471,7 +471,7 @@ class ToolsAddressExplorerAddressTypeScreen(ButtonListScreen):
                     icon_name=SeedSignerIconConstants.DERIVATION,
                     # TRANSLATOR_NOTE: a label for the derivation-path into a BIP-32 HD wallet
                     label_text=_("Derivation"),
-                    value_text=SettingsDefinition.get_settings_entry(attr_name=SettingsConstants.SETTING__SCRIPT_TYPES).get_selection_option_display_name_by_value(value=self.script_type),
+                    value_text=dict(SettingsConstants.ALL_SCRIPT_TYPES).get(self.script_type, self.script_type),
                     screen_x=GUIConstants.EDGE_PADDING,
                     screen_y=self.components[-1].screen_y + self.components[-1].height + 2*GUIConstants.COMPONENT_PADDING,
                 ))

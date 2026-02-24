@@ -195,7 +195,7 @@ class IOTestScreen(BaseTopNavScreen):
                             -1, int((self.canvas_height - msg_height)/ 2) - 1,
                             self.canvas_width + 1, int((self.canvas_height + msg_height)/ 2) + 1
                         ),
-                        fill="black",
+                        fill=GUIConstants.BACKGROUND_COLOR,
                         outline=GUIConstants.ACCENT_COLOR,
                         width=1,
                     )
@@ -284,29 +284,6 @@ class IOTestScreen(BaseTopNavScreen):
                 self.renderer.show_image()
 
             time.sleep(0.1)
-
-
-
-@dataclass
-class DonateScreen(BaseTopNavScreen):
-    def __post_init__(self):
-        self.title = _("Donate")
-        super().__post_init__()
-
-        self.components.append(TextArea(
-            # TRANSLATOR_NOTE: If your language uses the percent sign ("%"), your translation must also use two percent signs ("%%") due to python formatting oddities. "100%%" will be rendered as "100%".
-            text=_("SeedSigner is 100%% free & open source, funded solely by the Bitcoin community.\n\nDonate onchain or LN at:").replace("%%", "%"),
-            screen_y=self.top_nav.height + 3*GUIConstants.COMPONENT_PADDING,
-        ))
-
-        self.components.append(TextArea(
-            text="seedsigner.com",
-            font_name=GUIConstants.get_body_font_name(),
-            font_size=28,
-            font_color=GUIConstants.ACCENT_COLOR,
-            supersampling_factor=1,
-            screen_y=self.components[-1].screen_y + self.components[-1].height + GUIConstants.COMPONENT_PADDING
-        ))
 
 
 
