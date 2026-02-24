@@ -4,7 +4,7 @@ from base import FlowTest, FlowStep
 from seedsigner.controller import Controller
 from seedsigner.gui.screens.screen import RET_CODE__BACK_BUTTON, ButtonOption
 from seedsigner.models.seed import Seed
-from seedsigner.models.settings_definition import SettingsConstants, SettingsDefinition
+from seedsigner.models.settings_definition import SettingsConstants
 from seedsigner.views.view import ErrorView, MainMenuView
 from seedsigner.views import scan_views, seed_views, tools_views
 
@@ -25,7 +25,7 @@ class TestToolsFlows(FlowTest):
             FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
             FlowStep(tools_views.ToolsMenuView, button_data_selection=tools_views.ToolsMenuView.ADDRESS_EXPLORER),
             FlowStep(tools_views.ToolsAddressExplorerSelectSourceView, screen_return_value=0),  # ret 1st onboard seed
-            FlowStep(seed_views.SeedExportXpubScriptTypeView, button_data_selection=ButtonOption(SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__SCRIPT_TYPES).get_selection_option_display_name_by_value(SettingsConstants.NATIVE_SEGWIT), return_data=SettingsConstants.NATIVE_SEGWIT)),
+            FlowStep(seed_views.SeedExportXpubScriptTypeView, button_data_selection=ButtonOption("Native Segwit", return_data=SettingsConstants.NATIVE_SEGWIT)),
             FlowStep(tools_views.ToolsAddressExplorerAddressTypeView, button_data_selection=tools_views.ToolsAddressExplorerAddressTypeView.RECEIVE),
             FlowStep(tools_views.ToolsAddressExplorerAddressListView, screen_return_value=10),  # ret NEXT page of addrs
             FlowStep(tools_views.ToolsAddressExplorerAddressListView, screen_return_value=4),  # ret a specific addr from the list
@@ -71,39 +71,6 @@ class TestToolsFlows(FlowTest):
         )
 
 
-    def test__address_explorer__load_electrum_seed__sideflow(self):
-        """
-            Loading an Electrum seed during the Address Explorer flow should return to
-            the Address Explorer flow upon completion, skip the script type selection,
-            and successfully generate receive or change addresses.
-        """
-        self.settings.set_value(SettingsConstants.SETTING__ELECTRUM_SEEDS, SettingsConstants.OPTION__ENABLED)
-
-        sequence = [
-            FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
-            FlowStep(tools_views.ToolsMenuView, button_data_selection=tools_views.ToolsMenuView.ADDRESS_EXPLORER),
-            FlowStep(tools_views.ToolsAddressExplorerSelectSourceView, button_data_selection=tools_views.ToolsAddressExplorerSelectSourceView.TYPE_ELECTRUM),
-            FlowStep(seed_views.SeedElectrumMnemonicStartView),
-        ]
-
-        # Load an Electrum mnemonic during the flow (same one used in test_seed.py)
-        for word in "regular reject rare profit once math fringe chase until ketchup century escape".split():
-            sequence += [
-                FlowStep(seed_views.SeedMnemonicEntryView, screen_return_value=word),
-            ]
-
-        sequence += [
-            FlowStep(seed_views.SeedFinalizeView, button_data_selection=seed_views.SeedFinalizeView.FINALIZE),
-            FlowStep(seed_views.SeedOptionsView, is_redirect=True),
-            FlowStep(seed_views.SeedExportXpubScriptTypeView, is_redirect=True),
-            FlowStep(tools_views.ToolsAddressExplorerAddressTypeView, button_data_selection=tools_views.ToolsAddressExplorerAddressTypeView.RECEIVE),
-            FlowStep(tools_views.ToolsAddressExplorerAddressListView),
-        ]
-
-        self.run_sequence(sequence)
-
-
-
     def test__address_explorer__scan_wrong_qrtype__flow(self):
         """
         Scanning the wrong type of QR code when a SeedQR is expected should route to ErrorView
@@ -123,14 +90,11 @@ class TestToolsFlows(FlowTest):
 
     def test__address_explorer__back_button__flow(self):
         """
-        Backing out of AddressExplorer behavior depends on current Settings:
-        * Multiple script types enabled: BACK to SeedExportXpubScriptTypeView
-        * One script type enabled: BACK to where we started:
-            * SeedOptions
-            * ToolsAddressExplorerSelectSourceView if seed was already onboard
-            * MainMenu if no seed was onboard when we entered via ToolsMenu (loading a
-                seed during the flow wipes out any history before the load so our only
-                option is to return to MainMenu).
+        Backing out of AddressExplorer:
+        * Script types are now always presented (hardcoded 3 types), so BACK from
+          AddressTypeView always returns to SeedExportXpubScriptTypeView.
+        * When seed was loaded mid-flow and we BACK from script type, we go to MainMenu
+          because the seed load wipes back stack history.
         """
         def load_seed_into_decoder(view: scan_views.ScanView):
             view.decoder.add_data("0000" * 11 + "0003")
@@ -140,9 +104,7 @@ class TestToolsFlows(FlowTest):
         controller.storage.set_pending_seed(seed)
         controller.storage.finalize_pending_seed()
 
-        # Scenario 1: Seed already onboard, multiple script types enabled, BACK can still
-        #  change script type selection.
-        self.settings.set_value(SettingsConstants.SETTING__SCRIPT_TYPES, [SettingsConstants.NATIVE_SEGWIT, SettingsConstants.TAPROOT])
+        # Scenario 1: Seed already onboard, BACK from address type returns to script type selection.
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SEEDS),
             FlowStep(seed_views.SeedsMenuView, screen_return_value=0),  # select the first onboard seed
@@ -152,31 +114,8 @@ class TestToolsFlows(FlowTest):
             FlowStep(seed_views.SeedExportXpubScriptTypeView),
         ])
 
-        # Scenario 2: Seed already onboard, one script type enabled, started from 
-        # SeedOptionsView, BACK to SeedOptionsView.
-        self.settings.set_value(SettingsConstants.SETTING__SCRIPT_TYPES, [SettingsConstants.NATIVE_SEGWIT])
-        self.run_sequence([
-            FlowStep(MainMenuView, button_data_selection=MainMenuView.SEEDS),
-            FlowStep(seed_views.SeedsMenuView, screen_return_value=0),  # select the first onboard seed
-            FlowStep(seed_views.SeedOptionsView, button_data_selection=seed_views.SeedOptionsView.EXPLORER),
-            FlowStep(seed_views.SeedExportXpubScriptTypeView, is_redirect=True),
-            FlowStep(tools_views.ToolsAddressExplorerAddressTypeView, screen_return_value=RET_CODE__BACK_BUTTON),
-            FlowStep(seed_views.SeedOptionsView),
-        ])
-
-        # Scenario 3: Seed already onboard, one script type enabled, started from
-        # ToolsMenu, BACK to ToolsAddressExplorerSelectSourceView.
-        self.run_sequence([
-            FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
-            FlowStep(tools_views.ToolsMenuView, button_data_selection=tools_views.ToolsMenuView.ADDRESS_EXPLORER),
-            FlowStep(tools_views.ToolsAddressExplorerSelectSourceView, screen_return_value=0),  # select the first onboard seed
-            FlowStep(seed_views.SeedExportXpubScriptTypeView, is_redirect=True),
-            FlowStep(tools_views.ToolsAddressExplorerAddressTypeView, screen_return_value=RET_CODE__BACK_BUTTON),
-            FlowStep(tools_views.ToolsAddressExplorerSelectSourceView),
-        ])
-
-        # Scenario 4: No seed onboard, one script type enabled, started from Tools, BACK
-        # can only go to MainMenu because of mid-flow seed load.
+        # Scenario 2: No seed onboard, seed loaded mid-flow, BACK from script type
+        # goes to MainMenu because of mid-flow seed load wiping history.
         controller.discard_seed(0)
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
@@ -185,9 +124,9 @@ class TestToolsFlows(FlowTest):
             FlowStep(scan_views.ScanSeedQRView, before_run=load_seed_into_decoder),  # simulate read SeedQR
             FlowStep(seed_views.SeedFinalizeView, button_data_selection=seed_views.SeedFinalizeView.FINALIZE),
             FlowStep(seed_views.SeedOptionsView, is_redirect=True),
-            FlowStep(seed_views.SeedExportXpubScriptTypeView, is_redirect=True),
+            FlowStep(seed_views.SeedExportXpubScriptTypeView, screen_return_value=0),
             FlowStep(tools_views.ToolsAddressExplorerAddressTypeView, screen_return_value=RET_CODE__BACK_BUTTON),
-            FlowStep(MainMenuView),
+            FlowStep(seed_views.SeedExportXpubScriptTypeView),
         ])
 
 

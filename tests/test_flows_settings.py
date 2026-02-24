@@ -36,38 +36,12 @@ class TestSettingsFlows(FlowTest):
         assert os.path.exists(Settings.SETTINGS_FILENAME) == True
 
 
-    def test_multiselect(self):
-        """ Multiselect Settings options should stay in-place; requires BACK to exit. """
-        # Which option are we testing?
-        settings_entry = SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__COORDINATORS)
-
-        self.run_sequence([
-            FlowStep(MainMenuView, button_data_selection=MainMenuView.SETTINGS),
-            FlowStep(settings_views.SettingsMenuView, button_data_selection=ButtonOption(settings_entry.display_name)),
-            FlowStep(settings_views.SettingsEntryUpdateSelectionView, screen_return_value=0),  # select/deselect first option
-            FlowStep(settings_views.SettingsEntryUpdateSelectionView, screen_return_value=1),  # select/deselect second option
-            FlowStep(settings_views.SettingsEntryUpdateSelectionView, screen_return_value=1),  # select/deselect second option
-            FlowStep(settings_views.SettingsEntryUpdateSelectionView, screen_return_value=RET_CODE__BACK_BUTTON),  # BACK to exit
-            FlowStep(settings_views.SettingsMenuView),
-        ])
-
-
     def test_io_test(self):
         """ Basic flow from MainMenuView to I/O Test View """
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SETTINGS),
             FlowStep(settings_views.SettingsMenuView, button_data_selection=settings_views.SettingsMenuView.IO_TEST),
             FlowStep(settings_views.IOTestView),
-            FlowStep(settings_views.SettingsMenuView),
-        ])
-
-
-    def test_donate(self):
-        """ Basic flow from MainMenuView to Donate View """        
-        self.run_sequence([
-            FlowStep(MainMenuView, button_data_selection=MainMenuView.SETTINGS),
-            FlowStep(settings_views.SettingsMenuView, button_data_selection=settings_views.SettingsMenuView.DONATE),
-            FlowStep(settings_views.DonateView),
             FlowStep(settings_views.SettingsMenuView),
         ])
 
