@@ -18,7 +18,6 @@ from .output_sequential_screen import CardanoOutputSequentialScreen
 from .certificate_sequential_screen import CardanoCertificateSequentialScreen
 from .aux_data_hash_screen import CardanoAuxDataHashScreen
 from .overview_screen import CardanoTxOverviewScreen
-from .summary_screen import CardanoTxSummaryScreen
 from .output_screen import CardanoTxOutputScreen
 from .sign_screen import CardanoTxSignScreen
 
@@ -35,7 +34,6 @@ __all__ = [
     "CardanoCertificateSequentialScreen",
     "CardanoAuxDataHashScreen",
     "CardanoTxOverviewScreen",
-    "CardanoTxSummaryScreen",
     "CardanoTxOutputScreen",
     "CardanoTxSignScreen",
 ]

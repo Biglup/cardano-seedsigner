@@ -471,7 +471,7 @@ class ToolsAddressExplorerAddressTypeScreen(ButtonListScreen):
                     icon_name=SeedSignerIconConstants.DERIVATION,
                     # TRANSLATOR_NOTE: a label for the derivation-path into a BIP-32 HD wallet
                     label_text=_("Derivation"),
-                    value_text=SettingsDefinition.get_settings_entry(attr_name=SettingsConstants.SETTING__SCRIPT_TYPES).get_selection_option_display_name_by_value(value=self.script_type),
+                    value_text=dict(SettingsConstants.ALL_SCRIPT_TYPES).get(self.script_type, self.script_type),
                     screen_x=GUIConstants.EDGE_PADDING,
                     screen_y=self.components[-1].screen_y + self.components[-1].height + 2*GUIConstants.COMPONENT_PADDING,
                 ))

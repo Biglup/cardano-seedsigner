@@ -25,15 +25,15 @@ class PSBTSelectSeedView(View):
             raise Exception("No transaction currently loaded")
 
         if self.controller.psbt_seed:
-             if PSBTParser.has_matching_input_fingerprint(psbt=self.controller.psbt, seed=self.controller.psbt_seed, network=self.settings.get_value(SettingsConstants.SETTING__NETWORK)):
+             if PSBTParser.has_matching_input_fingerprint(psbt=self.controller.psbt, seed=self.controller.psbt_seed, network=SettingsConstants.MAINNET):
                  # skip the seed prompt if a seed was previous selected and has matching input fingerprint
                  return Destination(PSBTOverviewView)
 
         seeds = self.controller.storage.seeds
         button_data = []
         for seed in seeds:
-            button_str = seed.get_fingerprint(self.settings.get_value(SettingsConstants.SETTING__NETWORK))
-            if not PSBTParser.has_matching_input_fingerprint(psbt=self.controller.psbt, seed=seed, network=self.settings.get_value(SettingsConstants.SETTING__NETWORK)):
+            button_str = seed.get_fingerprint(SettingsConstants.MAINNET)
+            if not PSBTParser.has_matching_input_fingerprint(psbt=self.controller.psbt, seed=seed, network=SettingsConstants.MAINNET):
                 # Doesn't look like this seed can sign the current PSBT
                 # TRANSLATOR_NOTE: Inserts fingerprint w/"?" to indicate that this seed can't sign the current PSBT
                 button_str = _("{} (?)").format(button_str)
@@ -43,9 +43,6 @@ class PSBTSelectSeedView(View):
         button_data.append(self.SCAN_SEED)
         button_data.append(self.TYPE_12WORD)
         button_data.append(self.TYPE_24WORD)
-        if self.settings.get_value(SettingsConstants.SETTING__ELECTRUM_SEEDS) == SettingsConstants.OPTION__ENABLED:
-            button_data.append(self.TYPE_ELECTRUM)
-
         selected_menu_num = self.run_screen(
             ButtonListScreen,
             title=_("Select Signer"),
@@ -99,7 +96,7 @@ class PSBTOverviewView(View):
                 self.controller.psbt_parser = PSBTParser(
                     self.controller.psbt,
                     seed=self.controller.psbt_seed,
-                    network=self.settings.get_value(SettingsConstants.SETTING__NETWORK)
+                    network=SettingsConstants.MAINNET
                 )
             except Exception as e:
                 self.loading_screen.stop()
@@ -332,7 +329,7 @@ class PSBTChangeDetailsView(View):
 
         # Single-sig verification is easy. We expect to find a single fingerprint
         # and derivation path.
-        seed_fingerprint = self.controller.psbt_seed.get_fingerprint(self.settings.get_value(SettingsConstants.SETTING__NETWORK))
+        seed_fingerprint = self.controller.psbt_seed.get_fingerprint(SettingsConstants.MAINNET)
 
         if seed_fingerprint not in change_data.get("fingerprint"):
             # TODO: Something is wrong with this psbt(?). Reroute to warning?
@@ -389,12 +386,12 @@ class PSBTChangeDetailsView(View):
                 
                 xpub = self.controller.psbt_seed.get_xpub(
                     wallet_path=wallet_path,
-                    network=self.settings.get_value(SettingsConstants.SETTING__NETWORK)
+                    network=SettingsConstants.MAINNET
                 )
                 
                 # take script type and call script method to generate address from seed / derivation
                 xpub_key = xpub.derive(change_path).key
-                network = self.settings.get_value(SettingsConstants.SETTING__NETWORK)
+                network = SettingsConstants.MAINNET
                 scriptcall = getattr(script, script_type)
                 if script_type == "p2sh":
                     # single sig only so p2sh is always p2sh-p2wpkh

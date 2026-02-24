@@ -1,15 +1,15 @@
 import logging
 import os
+import pathlib
 import random
 import time
 
 from dataclasses import dataclass
-from gettext import gettext as _
+
+from PIL import Image
 
 from seedsigner.gui.components import Fonts, GUIConstants, load_image
 from seedsigner.gui.screens.screen import BaseScreen
-from seedsigner.models.settings import Settings
-from seedsigner.models.settings_definition import SettingsConstants
 from seedsigner.views.view import View
 
 logger = logging.getLogger(__name__)
@@ -28,47 +28,45 @@ class LogoScreen(BaseScreen):
 
 @dataclass
 class OpeningSplashView(View):
-    force_partner_logos: bool|None = None
-
     def run(self):
-        self.run_screen(
-            OpeningSplashScreen,
-            force_partner_logos=self.force_partner_logos
-        )
+        self.run_screen(OpeningSplashScreen)
 
 
 
 class OpeningSplashScreen(LogoScreen):
-    def __init__(self, force_partner_logos=None):
-        self.force_partner_logos = force_partner_logos
-        super().__init__()
+    LOGO_VISIBLE_HEIGHT = 70
 
+    def __init__(self):
+        super().__init__()
+        cometa_path = os.path.join(
+            pathlib.Path(__file__).parent.resolve(), "..", "resources", "img", "cometa_py.png"
+        )
+        self.cometa_logo = Image.open(cometa_path).convert("RGBA")
+
+    def _get_cometa_version(self) -> str:
+        """Get cometa library version, with graceful fallback."""
+        try:
+            from cometa.cardano import get_lib_version
+            return get_lib_version()
+        except ImportError:
+            return ""
+        except Exception as e:
+            logger.warning(f"Could not get cometa version: {e}")
+            return ""
 
     def _render(self):
-        from PIL import Image
         from seedsigner.controller import Controller
         controller = Controller.get_instance()
 
-        # TODO: Fix for the screenshot generator. When generating screenshots for
-        # multiple locales, there is a button still in the canvas from the previous
-        # screenshot, even though the Renderer has been reconfigured and re-
-        # instantiated. This is a hack to clear the screen for now.
         self.clear_screen()
 
-        show_partner_logos = Settings.get_instance().get_value(SettingsConstants.SETTING__PARTNER_LOGOS) == SettingsConstants.OPTION__ENABLED
-        if self.force_partner_logos is not None:
-            show_partner_logos = self.force_partner_logos
+        center_x = self.canvas_width // 2
 
-        logo_offset_x = int((self.canvas_width - self.logo.width)/2)
-
-        if show_partner_logos:
-            logo_offset_y = -56
-        else:
-            logo_offset_y = 0
+        logo_offset_y = -20
+        logo_offset_x = (self.canvas_width - self.logo.width) // 2
 
         background = Image.new("RGBA", size=self.logo.size, color=GUIConstants.BACKGROUND_COLOR)
         if not self.renderer.is_screenshot_generator:
-            # Fade in alpha
             for i in range(250, -1, -25):
                 self.logo.putalpha(255 - i)
                 self.renderer.canvas.paste(
@@ -77,48 +75,86 @@ class OpeningSplashScreen(LogoScreen):
                 )
                 self.renderer.show_image()
         else:
-            # Skip animation for the screenshot generator
             self.renderer.canvas.paste(self.logo, (logo_offset_x, logo_offset_y))
 
-        # Display version num below SeedSigner logo
-        font = Fonts.get_font(GUIConstants.get_body_font_name(), GUIConstants.get_top_nav_title_font_size())
-        version = f"v{controller.VERSION}"
+        version_font = Fonts.get_font(GUIConstants.get_body_font_name(), GUIConstants.get_top_nav_title_font_size())
+        version_text = f"v{controller.VERSION}"
+        version_y = (self.canvas_height // 2) + (self.LOGO_VISIBLE_HEIGHT // 2) + logo_offset_y + GUIConstants.COMPONENT_PADDING
+        self.renderer.draw.text(
+            xy=(center_x, version_y), text=version_text,
+            font=version_font, fill=GUIConstants.ACCENT_TEXT_COLOR, anchor="mt",
+        )
 
-        # The logo png is 240x240, but the actual logo is 70px tall, vertically centered
-        logo_height = 70
-        version_x = int(self.renderer.canvas_width/2)
-        version_y = int(self.canvas_height/2) + int(logo_height/2) + logo_offset_y + GUIConstants.COMPONENT_PADDING
-        self.renderer.draw.text(xy=(version_x, version_y), text=version, font=font, fill=GUIConstants.ACCENT_COLOR, anchor="mt")
+        cometa_version = self._get_cometa_version()
+        small_font = Fonts.get_font(GUIConstants.get_body_font_name(), 15)
 
-        # Display cometa version (Cardano support)
-        # Use minimal import for fast splash - full cometa loads in background thread
-        small_font = Fonts.get_font(GUIConstants.get_body_font_name(), GUIConstants.get_body_font_size() - 2)
-        cometa_y = version_y + GUIConstants.COMPONENT_PADDING + 10
-        cometa_text = "cardano"
-        try:
-            # Minimal import - just the version function, not the full library
-            from cometa.cardano import get_lib_version
-            cometa_version = get_lib_version()
-            cometa_text = f"cometa {cometa_version}"
-        except ImportError:
-            pass  # cometa not installed, show "cardano" fallback
-        except Exception as e:
-            logger.warning(f"Could not get cometa version: {e}")
+        powered_label = "Powered by"
+        cometa_name = "Cometa.py"
+        cometa_ver_label = f" {cometa_version}" if cometa_version else ""
+        name_text = f"{cometa_name}{cometa_ver_label}"
 
-        self.renderer.draw.text(xy=(version_x, cometa_y), text=cometa_text, font=small_font, fill=GUIConstants.HIGH_EMPHASIS_COLOR, anchor="mt")
+        label_bbox = small_font.getbbox(powered_label)
+        label_h = label_bbox[3] - label_bbox[1]
+        name_bbox = small_font.getbbox(name_text)
+        name_w = name_bbox[2] - name_bbox[0]
+        name_h = name_bbox[3] - name_bbox[1]
+
+        line_gap = 3
+        text_block_h = label_h + line_gap + name_h
+        scale = text_block_h / self.cometa_logo.height
+        scaled_logo_w = max(1, int(self.cometa_logo.width * scale))
+        scaled_logo_h = max(1, int(self.cometa_logo.height * scale))
+        scaled_cometa = self.cometa_logo.resize((scaled_logo_w, scaled_logo_h), Image.LANCZOS)
+
+        # Text is centered on screen; logo sits to the left of the wider text line
+        gap = 6
+        label_w = label_bbox[2] - label_bbox[0]
+        wider_text_w = max(name_w, label_w)
+        # Left edge of the wider text line when centered
+        text_left_edge = (self.canvas_width - wider_text_w) // 2
+        logo_x = text_left_edge - gap - scaled_logo_w
+        block_y = self.canvas_height - scaled_logo_h - GUIConstants.COMPONENT_PADDING
+
+        from PIL import ImageDraw
+        temp = Image.new("RGBA", self.renderer.canvas.size, (0, 0, 0, 0))
+        temp.paste(scaled_cometa, (logo_x, block_y))
+        composited = Image.alpha_composite(
+            self.renderer.canvas.convert("RGBA"), temp
+        ).convert("RGB")
+        # Paste in-place to preserve canvas object identity (important for
+        # components that cache a reference to renderer.canvas).
+        self.renderer.canvas.paste(composited)
+        self.renderer.draw = ImageDraw.Draw(self.renderer.canvas)
+
+        text_top = block_y + (scaled_logo_h - text_block_h) // 2
+        self.renderer.draw.text(
+            xy=(center_x, text_top), text=powered_label,
+            font=small_font, fill=GUIConstants.PRIMARY_COLOR, anchor="mt",
+        )
+        # Draw "Cometa.py" in white and version in accent blue
+        line2_y = text_top + label_h + line_gap
+        name_only_bbox = small_font.getbbox(cometa_name)
+        name_only_w = name_only_bbox[2] - name_only_bbox[0]
+        # Center the full name_text, then split drawing at the boundary
+        line2_left = center_x - name_w // 2
+        self.renderer.draw.text(
+            xy=(line2_left, line2_y), text=cometa_name,
+            font=small_font, fill=GUIConstants.PRIMARY_COLOR, anchor="lt",
+        )
+        if cometa_ver_label:
+            self.renderer.draw.text(
+                xy=(line2_left + name_only_w, line2_y), text=cometa_ver_label,
+                font=small_font, fill=GUIConstants.ACCENT_TEXT_COLOR, anchor="lt",
+            )
 
         if not self.renderer.is_screenshot_generator:
             self.renderer.show_image()
-
-        if not self.renderer.is_screenshot_generator:
-            # Hold on the splash screen for a moment
             time.sleep(2)
 
 
 
 class ScreensaverScreen(LogoScreen):
     def __init__(self, buttons):
-        from PIL import Image
         super().__init__()
 
         self.buttons = buttons

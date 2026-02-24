@@ -1,17 +1,13 @@
 from dataclasses import dataclass
-import embit
 import pathlib
 import pytest
 import os
-import random
 import sys
 import time
 from unittest.mock import Mock, patch, MagicMock
 from PIL import ImageFont
 
-from embit import compact
-from embit.psbt import PSBT, OutputScope
-from embit.script import Script
+
 
 # Prevent importing modules w/Raspi hardware dependencies.
 # These must precede any SeedSigner imports.
@@ -31,19 +27,16 @@ from seedsigner.gui.screens.seed_screens import SeedAddPassphraseScreen
 from seedsigner.gui.toast import RemoveSDCardToastManagerThread, SDCardStateChangeToastManagerThread
 from seedsigner.gui.toast import DefaultToast, InfoToast, SuccessToast, WarningToast, ErrorToast, DireWarningToast
 from seedsigner.hardware.microsd import MicroSD
-from seedsigner.helpers import embit_utils
-from seedsigner.models.decode_qr import DecodeQR
 from seedsigner.models.encode_qr import BaseQrEncoder
-from seedsigner.models.psbt_parser import OPCODES, PSBTParser
 from seedsigner.models.qr_type import QRType
 from seedsigner.models.seed import Seed
 from seedsigner.models.settings import Settings
 from seedsigner.models.settings_definition import SettingsConstants, SettingsDefinition
 from seedsigner.views import (MainMenuView, PowerOptionsView, RestartView, RemoveMicroSDWarningView, NotYetImplementedView, UnhandledExceptionView,
-    psbt_views, seed_views, settings_views, tools_views, scan_views)
+    seed_views, settings_views, tools_views, scan_views)
 from seedsigner.views import tx_review as cardano_tx_views
 from cometa import NetworkId
-from seedsigner.models.cardano_tx import CardanoSignRequest, CardanoParsedTx, SigningInput, ChangeOutput, ExtraSigner
+from seedsigner.models.cardano_tx import CardanoSignRequest, CardanoParsedTx, SigningInput, ChangeOutput, ExtraSigner, CardanoMessageSignRequest, SigningPath
 from seedsigner.views.screensaver import OpeningSplashView
 from seedsigner.views.view import CameraConnectionErrorView, NetworkMismatchErrorView, OptionDisabledView, PowerOffView
 
@@ -75,47 +68,14 @@ def test_generate_all(locale, target_locale):
     Set up global test data that will be re-used across a variety of screenshots and for
     all locales.
 **************************************************************************************"""
-# Single sig ("abandon" test wallet) tx; 1mil sat input, 1 external output, 1 self-transfer, 1 change output, 400 sat fee
-BASE64_SINGLE_SIG_PSBT = """cHNidP8BAJACAAAAAT8SmJzLhTMNgtn9QOmBmet0nnqqIJpsgpgBN5JWNJCxAQAAAAD9////A5CfBwAAAAAAFgAULzSqHPAKU7BVopGgOn1F8KaYi1KQ0AMAAAAAABYAFGQh2ztS8DzX4kGVKUKQhFPrlNNIkNADAAAAAAAWABRvoBZQCjxqc367Jg4t3KeLqSNFWGYAAABPAQQ1h88DDvSxr4AAAAA8jCA37kwWIdoNNI21EWNwmmItDSg43ebYQZxR9jAcYgO4jg++P2RjN+2TvAwPO4Q/z30lieXsiEdU5kAgJ6iQtBBzxdoKVAAAgAEAAIAAAACAAAEAcQIAAAABF84F9MpvLC1H3Cyews1xoNZ4ch3uJMu8jonehCIqmScAAAAAAP3///8CM6/2KQEAAAAWABQQumvlzzcWsGXBNIOliqXTvr9YxEBCDwAAAAAAFgAU0MSj7wnpl7bpnjl+UY/j5BoRjKFNAAAAAQEfQEIPAAAAAAAWABTQxKPvCemXtumeOX5Rj+PkGhGMoQEDBAEAAAAiBgLnqyU3tdSelwMJquBunknzbOHJ/rvUTsjg0cygtPnDGRhzxdoKVAAAgAEAAIAAAACAAAAAAAAAAAAAIgIDXUnszVTQCZ5DZ2J3x6bUYl1hHaiKXfSb+VF6d5Gnd6UYc8XaClQAAIABAACAAAAAgAEAAAAAAAAAAAAiAgPu7SBaaQIv7UpioCRX82mbGcBr90v4AazG2a6EvBap4RhzxdoKVAAAgAEAAIAAAACAAAAAAAEAAAAA"""
-
-BASE64_MULTISIG_PSBT = """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"""
 mnemonic_12b = ["abandon"] * 11 + ["about"]
 seed_12b = Seed(mnemonic=mnemonic_12b, wordlist_language_code=SettingsConstants.WORDLIST_LANGUAGE__ENGLISH)
-
-def add_op_return_to_psbt(psbt: PSBT, raw_payload_data: bytes):
-    data = (compact.to_bytes(OPCODES.OP_RETURN) + 
-        compact.to_bytes(OPCODES.OP_PUSHDATA1) + 
-        compact.to_bytes(len(raw_payload_data)) +
-        raw_payload_data)
-    script = Script(data)
-    output = OutputScope()
-    output.script_pubkey = script
-    output.value = 0
-    psbt.outputs.append(output)
-    return psbt.to_string()
-
-# Prep a PSBT with a human-readable OP_RETURN
-raw_payload_data = "Chancellor on the brink of third bailout for banks".encode()
-psbt = PSBT.from_base64(BASE64_MULTISIG_PSBT)
-
-# Simplify the output side
-output = psbt.outputs[-1]
-psbt.outputs.clear()
-psbt.outputs.append(output)
-assert len(psbt.outputs) == 1
-BASE64_PSBT_WITH_OP_RETURN_TEXT = add_op_return_to_psbt(psbt, raw_payload_data)
-
-# Prep a PSBT with a (repeatably) random 80-byte OP_RETURN
-random.seed(6102)
-BASE64_PSBT_WITH_OP_RETURN_RAW_BYTES = add_op_return_to_psbt(PSBT.from_base64(BASE64_MULTISIG_PSBT), random.randbytes(80))
 
 mnemonic_12 = "forum undo fragile fade shy sign arrest garment culture tube off merit".split()
 mnemonic_24 = "attack pizza motion avocado network gather crop fresh patrol unusual wild holiday candy pony ranch winter theme error hybrid van cereal salon goddess expire".split()
 seed_12 = Seed(mnemonic=mnemonic_12, passphrase="cap*BRACKET3stove", wordlist_language_code=SettingsConstants.WORDLIST_LANGUAGE__ENGLISH)
 seed_24 = Seed(mnemonic=mnemonic_24, passphrase="some-PASS*phrase9", wordlist_language_code=SettingsConstants.WORDLIST_LANGUAGE__ENGLISH)
 seed_24_w_passphrase = Seed(mnemonic=mnemonic_24, passphrase="some-PASS*phrase9", wordlist_language_code=SettingsConstants.WORDLIST_LANGUAGE__ENGLISH)
-
-MULTISIG_WALLET_DESCRIPTOR = """wsh(sortedmulti(1,[22bde1a9/48h/1h/0h/2h]tpubDFfsBrmpj226ZYiRszYi2qK6iGvh2vkkghfGB2YiRUVY4rqqedHCFEgw12FwDkm7rUoVtq9wLTKc6BN2sxswvQeQgp7m8st4FP8WtP8go76/{0,1}/*,[73c5da0a/48h/1h/0h/2h]tpubDFH9dgzveyD8zTbPUFuLrGmCydNvxehyNdUXKJAQN8x4aZ4j6UZqGfnqFrD4NqyaTVGKbvEW54tsvPTK2UoSbCC1PJY8iCNiwTL3RWZEheQ/{0,1}/*))#3jhtf6yx"""
 
 
 # Wrap QRDisplayScreen's `render_brightness_tip` in a simple View + Screen so we
@@ -167,30 +127,78 @@ def _build_cardano_parsed_tx() -> CardanoParsedTx:
     return CardanoParsedTx(sign_request, verified_change_indices=[2])
 
 
+def _build_cardano_msg_request():
+    """Build a CardanoMessageSignRequest for screenshot generation."""
+    from cometa import Address, NetworkId as CometaNetworkId
+    # Build a mainnet base address (type 0x01) for the signing address
+    # header byte 0x01 = base key/key mainnet, then 28-byte payment hash + 28-byte stake hash
+    address_bytes = bytes.fromhex(
+        "01"
+        "350d57fd8f9f49f429449d89c893df74210ba70b9f13fc6c9736b7e3"
+        "1fa4a08fd7daf8f2ede99a7dd4ff3f9bd93b307f7ae16e47f071e60e"
+    )
+    return CardanoMessageSignRequest(
+        request_id="a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        origin="Lace",
+        message_payload=b"I attest that I am the owner of this Cardano address.",
+        required_signing_path=SigningPath(index=0, path=[2147485500, 2147485463, 2147483648, 0, 0]),
+        address_bytes=address_bytes,
+    )
+
+
 def _build_cardano_screenshot_configs():
-    """Build screenshot configs for Cardano TX views using real parsed data."""
+    """Build screenshot configs for Cardano TX and message signing views."""
     parsed_tx = _build_cardano_parsed_tx()
-    # Global indices for the test TX (7 outputs, fee@7, ttl@8, 20 certs@9-28,
-    # withdrawal@29, aux_hash@30, validity@31, 15 mints@32-46, script_hash@47,
-    # collateral@48, req_signer@49, coll_return@50, total_coll@51, ref_input@52,
-    # 3 votes@53-55, 7 proposals@56-62, treasury@63, donation@64)
+    msg_request = _build_cardano_msg_request()
+
+    # Global indices for the test TX (64 pages, 0-63):
+    # 7 outputs@0-6, fee@7, validity_start@8, ttl@9, 20 certs@10-29,
+    # withdrawal@30, aux_data_hash@31, 15 mints@32-46, script_data_hash@47,
+    # required_signer@48, collateral_return@49, total_collateral@50,
+    # reference_input@51, 3 votes@52-54, 7 proposals@55-61, treasury@62, donation@63
     seq = cardano_tx_views.CardanoTxSequentialReviewView
+    from seedsigner.views.msg_sign.overview_view import CardanoMsgOverviewView
+    from seedsigner.views.msg_sign.address_view import CardanoMsgAddressView
+    from seedsigner.views.msg_sign.payload_view import CardanoMsgPayloadView
+    from seedsigner.views.msg_sign.sign_view import CardanoMsgSignView
+
     return [
+        # TX Overview / Summary / Sign
         ScreenshotConfig(cardano_tx_views.CardanoTxOverviewView, dict(parsed_tx=parsed_tx)),
-        ScreenshotConfig(cardano_tx_views.CardanoTxSummaryView, dict(parsed_tx=parsed_tx)),
         ScreenshotConfig(cardano_tx_views.CardanoTxSignView, dict(parsed_tx=parsed_tx)),
-        # Sequential review — sample pages from different sections
+
+        # Sequential review — one sample page per section type
         ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=0), screenshot_name="SeqReview_output_first"),
         ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=1), screenshot_name="SeqReview_output_with_tokens"),
         ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=7), screenshot_name="SeqReview_fee"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=8), screenshot_name="SeqReview_ttl"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=9), screenshot_name="SeqReview_certificate"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=29), screenshot_name="SeqReview_withdrawal"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=8), screenshot_name="SeqReview_validity_start"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=9), screenshot_name="SeqReview_ttl"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=10), screenshot_name="SeqReview_certificate"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=30), screenshot_name="SeqReview_withdrawal"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=31), screenshot_name="SeqReview_aux_data_hash"),
         ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=32), screenshot_name="SeqReview_mint"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=48), screenshot_name="SeqReview_collateral"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=53), screenshot_name="SeqReview_voting"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=56), screenshot_name="SeqReview_proposal"),
-        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=52), screenshot_name="SeqReview_ref_input"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=47), screenshot_name="SeqReview_script_data_hash"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=48), screenshot_name="SeqReview_required_signer"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=49), screenshot_name="SeqReview_collateral_return"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=50), screenshot_name="SeqReview_total_collateral"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=51), screenshot_name="SeqReview_ref_input"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=52), screenshot_name="SeqReview_voting"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=55), screenshot_name="SeqReview_proposal"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=62), screenshot_name="SeqReview_treasury"),
+        ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=63), screenshot_name="SeqReview_donation"),
+
+        # CIP-8 Message signing flow
+        # Overview needs address_bytes=None to skip seed-based verification in test env
+        ScreenshotConfig(CardanoMsgOverviewView, dict(msg_request=CardanoMessageSignRequest(
+            request_id=msg_request.request_id,
+            origin=msg_request.origin,
+            message_payload=msg_request.message_payload,
+            required_signing_path=msg_request.required_signing_path,
+            address_bytes=None,
+        ))),
+        ScreenshotConfig(CardanoMsgAddressView, dict(msg_request=msg_request, page_index=0)),
+        ScreenshotConfig(CardanoMsgPayloadView, dict(msg_request=msg_request, page_index=1)),
+        ScreenshotConfig(CardanoMsgSignView, dict(msg_request=msg_request)),
     ]
 
 
@@ -218,9 +226,6 @@ def generate_screenshots(locale):
         Controller.reset_instance()
         controller = Controller.get_instance()
 
-        controller.settings.set_value(SettingsConstants.SETTING__SIG_TYPES, [attr for attr, name in SettingsConstants.ALL_SIG_TYPES])
-        controller.settings.set_value(SettingsConstants.SETTING__SCRIPT_TYPES, [attr for attr, name in SettingsConstants.ALL_SCRIPT_TYPES])
-
         controller.storage.seeds.append(seed_12)
         controller.storage.seeds.append(seed_12b)
         controller.storage.seeds.append(seed_24)
@@ -231,21 +236,6 @@ def generate_screenshots(locale):
         for i, word in enumerate(mnemonic_12[:11]):
             controller.storage.update_pending_mnemonic(word=word, index=i)
         controller.storage.update_pending_mnemonic(word="satoshi", index=11)  # random last word; not supposed to be a valid checksum (yet)
-
-        # Load a PSBT into memory
-        decoder = DecodeQR()
-        decoder.add_data(BASE64_MULTISIG_PSBT)
-        controller.psbt = decoder.get_psbt()
-        controller.psbt_seed = seed_12b
-
-        # Message signing data
-        derivation_path = "m/84h/0h/0h/0/0"
-        controller.sign_message_data = {
-            "seed_num": 0,
-            "derivation_path": derivation_path,
-            "message": "I attest that I control this bitcoin address blah blah blah",
-            "addr_format": embit_utils.parse_derivation_path(derivation_path)
-        }
 
         # so we get a choice for transcribe seed qr format
         controller.settings.set_value(
@@ -260,32 +250,14 @@ def generate_screenshots(locale):
                 if settings_entry.visibility != visibility:
                     continue
 
-                if settings_entry.attr_name == SettingsConstants.SETTING__LOCALE:
-                    # Locale selection has its own dedicated View
-                    settings_views_list.append(ScreenshotConfig(settings_views.LocaleSelectionView))
-                else:
-                    # Generic SettingsEntry selection View
-                    settings_views_list.append(ScreenshotConfig(settings_views.SettingsEntryUpdateSelectionView, dict(attr_name=settings_entry.attr_name), screenshot_name=f"SettingsEntryUpdateSelectionView_{settings_entry.attr_name}"))
+                # Generic SettingsEntry selection View
+                settings_views_list.append(ScreenshotConfig(settings_views.SettingsEntryUpdateSelectionView, dict(attr_name=settings_entry.attr_name), screenshot_name=f"SettingsEntryUpdateSelectionView_{settings_entry.attr_name}"))
 
         # Add the top level "General" settings menu and entries
         settings_views_list.append(ScreenshotConfig(settings_views.SettingsMenuView))
         add_settings_entries(SettingsConstants.VISIBILITY__GENERAL)
 
-        # Add the "Advanced" menu...
-        settings_views_list.append(
-            ScreenshotConfig(
-                settings_views.SettingsMenuView,
-                dict(
-                    visibility=SettingsConstants.VISIBILITY__ADVANCED,
-                ),
-                screenshot_name="SettingsMenuView__Advanced"
-            )
-        )
-
-        # ...and Advanced entries
-        add_settings_entries(SettingsConstants.VISIBILITY__ADVANCED)
-
-        # Render the nested "Advanced" -> "Hardware" submenu
+        # Render the "Hardware" submenu
         settings_views_list.append(
             ScreenshotConfig(
                 settings_views.SettingsMenuView,
@@ -295,69 +267,40 @@ def generate_screenshots(locale):
         )
         add_settings_entries(SettingsConstants.VISIBILITY__HARDWARE)
 
-        settingsqr_data_persistent = f"settings::v1 name=English_noob_mode persistent=E coords=spa,spd denom=thr network=M qr_density=M xpub_export=E sigs=ss scripts=nat xpub_details=E passphrase=E camera=0 compact_seedqr=E bip85=D priv_warn=E dire_warn=E partners=E locale={locale}"
-        settingsqr_data_not_persistent = f"settings::v1 name=Mode_Ephemeral persistent=D coords=spa,spd denom=thr network=M qr_density=M xpub_export=E sigs=ss scripts=nat xpub_details=E passphrase=E camera=0 compact_seedqr=E bip85=D priv_warn=E dire_warn=E partners=E locale={locale}"
+        settingsqr_data_persistent = f"settings::v1 name=English_noob_mode persistent=E qr_density=M xpub_export=E xpub_details=E passphrase=E camera=0 compact_seedqr=E bip85=D priv_warn=E dire_warn=E locale={locale}"
+        settingsqr_data_not_persistent = f"settings::v1 name=Mode_Ephemeral persistent=D qr_density=M xpub_export=E xpub_details=E passphrase=E camera=0 compact_seedqr=E bip85=D priv_warn=E dire_warn=E locale={locale}"
 
-        # Set up screenshot-specific callbacks to inject data before the View is run and
-        # reset data after the View is run.
-        def load_single_sig_psbt_cb():
-            decoder = DecodeQR()
-            decoder.add_data(BASE64_SINGLE_SIG_PSBT)
-            controller.psbt = decoder.get_psbt()
-            controller.psbt_seed = seed_12b
-            controller.psbt_parser = PSBTParser(p=controller.psbt, seed=seed_12b)
-            controller.multisig_wallet_descriptor = None
-
-
-        def load_multisig_psbt_cb():
-            decoder = DecodeQR()
-            decoder.add_data(BASE64_MULTISIG_PSBT)
-            controller.psbt = decoder.get_psbt()
-            controller.psbt_seed = seed_12b
-            controller.psbt_parser = PSBTParser(p=controller.psbt, seed=seed_12b)
-            controller.multisig_wallet_descriptor = None
-
-
-        def load_multisig_wallet_descriptor_cb():
-            controller.multisig_wallet_descriptor = embit.descriptor.Descriptor.from_string(MULTISIG_WALLET_DESCRIPTOR)
-
+        # Callbacks for seed views that need data injected before rendering
+        def load_sign_message_data_cb():
+            controller.sign_message_data = dict(
+                seed_num=0,
+                derivation_path="m/84h/0h/0h/0/0",
+                message="Hello, this is a test message to sign.",
+                addr_format=dict(
+                    network=SettingsConstants.MAINNET,
+                    script_type=SettingsConstants.NATIVE_SEGWIT,
+                    wallet_derivation_path="m/84h/0h/0h",
+                    index=0,
+                    is_change=False,
+                    clean_match=True,
+                ),
+            )
 
         def load_address_verification_data_cb():
             controller.unverified_address = dict(
-                # These are all totally fake data
                 address="bc1q6p00wazu4nnqac29fvky6vhjnnhku5u2g9njss62rvy7e0yuperq86f5ek",
                 network=SettingsConstants.MAINNET,
                 sig_type=SettingsConstants.SINGLE_SIG,
                 script_type=SettingsConstants.NATIVE_SEGWIT,
-                derivation_path = "m/84h/0h/0h",
+                derivation_path="m/84h/0h/0h",
                 verified_index=5,
-                verified_index_is_change=False
+                verified_index_is_change=False,
             )
-
-
-        def PSBTSelectSeedView_cb_before():
-            # Have to ensure this is cleared out in order to get the seed selection screen
-            controller.psbt_seed = None
-
-
-        def PSBTOverviewView_op_return_cb_before():
-            controller.psbt_seed = seed_12b
-            decoder = DecodeQR()
-            decoder.add_data(BASE64_PSBT_WITH_OP_RETURN_TEXT)
-            controller.psbt = decoder.get_psbt()
-            controller.psbt_parser = PSBTParser(p=controller.psbt, seed=seed_12b)
-        
-
-        def PSBTOpReturnView_raw_hex_data_cb_before():
-            decoder.add_data(BASE64_PSBT_WITH_OP_RETURN_RAW_BYTES)
-            controller.psbt = decoder.get_psbt()
-            controller.psbt_parser = PSBTParser(p=controller.psbt, seed=seed_12b)
 
 
         screenshot_sections = {
             "Main Menu Views": [
-                ScreenshotConfig(OpeningSplashView, dict(force_partner_logos=True)),
-                ScreenshotConfig(OpeningSplashView, dict(force_partner_logos=False), screenshot_name="OpeningSplashView_no_partner_logos"),
+                ScreenshotConfig(OpeningSplashView),
                 ScreenshotConfig(MainMenuView),
                 ScreenshotConfig(MainMenuView, screenshot_name='MainMenuView_SDCardStateChangeToast_removed',  toast_thread=SDCardStateChangeToastManagerThread(action=MicroSD.ACTION__REMOVED, activation_delay=0, duration=0)),
                 ScreenshotConfig(MainMenuView, screenshot_name='MainMenuView_SDCardStateChangeToast_inserted', toast_thread=SDCardStateChangeToastManagerThread(action=MicroSD.ACTION__INSERTED, activation_delay=0, duration=0)),
@@ -392,7 +335,7 @@ def generate_screenshots(locale):
                 ScreenshotConfig(seed_views.SeedExportXpubSigTypeView, dict(seed_num=0)),
                 ScreenshotConfig(seed_views.SeedExportXpubScriptTypeView, dict(seed_num=0, sig_type="msig")),
                 ScreenshotConfig(seed_views.SeedExportXpubCustomDerivationView, dict(seed_num=0, sig_type="ss", script_type="")),
-                ScreenshotConfig(seed_views.SeedExportXpubCoordinatorView, dict(seed_num=0, sig_type="ss", script_type="nat")),
+
                 ScreenshotConfig(seed_views.SeedExportXpubWarningView, dict(seed_num=0, sig_type="msig", script_type="nes", coordinator="spd", custom_derivation="")),
                 ScreenshotConfig(seed_views.SeedExportXpubDetailsView, dict(seed_num=0, sig_type="ss", script_type="nat", coordinator="bw", custom_derivation="")),
                 ScreenshotConfig(SeedExportXpubQR_ScreenBrightnessView, dict(seed_num=0, coordinator="bw", derivation_path="m/84'/0'/0'")),
@@ -429,38 +372,15 @@ def generate_screenshots(locale):
                 ScreenshotConfig(seed_views.SeedAddressVerificationView, dict(seed_num=0), run_before=load_address_verification_data_cb),
                 ScreenshotConfig(seed_views.SeedAddressVerificationSuccessView, dict(seed_num=0)),  # Relies on callback above
 
-                ScreenshotConfig(seed_views.LoadMultisigWalletDescriptorView),
-                ScreenshotConfig(seed_views.MultisigWalletDescriptorView, run_before=load_multisig_wallet_descriptor_cb),
+
+
                 ScreenshotConfig(seed_views.SeedDiscardView, dict(seed_num=0)),
 
                 ScreenshotConfig(seed_views.SeedSelectSeedView, dict(flow=Controller.FLOW__SIGN_MESSAGE), screenshot_name="SeedSelectSeedView_sign_message"),
-                ScreenshotConfig(seed_views.SeedSignMessageConfirmMessageView),
+                ScreenshotConfig(seed_views.SeedSignMessageConfirmMessageView, run_before=load_sign_message_data_cb),
                 ScreenshotConfig(seed_views.SeedSignMessageConfirmAddressView),
 
-                ScreenshotConfig(seed_views.SeedElectrumMnemonicStartView),
-            ],
-            "PSBT Views": [
-                ScreenshotConfig(psbt_views.PSBTSelectSeedView, run_before=PSBTSelectSeedView_cb_before),
-                ScreenshotConfig(psbt_views.PSBTOverviewView, run_before=load_multisig_psbt_cb),
-                ScreenshotConfig(psbt_views.PSBTUnsupportedScriptTypeWarningView),
-                ScreenshotConfig(psbt_views.PSBTNoChangeWarningView),
-                ScreenshotConfig(psbt_views.PSBTMathView),
-                ScreenshotConfig(psbt_views.PSBTAddressDetailsView, dict(address_num=0)),
 
-                ScreenshotConfig(psbt_views.PSBTChangeDetailsView, dict(change_address_num=0), screenshot_name="PSBTChangeDetailsView_single_sig_change_verified", run_before=load_single_sig_psbt_cb),
-                ScreenshotConfig(psbt_views.PSBTChangeDetailsView, dict(change_address_num=1), screenshot_name="PSBTChangeDetailsView_single_sig_self_transfer_verified", run_before=load_single_sig_psbt_cb),
-                ScreenshotConfig(psbt_views.PSBTChangeDetailsView, dict(change_address_num=0), screenshot_name="PSBTChangeDetailsView_multisig_unverified", run_before=load_multisig_psbt_cb),
-                ScreenshotConfig(psbt_views.PSBTChangeDetailsView, dict(change_address_num=0), screenshot_name="PSBTChangeDetailsView_multisig_verified", run_before=load_multisig_wallet_descriptor_cb),
-                ScreenshotConfig(psbt_views.PSBTOverviewView, screenshot_name="PSBTOverviewView_op_return", run_before=PSBTOverviewView_op_return_cb_before),
-                ScreenshotConfig(psbt_views.PSBTOpReturnView, screenshot_name="PSBTOpReturnView_text"),  # Relies on callback above
-                ScreenshotConfig(psbt_views.PSBTOpReturnView, screenshot_name="PSBTOpReturnView_raw_hex_data", run_before=PSBTOpReturnView_raw_hex_data_cb_before),
-                ScreenshotConfig(psbt_views.PSBTAddressVerificationFailedView, dict(is_change=True, is_multisig=False),  screenshot_name="PSBTAddressVerificationFailedView_singlesig_change"),
-                ScreenshotConfig(psbt_views.PSBTAddressVerificationFailedView, dict(is_change=False, is_multisig=False), screenshot_name="PSBTAddressVerificationFailedView_singlesig_selftransfer"),
-                ScreenshotConfig(psbt_views.PSBTAddressVerificationFailedView, dict(is_change=True, is_multisig=True),   screenshot_name="PSBTAddressVerificationFailedView_multisig_change"),
-                ScreenshotConfig(psbt_views.PSBTAddressVerificationFailedView, dict(is_change=False, is_multisig=True),  screenshot_name="PSBTAddressVerificationFailedView_multisig_selftransfer"),
-                ScreenshotConfig(psbt_views.PSBTFinalizeView),
-                #ScreenshotConfig(PSBTSignedQRDisplayViewScreenshotConfig),
-                ScreenshotConfig(psbt_views.PSBTSigningErrorView),
             ],
             "Cardano TX Views": _build_cardano_screenshot_configs(),
             "Tools Views": [
@@ -477,13 +397,12 @@ def generate_screenshots(locale):
                 ScreenshotConfig(tools_views.ToolsCalcFinalWordShowFinalWordView, dict(coin_flips="0010101"), screenshot_name="ToolsCalcFinalWordShowFinalWordView_coin_flips"),
                 ScreenshotConfig(tools_views.ToolsCalcFinalWordDoneView),
                 ScreenshotConfig(tools_views.ToolsAddressExplorerSelectSourceView),
-                ScreenshotConfig(tools_views.ToolsAddressExplorerAddressTypeView),
+                ScreenshotConfig(tools_views.ToolsAddressExplorerAddressTypeView, dict(seed_num=0, script_type="nat")),
                 ScreenshotConfig(tools_views.ToolsAddressExplorerAddressListView),
                 # ScreenshotConfig(tools_views.ToolsAddressExplorerAddressView),
             ],
             "Settings Views": settings_views_list + [
                 ScreenshotConfig(settings_views.IOTestView),
-                ScreenshotConfig(settings_views.DonateView),
                 ScreenshotConfig(settings_views.SettingsIngestSettingsQRView, dict(data=settingsqr_data_persistent), screenshot_name="SettingsIngestSettingsQRView_persistent"),
                 ScreenshotConfig(settings_views.SettingsIngestSettingsQRView, dict(data=settingsqr_data_not_persistent), screenshot_name="SettingsIngestSettingsQRView_not_persistent"),
             ],
@@ -492,7 +411,7 @@ def generate_screenshots(locale):
                 ScreenshotConfig(UnhandledExceptionView, dict(error=["IndexError", "line 1, in some_buggy_code.py", "list index out of range"])),
                 ScreenshotConfig(CameraConnectionErrorView),
                 ScreenshotConfig(NetworkMismatchErrorView, dict(derivation_path="m/84'/1'/0'")),
-                ScreenshotConfig(OptionDisabledView, dict(settings_attr=SettingsConstants.SETTING__MESSAGE_SIGNING)),
+                ScreenshotConfig(OptionDisabledView, dict(settings_attr=SettingsConstants.SETTING__PASSPHRASE)),
                 ScreenshotConfig(scan_views.ScanInvalidQRTypeView)
             ]
         }

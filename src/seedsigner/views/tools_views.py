@@ -649,7 +649,7 @@ class ToolsCalcFinalWordDoneView(View):
             ToolsCalcFinalWordDoneScreen,
             final_word=final_word,
             mnemonic_word_length=mnemonic_word_length,
-            fingerprint=self.controller.storage.get_pending_mnemonic_fingerprint(self.settings.get_value(SettingsConstants.SETTING__NETWORK)),
+            fingerprint=self.controller.storage.get_pending_mnemonic_fingerprint(SettingsConstants.MAINNET),
             button_data=button_data,
         )
 
@@ -682,12 +682,9 @@ class ToolsAddressExplorerSelectSourceView(View):
         seeds = self.controller.storage.seeds
         button_data = []
         for seed in seeds:
-            button_str = seed.get_fingerprint(self.settings.get_value(SettingsConstants.SETTING__NETWORK))
+            button_str = seed.get_fingerprint(SettingsConstants.MAINNET)
             button_data.append(ButtonOption(button_str, SeedSignerIconConstants.FINGERPRINT, icon_color=GUIConstants.ACCENT_TEXT_COLOR))
         button_data = button_data + [self.SCAN_SEED, self.SCAN_DESCRIPTOR, self.TYPE_12WORD, self.TYPE_24WORD]
-        if self.settings.get_value(SettingsConstants.SETTING__ELECTRUM_SEEDS) == SettingsConstants.OPTION__ENABLED:
-            button_data.append(self.TYPE_ELECTRUM)
-
         selected_menu_num = self.run_screen(
             ButtonListScreen,
             title=_("Address Explorer"),
@@ -754,13 +751,13 @@ class ToolsAddressExplorerAddressTypeView(View):
         self.script_type = script_type
         self.custom_derivation = custom_derivation
     
-        network = self.settings.get_value(SettingsConstants.SETTING__NETWORK)
+        network = SettingsConstants.MAINNET
 
         # Store everything in the Controller's `address_explorer_data` so we don't have
         # to keep passing vals around from View to View and recalculating.
         data = dict(
             seed_num=seed_num,
-            network=self.settings.get_value(SettingsConstants.SETTING__NETWORK),
+            network=SettingsConstants.MAINNET,
             embit_network=SettingsConstants.map_network_to_embit(network),
             script_type=script_type,
         )
@@ -776,7 +773,7 @@ class ToolsAddressExplorerAddressTypeView(View):
             else:
                 from seedsigner.helpers import embit_utils
                 derivation_path = embit_utils.get_standard_derivation_path(
-                    network=self.settings.get_value(SettingsConstants.SETTING__NETWORK),
+                    network=SettingsConstants.MAINNET,
                     wallet_type=SettingsConstants.SINGLE_SIG,
                     script_type=self.script_type,
                 )

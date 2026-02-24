@@ -1051,8 +1051,8 @@ class BtcAmount(BaseComponent):
         super().__post_init__()
         self.paste_image: Image.Image = None
         self.paste_coords = None
-        denomination = Settings.get_instance().get_value(SettingsConstants.SETTING__BTC_DENOMINATION)
-        network = Settings.get_instance().get_value(SettingsConstants.SETTING__NETWORK)
+        denomination = SettingsConstants.BTC_DENOMINATION__THRESHOLD
+        network = SettingsConstants.MAINNET
 
         # TRANSLATOR_NOTE: Testnet bitcoin
         btc_unit = _("tBtc")
