@@ -78,27 +78,6 @@ seed_24 = Seed(mnemonic=mnemonic_24, passphrase="some-PASS*phrase9", wordlist_la
 seed_24_w_passphrase = Seed(mnemonic=mnemonic_24, passphrase="some-PASS*phrase9", wordlist_language_code=SettingsConstants.WORDLIST_LANGUAGE__ENGLISH)
 
 
-# Wrap QRDisplayScreen's `render_brightness_tip` in a simple View + Screen so we
-# can call it outside of its child thread and generate a screenshot.
-class SeedExportXpubQR_ScreenBrightnessView(seed_views.SeedExportXpubQRDisplayView):
-    @dataclass
-    class QRDisplayScreenBrightnessTipScreen(BaseScreen):
-        qr_encoder: BaseQrEncoder = None
-
-        def _render(self):
-            from seedsigner.gui.screens.screen import QRDisplayScreen
-            image = self.qr_encoder.part_to_image(self.qr_encoder.cur_part(), 240, 240, border=2, background_color="white")
-            QRDisplayScreen.QRDisplayThread.render_brightness_tip(None, image)
-            self.renderer.show_image(image)
-
-    def run(self):
-        self.run_screen(
-            SeedExportXpubQR_ScreenBrightnessView.QRDisplayScreenBrightnessTipScreen,
-            qr_encoder=self.qr_encoder,  # initialized by SeedExportXpubQRDisplayView
-        )
-
-
-
 def _build_cardano_parsed_tx() -> CardanoParsedTx:
     """Build a CardanoParsedTx from the test CBOR data for screenshot generation."""
     sign_request = CardanoSignRequest(
@@ -267,36 +246,8 @@ def generate_screenshots(locale):
         )
         add_settings_entries(SettingsConstants.VISIBILITY__HARDWARE)
 
-        settingsqr_data_persistent = f"settings::v1 name=English_noob_mode persistent=E qr_density=M xpub_export=E xpub_details=E passphrase=E camera=0 compact_seedqr=E bip85=D priv_warn=E dire_warn=E locale={locale}"
-        settingsqr_data_not_persistent = f"settings::v1 name=Mode_Ephemeral persistent=D qr_density=M xpub_export=E xpub_details=E passphrase=E camera=0 compact_seedqr=E bip85=D priv_warn=E dire_warn=E locale={locale}"
-
-        # Callbacks for seed views that need data injected before rendering
-        def load_sign_message_data_cb():
-            controller.sign_message_data = dict(
-                seed_num=0,
-                derivation_path="m/84h/0h/0h/0/0",
-                message="Hello, this is a test message to sign.",
-                addr_format=dict(
-                    network=SettingsConstants.MAINNET,
-                    script_type=SettingsConstants.NATIVE_SEGWIT,
-                    wallet_derivation_path="m/84h/0h/0h",
-                    index=0,
-                    is_change=False,
-                    clean_match=True,
-                ),
-            )
-
-        def load_address_verification_data_cb():
-            controller.unverified_address = dict(
-                address="bc1q6p00wazu4nnqac29fvky6vhjnnhku5u2g9njss62rvy7e0yuperq86f5ek",
-                network=SettingsConstants.MAINNET,
-                sig_type=SettingsConstants.SINGLE_SIG,
-                script_type=SettingsConstants.NATIVE_SEGWIT,
-                derivation_path="m/84h/0h/0h",
-                verified_index=5,
-                verified_index_is_change=False,
-            )
-
+        settingsqr_data_persistent = f"settings::v1 name=English_noob_mode persistent=E qr_density=M xpub_export=E xpub_details=E passphrase=E camera=0 compact_seedqr=E priv_warn=E dire_warn=E locale={locale}"
+        settingsqr_data_not_persistent = f"settings::v1 name=Mode_Ephemeral persistent=D qr_density=M xpub_export=E xpub_details=E passphrase=E camera=0 compact_seedqr=E priv_warn=E dire_warn=E locale={locale}"
 
         screenshot_sections = {
             "Main Menu Views": [
@@ -332,20 +283,10 @@ def generate_screenshots(locale):
                 
                 ScreenshotConfig(seed_views.SeedOptionsView, dict(seed_num=0)),
                 ScreenshotConfig(seed_views.SeedBackupView, dict(seed_num=0)),
-                ScreenshotConfig(seed_views.SeedExportXpubSigTypeView, dict(seed_num=0)),
-                ScreenshotConfig(seed_views.SeedExportXpubScriptTypeView, dict(seed_num=0, sig_type="msig")),
-                ScreenshotConfig(seed_views.SeedExportXpubCustomDerivationView, dict(seed_num=0, sig_type="ss", script_type="")),
-
-                ScreenshotConfig(seed_views.SeedExportXpubWarningView, dict(seed_num=0, sig_type="msig", script_type="nes", coordinator="spd", custom_derivation="")),
-                ScreenshotConfig(seed_views.SeedExportXpubDetailsView, dict(seed_num=0, sig_type="ss", script_type="nat", coordinator="bw", custom_derivation="")),
-                ScreenshotConfig(SeedExportXpubQR_ScreenBrightnessView, dict(seed_num=0, coordinator="bw", derivation_path="m/84'/0'/0'")),
 
                 ScreenshotConfig(seed_views.SeedWordsWarningView, dict(seed_num=0)),
                 ScreenshotConfig(seed_views.SeedWordsView, dict(seed_num=0)),
                 ScreenshotConfig(seed_views.SeedWordsView, dict(seed_num=0, page_index=2), screenshot_name="SeedWordsView_2"),
-                ScreenshotConfig(seed_views.SeedBIP85SelectNumWordsView, dict(seed_num=0)),
-                ScreenshotConfig(seed_views.SeedBIP85SelectChildIndexView, dict(seed_num=0, num_words=24)),
-                ScreenshotConfig(seed_views.SeedBIP85InvalidChildIndexView, dict(seed_num=0, num_words=12)), 
                 ScreenshotConfig(seed_views.SeedWordsBackupTestPromptView, dict(seed_num=0)),
                 ScreenshotConfig(seed_views.SeedWordsBackupTestView, dict(seed_num=0, rand_seed=6102)),
                 ScreenshotConfig(seed_views.SeedWordsBackupTestMistakeView, dict(seed_num=0, cur_index=7, wrong_word="satoshi")),
@@ -367,20 +308,7 @@ def generate_screenshots(locale):
                 # Screenshot can't render live preview screens
                 # ScreenshotConfig(seed_views.SeedTranscribeSeedQRConfirmScanView, dict(seed_num=0)),
 
-                ScreenshotConfig(seed_views.SeedSelectSeedView, dict(flow=Controller.FLOW__VERIFY_SINGLESIG_ADDR), screenshot_name="SeedSelectSeedView_address_verification"),
-                ScreenshotConfig(seed_views.AddressVerificationSigTypeView),
-                ScreenshotConfig(seed_views.SeedAddressVerificationView, dict(seed_num=0), run_before=load_address_verification_data_cb),
-                ScreenshotConfig(seed_views.SeedAddressVerificationSuccessView, dict(seed_num=0)),  # Relies on callback above
-
-
-
                 ScreenshotConfig(seed_views.SeedDiscardView, dict(seed_num=0)),
-
-                ScreenshotConfig(seed_views.SeedSelectSeedView, dict(flow=Controller.FLOW__SIGN_MESSAGE), screenshot_name="SeedSelectSeedView_sign_message"),
-                ScreenshotConfig(seed_views.SeedSignMessageConfirmMessageView, run_before=load_sign_message_data_cb),
-                ScreenshotConfig(seed_views.SeedSignMessageConfirmAddressView),
-
-
             ],
             "Cardano TX Views": _build_cardano_screenshot_configs(),
             "Tools Views": [
@@ -396,10 +324,6 @@ def generate_screenshots(locale):
                 ScreenshotConfig(tools_views.ToolsCalcFinalWordShowFinalWordView, screenshot_name="ToolsCalcFinalWordShowFinalWordView_pick_word"),
                 ScreenshotConfig(tools_views.ToolsCalcFinalWordShowFinalWordView, dict(coin_flips="0010101"), screenshot_name="ToolsCalcFinalWordShowFinalWordView_coin_flips"),
                 ScreenshotConfig(tools_views.ToolsCalcFinalWordDoneView),
-                ScreenshotConfig(tools_views.ToolsAddressExplorerSelectSourceView),
-                ScreenshotConfig(tools_views.ToolsAddressExplorerAddressTypeView, dict(seed_num=0, script_type="nat")),
-                ScreenshotConfig(tools_views.ToolsAddressExplorerAddressListView),
-                # ScreenshotConfig(tools_views.ToolsAddressExplorerAddressView),
             ],
             "Settings Views": settings_views_list + [
                 ScreenshotConfig(settings_views.IOTestView),

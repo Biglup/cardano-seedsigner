@@ -12,11 +12,11 @@ class TestController(BaseTest):
     def test_reset_controller(self):
         """ The reset_controller util should completely reset the Controller singleton """
         controller = Controller.get_instance()
-        controller.address_explorer_data = "foo"
+        controller.cardano_seed = "foo"
 
         BaseTest.reset_controller()
         controller = Controller.get_instance()
-        assert controller.address_explorer_data is None
+        assert controller.cardano_seed is None
 
 
     def test_singleton_init_fails(self):
@@ -72,14 +72,14 @@ class TestController(BaseTest):
 
         # Initialize the instance and verify that it read the config settings
         controller = Controller.get_instance()
-        assert controller.unverified_address is None
+        assert controller.cardano_seed is None
 
         # Change a value in the instance...
-        controller.unverified_address = "123abc"
+        controller.cardano_seed = "123abc"
 
         # ...get a new copy of the instance and confirm change
         controller = Controller.get_instance()
-        assert controller.unverified_address == "123abc"
+        assert controller.cardano_seed == "123abc"
 
 
     def test_missing_settings_get_defaults(self):
@@ -97,7 +97,6 @@ class TestController(BaseTest):
         assert controller.settings.get_value(SettingsConstants.SETTING__PASSPHRASE) == SettingsConstants.OPTION__ENABLED
         assert controller.settings.get_value(SettingsConstants.SETTING__CAMERA_ROTATION) == SettingsConstants.CAMERA_ROTATION__180
         assert controller.settings.get_value(SettingsConstants.SETTING__COMPACT_SEEDQR) == SettingsConstants.OPTION__ENABLED
-        assert controller.settings.get_value(SettingsConstants.SETTING__BIP85_CHILD_SEEDS) == SettingsConstants.OPTION__DISABLED
         assert controller.settings.get_value(SettingsConstants.SETTING__PRIVACY_WARNINGS) == SettingsConstants.OPTION__ENABLED
         assert controller.settings.get_value(SettingsConstants.SETTING__DIRE_WARNINGS) == SettingsConstants.OPTION__ENABLED
         assert controller.settings.get_value(SettingsConstants.SETTING__QR_BRIGHTNESS_TIPS) == SettingsConstants.OPTION__ENABLED

@@ -32,7 +32,7 @@ class PSBTSelectSeedView(View):
         seeds = self.controller.storage.seeds
         button_data = []
         for seed in seeds:
-            button_str = seed.get_fingerprint(SettingsConstants.MAINNET)
+            button_str = seed.get_fingerprint()
             if not PSBTParser.has_matching_input_fingerprint(psbt=self.controller.psbt, seed=seed, network=SettingsConstants.MAINNET):
                 # Doesn't look like this seed can sign the current PSBT
                 # TRANSLATOR_NOTE: Inserts fingerprint w/"?" to indicate that this seed can't sign the current PSBT
@@ -329,7 +329,7 @@ class PSBTChangeDetailsView(View):
 
         # Single-sig verification is easy. We expect to find a single fingerprint
         # and derivation path.
-        seed_fingerprint = self.controller.psbt_seed.get_fingerprint(SettingsConstants.MAINNET)
+        seed_fingerprint = self.controller.psbt_seed.get_fingerprint()
 
         if seed_fingerprint not in change_data.get("fingerprint"):
             # TODO: Something is wrong with this psbt(?). Reroute to warning?

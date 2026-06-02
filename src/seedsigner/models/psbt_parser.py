@@ -375,7 +375,7 @@ class PSBTParser():
             Extracts the fingerprint from each psbt input utxo. Returns True if any match
             the current seed.
         """
-        seed_fingerprint = seed.get_fingerprint(network)
+        seed_fingerprint = seed.get_fingerprint()
         
         def check_fingerprint_match(public_key: PublicKey, derivation_path_obj: DerivationPath):
             """Check fingerprint match with missing fingerprint fallback"""

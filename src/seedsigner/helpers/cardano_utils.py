@@ -41,7 +41,8 @@ def verify_change_outputs(sign_request, seed, body) -> list[int]:
     }
 
     entropy = mnemonic_to_entropy(seed.mnemonic_list)
-    root_key = Bip32PrivateKey.from_bip39_entropy(b"", entropy)
+    passphrase_bytes = seed.passphrase.encode('utf-8') if seed.passphrase else b""
+    root_key = Bip32PrivateKey.from_bip39_entropy(passphrase_bytes, entropy)
     network_id = sign_request.network
     verified = []
 
@@ -114,7 +115,8 @@ def verify_message_signing_address(msg_request, seed) -> bool:
         return True
 
     entropy = mnemonic_to_entropy(seed.mnemonic_list)
-    root_key = Bip32PrivateKey.from_bip39_entropy(b"", entropy)
+    passphrase_bytes = seed.passphrase.encode('utf-8') if seed.passphrase else b""
+    root_key = Bip32PrivateKey.from_bip39_entropy(passphrase_bytes, entropy)
     path = msg_request.required_signing_path.path
 
     # Try standard Cardano address first

@@ -74,25 +74,42 @@ def test_calculate_checksum_invalid_mnemonics():
         # Mnemonic is too short: 10 words instead of 11
         partial_mnemonic = "abandon " * 9 + "about"
         mnemonic_generation.calculate_checksum(partial_mnemonic)
-    assert "12- or 24-word" in str(e)
+    assert "12, 15, or 24-word" in str(e)
 
     with pytest.raises(Exception) as e:
-        # Valid mnemonic but unsupported length
-        mnemonic = "devote myth base logic dust horse nut collect buddy element eyebrow visit empty dress jungle"
-        mnemonic_generation.calculate_checksum(mnemonic)
-    assert "12- or 24-word" in str(e)
+        # Unsupported length: 18 words
+        partial_mnemonic = "abandon " * 17 + "about"
+        mnemonic_generation.calculate_checksum(partial_mnemonic)
+    assert "12, 15, or 24-word" in str(e)
 
     with pytest.raises(Exception) as e:
         # Mnemonic is too short: 22 words instead of 23
         partial_mnemonic = "abandon " * 21 + "about"
         mnemonic_generation.calculate_checksum(partial_mnemonic)
-    assert "12- or 24-word" in str(e)
+    assert "12, 15, or 24-word" in str(e)
 
     with pytest.raises(ValueError) as e:
         # Invalid BIP-39 word
         partial_mnemonic = "foobar " * 11 + "about"
         mnemonic_generation.calculate_checksum(partial_mnemonic)
     assert "not in the dictionary" in str(e)
+
+
+
+def test_calculate_checksum_15_words():
+    """
+        Given a 14-word mnemonic, the calculated checksum should yield a valid 15-word mnemonic.
+    """
+    partial_mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon"
+    mnemonic = mnemonic_generation.calculate_checksum(partial_mnemonic.split(" "))
+    assert len(mnemonic) == 15
+    assert bip39.mnemonic_is_valid(" ".join(mnemonic))
+
+    # Also accept 15-word input (recalculates checksum)
+    full_mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon address"
+    mnemonic = mnemonic_generation.calculate_checksum(full_mnemonic.split(" "))
+    assert len(mnemonic) == 15
+    assert bip39.mnemonic_is_valid(" ".join(mnemonic))
 
 
 

@@ -1,9 +1,8 @@
-from seedsigner.models.encode_qr import CompactSeedQrEncoder, SeedQrEncoder, SpecterXPubQrEncoder, StaticXpubQrEncoder, UrPsbtQrEncoder, UrXpubQrEncoder
+from seedsigner.models.encode_qr import CompactSeedQrEncoder, SeedQrEncoder, UrPsbtQrEncoder
 from embit import psbt
 from binascii import a2b_base64
 
 from seedsigner.models.settings import SettingsConstants
-from seedsigner.models.seed import Seed
 
 
 
@@ -38,56 +37,3 @@ def test_seedsigner_qr():
 
     e = CompactSeedQrEncoder(mnemonic=mnemonic)
     assert e.next_part() == b'[\xbd\x9dq\xa8\xecy\x90\x83\x1a\xff5\x9dBeE'
-
-
-
-def test_xpub_qr():
-    mnemonic = "obscure bone gas open exotic abuse virus bunker shuffle nasty ship dash"
-
-    e = StaticXpubQrEncoder(seed=Seed(mnemonic.split(), passphrase="pass"),
-                            derivation="m/48h/1h/0h/2h",
-                            network=SettingsConstants.TESTNET)
-    assert e.next_part() == "[c49122a5/48h/1h/0h/2h]Vpub5mXgECaX5yYDNc5VnUG4jVNptyEg65qUjuofWchQeuMWWiq8rcPBoMxfrVggXj5NJmaNEToWpax8GMMucozvAdqf1bW1JsZsfdBzsK3VUC5"
-
-
-
-def test_specter_xpub_qr():
-    mnemonic = "obscure bone gas open exotic abuse virus bunker shuffle nasty ship dash"
-
-    e = SpecterXPubQrEncoder(seed=Seed(mnemonic.split(" "), passphrase="pass"), network=SettingsConstants.TESTNET, derivation="m/48h/1h/0h/2h", qr_density=SettingsConstants.DENSITY__LOW)
-
-    assert e.next_part() == "p1of4 [c49122a5/48h/1h/0h/2h]Vpub5mXgECaX5yYDN"
-    assert e.next_part() == "p2of4 c5VnUG4jVNptyEg65qUjuofWchQeuMWWiq8rcPBo"
-    assert e.next_part() == "p3of4 MxfrVggXj5NJmaNEToWpax8GMMucozvAdqf1bW1J"
-    assert e.next_part() == "p4of4 sZsfdBzsK3VUC5"
-
-
-
-def test_ur_xpub_qr():    
-    mnemonic = "obscure bone gas open exotic abuse virus bunker shuffle nasty ship dash"
-    
-    e = UrXpubQrEncoder(
-        seed=Seed(mnemonic.split(), passphrase="pass"),
-        network=SettingsConstants.MAINNET,
-        derivation="m/48h/1h/0h/2h",
-        qr_density=SettingsConstants.DENSITY__MEDIUM
-    )
-
-    assert e.next_part() == "UR:CRYPTO-ACCOUNT/1-4/LPADAACSKPCYMOMNLGRYHDCKOEADCYSSMECPONAOLYTAADMETAADDLOXAXHDCLAOKSRLNLKPUEGYATHPMNSNIYMUECBY"
-    assert e.next_part() == "UR:CRYPTO-ACCOUNT/2-4/LPAOAACSKPCYMOMNLGRYHDCKKKGHZMLUZORPVDGUOTECSTTKTOLPCWPTNTLKZTTIZTBEAAHDCXVDTPMYRSTDMOPSCXFZ"
-    assert e.next_part() == "UR:CRYPTO-ACCOUNT/3-4/LPAXAACSKPCYMOMNLGRYHDCKSPZSBZSPGERLGDATUYNLPYBTGYIYYKBTWTAOSWKSVTSGCHBYDKYAVDAMTAADMONDGDFD"
-    assert e.next_part() == "UR:CRYPTO-ACCOUNT/4-4/LPAAAACSKPCYMOMNLGRYHDCKDYOTADLOCSDYYKADYKAEYKAOYKAOCYSSMECPONAXAAAYCYIOREKKJKAEAEAEWZWDMYON"    
-
-
-    e = UrXpubQrEncoder(
-        seed=Seed(mnemonic.split(), passphrase="pass"),
-        network=SettingsConstants.TESTNET,
-        derivation="m/48h/1h/0h/2h",
-        qr_density=SettingsConstants.DENSITY__MEDIUM
-    )
-
-    assert e.next_part() == "UR:CRYPTO-ACCOUNT/1-5/LPADAHCSKECYRTPEDKMOHDCFOEADCYSSMECPONAOLYTAADMETAADDLONAXHDCLAOKSRLNLKPUENSAHBTHS"
-    assert e.next_part() == "UR:CRYPTO-ACCOUNT/2-5/LPAOAHCSKECYRTPEDKMOHDCFGYATHPMNSNKKGHZMLUZORPVDGUOTECSTTKTOLPCWPTNTLKZTTIZTNDJSCF"
-    assert e.next_part() == "UR:CRYPTO-ACCOUNT/3-5/LPAXAHCSKECYRTPEDKMOHDCFZTBEAAHDCXVDTPMYRSTDSPZSBZSPGERLGDATUYNLPYBTGYIYYKBDFGWPKE"
-    assert e.next_part() == "UR:CRYPTO-ACCOUNT/4-5/LPAAAHCSKECYRTPEDKMOHDCFBTWTAOSWKSVTSGCHBYDKYAVDAHTAADEHOYAOADAMTAADDYOTADGYBKBWFE"
-    assert e.next_part() == "UR:CRYPTO-ACCOUNT/5-5/LPAHAHCSKECYRTPEDKMOHDCFLOCSDYYKADYKAEYKAOYKAOCYSSMECPONAXAAAYCYIOREKKJKAETODLFYWP"

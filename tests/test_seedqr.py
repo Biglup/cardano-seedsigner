@@ -43,17 +43,23 @@ def test_standard_seedqr_encode_decode_():
     # 24-word seed
     run_encode_decode_test(os.urandom(32), mnemonic_length=24, qr_type=QRType.SEED__SEEDQR)
 
+    # 15-word seed (Daedalus compatibility)
+    run_encode_decode_test(os.urandom(20), mnemonic_length=15, qr_type=QRType.SEED__SEEDQR)
+
     # 12-word seed
     run_encode_decode_test(os.urandom(16), mnemonic_length=12, qr_type=QRType.SEED__SEEDQR)
 
 
 
 def test_compact_seedqr_encode_decode():
-    """ Should encode 24- and 12- word mnemonics to CompactSeedQR format and decode
+    """ Should encode 24-, 15-, and 12- word mnemonics to CompactSeedQR format and decode
         them back again to their original mnemonic seed phrase.
     """
     # 24-word seed
     run_encode_decode_test(os.urandom(32), mnemonic_length=24, qr_type=QRType.SEED__COMPACTSEEDQR)
+
+    # 15-word seed (Daedalus compatibility)
+    run_encode_decode_test(os.urandom(20), mnemonic_length=15, qr_type=QRType.SEED__COMPACTSEEDQR)
 
     # 12-word seed
     run_encode_decode_test(os.urandom(16), mnemonic_length=12, qr_type=QRType.SEED__COMPACTSEEDQR)

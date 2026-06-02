@@ -31,7 +31,7 @@ class TestSettings(BaseTest):
         are ignored by the parser.
         """
         settings_name = "Test SettingsQR"
-        settingsqr_data = f"""settings::v1 name={ settings_name.replace(" ", "_") } persistent=D qr_density=M xpub_export=E xpub_details=E passphrase=E camera=180 compact_seedqr=E bip85=D priv_warn=E dire_warn=E"""
+        settingsqr_data = f"""settings::v1 name={ settings_name.replace(" ", "_") } persistent=D qr_density=M xpub_export=E xpub_details=E passphrase=E camera=180 compact_seedqr=E priv_warn=E dire_warn=E"""
 
         # First explicitly set settings that differ from the settingsqr_data
         self.settings.set_value(SettingsConstants.SETTING__COMPACT_SEEDQR, SettingsConstants.OPTION__DISABLED)
@@ -93,7 +93,7 @@ class TestSettings(BaseTest):
 
     def test_settingsqr_parses_line_break_separators(self):
         """ SettingsQR parser should read line breaks as acceptable separators """
-        settingsqr_data = "settings::v1\nname=Foo\nxpub_export=E\ncompact_seedqr=E\nbip85=D\n"
+        settingsqr_data = "settings::v1\nname=Foo\nxpub_export=E\ncompact_seedqr=E\npassphrase=E\n"
         config_name, settings_update_dict = Settings.parse_settingsqr(settingsqr_data)
 
         assert len(settings_update_dict.keys()) == 3
