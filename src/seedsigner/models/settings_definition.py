@@ -354,9 +354,10 @@ class SettingsConstants:
     SETTING__PASSPHRASE = "passphrase"
     SETTING__CAMERA_ROTATION = "camera_rotation"
     SETTING__COMPACT_SEEDQR = "compact_seedqr"
-    SETTING__BIP85_CHILD_SEEDS = "bip85_child_seeds"
     SETTING__ELECTRUM_SEEDS = "electrum_seeds"
     SETTING__MESSAGE_SIGNING = "message_signing"
+    SETTING__MULTI_ACCOUNTS = "multi_accounts"
+    SETTING__MULTI_CREDENTIALS = "multi_credentials"
     SETTING__PRIVACY_WARNINGS = "privacy_warnings"
     SETTING__DIRE_WARNINGS = "dire_warnings"
     SETTING__QR_BRIGHTNESS_TIPS = "qr_brightness_tips"
@@ -389,6 +390,7 @@ class SettingsConstants:
     CATEGORY__DISPLAY = "display"
     CATEGORY__WALLET = "wallet"
     CATEGORY__FEATURES = "features"
+    CATEGORY__ADDRESS_EXPLORER = "address_explorer"
 
     VISIBILITY__GENERAL = "general"
     VISIBILITY__ADVANCED = "advanced"
@@ -626,10 +628,17 @@ class SettingsDefinition:
                       visibility=SettingsConstants.VISIBILITY__GENERAL,
                       default_value=SettingsConstants.OPTION__ENABLED),
 
-        SettingsEntry(category=SettingsConstants.CATEGORY__FEATURES,
-                      attr_name=SettingsConstants.SETTING__BIP85_CHILD_SEEDS,
-                      abbreviated_name="bip85",
-                      display_name=_mft("BIP-85 child seeds"),
+        SettingsEntry(category=SettingsConstants.CATEGORY__ADDRESS_EXPLORER,
+                      attr_name=SettingsConstants.SETTING__MULTI_ACCOUNTS,
+                      display_name=_mft("Multi accounts"),
+                      help_text=_mft("Browse and export keys for multiple CIP-1852 accounts (m/1852'/1815'/n')."),
+                      visibility=SettingsConstants.VISIBILITY__GENERAL,
+                      default_value=SettingsConstants.OPTION__DISABLED),
+
+        SettingsEntry(category=SettingsConstants.CATEGORY__ADDRESS_EXPLORER,
+                      attr_name=SettingsConstants.SETTING__MULTI_CREDENTIALS,
+                      display_name=_mft("Multi credentials"),
+                      help_text=_mft("Browse multiple stake keys and DRep keys per account (non-standard)."),
                       visibility=SettingsConstants.VISIBILITY__GENERAL,
                       default_value=SettingsConstants.OPTION__DISABLED),
 

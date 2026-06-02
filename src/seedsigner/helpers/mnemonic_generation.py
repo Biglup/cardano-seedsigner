@@ -21,24 +21,25 @@ DICE__NUM_ROLLS__24WORD = 99
 
 def calculate_checksum(mnemonic: list | str, wordlist_language_code: str = SettingsConstants.WORDLIST_LANGUAGE__ENGLISH) -> list[str]:
     """
-        Provide 12- or 24-word mnemonic, returns complete mnemonic w/checksum as a list.
+        Provide a BIP-39 mnemonic (12, 15, 18, 21, or 24 words), returns complete
+        mnemonic w/checksum as a list.
 
         Mnemonic may be a list of words or a string of words separated by spaces or commas.
 
-        If 11- or 23-words are provided, append word `0000` to end of list as temp final
-        word.
+        If (n-1) words are provided (11, 14, 17, 20, or 23), append word `0000` to
+        end of list as temp final word.
     """
     if type(mnemonic) == str:
         import re
         # split on commas or spaces
         mnemonic = re.findall(r'[^,\s]+', mnemonic)
 
-    if len(mnemonic) in [11, 23]:
+    if len(mnemonic) in [11, 14, 23]:
         temp_final_word = Seed.get_wordlist(wordlist_language_code)[0]
         mnemonic.append(temp_final_word)
 
-    if len(mnemonic) not in [12, 24]:
-        raise Exception("Pass in a 12- or 24-word mnemonic")
+    if len(mnemonic) not in [12, 15, 24]:
+        raise Exception("Pass in a 12, 15, or 24-word mnemonic")
     
     # Work on a copy of the input list
     mnemonic_copy = mnemonic.copy()

@@ -113,16 +113,13 @@ class Controller(Singleton):
     psbt_seed: Seed = None
     psbt_parser: PSBTParser = None
 
-    unverified_address = None
-
     multisig_wallet_descriptor: Descriptor = None
 
     image_entropy_preview_frames: list[Image] = None
     image_entropy_final_image: Image = None
 
-    address_explorer_data: dict = None
-
-    sign_message_data: dict = None
+    # Cardano seed selected for TX signing / message signing
+    cardano_seed: Seed = None
     # TODO: end refactor section
 
     # Destination placeholder for when we need to jump out to a side flow but intend to
@@ -130,9 +127,6 @@ class Controller(Singleton):
     # then resume PSBT flow).
     FLOW__PSBT = "psbt"
     FLOW__VERIFY_MULTISIG_ADDR = "multisig_addr"
-    FLOW__VERIFY_SINGLESIG_ADDR = "singlesig_addr"
-    FLOW__ADDRESS_EXPLORER = "address_explorer"
-    FLOW__SIGN_MESSAGE = "sign_message"
     resume_main_flow: str = None
 
     back_stack: BackStack = None
@@ -308,11 +302,10 @@ class Controller(Singleton):
                     # Home always wipes the back_stack/state of temp vars
                     self.resume_main_flow = None
                     self.multisig_wallet_descriptor = None
-                    self.unverified_address = None
-                    self.address_explorer_data = None
                     self.psbt = None
                     self.psbt_parser = None
                     self.psbt_seed = None
+                    self.cardano_seed = None
                 
                 logger.info(f"\nback_stack: {self.back_stack}")
 

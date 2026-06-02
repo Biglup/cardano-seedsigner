@@ -185,7 +185,7 @@ class TestPSBTParser:
             parser = PSBTParser(p=psbt, seed=PSBTTestData.seed, network=SettingsConstants.REGTEST)
             
             # Verify fingerprints were correctly filled after parsing
-            seed_fingerprint = parser.seed.get_fingerprint(SettingsConstants.REGTEST)
+            seed_fingerprint = parser.seed.get_fingerprint()
             
             for inp in parser.psbt.inputs:
                 for pub, derivation in inp.bip32_derivations.items():

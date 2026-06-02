@@ -431,8 +431,8 @@ class DecodeQR:
                 # Couldn't convert back to bytes; shouldn't happen
                 raise Exception("Conversion to bytes failed")
 
-        # 32 bytes for 24-word CompactSeedQR; 16 bytes for 12-word CompactSeedQR
-        if len(s) == 32 or len(s) == 16:
+        # CompactSeedQR entropy bytes: 16 (12w), 20 (15w), 32 (24w)
+        if len(s) in (16, 20, 32):
             try:
                 bitstream = ""
                 for b in s:
@@ -849,7 +849,7 @@ class SeedQrDecoder(BaseSingleFrameQrDecoder):
                     word = self.wordlist[index]
                     self.seed_phrase.append(word)
                 if len(self.seed_phrase) > 0:
-                    if self.is_12_or_24_word_phrase() == False:
+                    if self.is_valid_bip39_word_count() == False:
                         return DecodeQRStatus.INVALID
                     self.complete = True
                     self.collected_segments = 1
@@ -879,7 +879,7 @@ class SeedQrDecoder(BaseSingleFrameQrDecoder):
                     # seed is not valid, return invalid
                     return DecodeQRStatus.INVALID
                 self.seed_phrase = seed_phrase_list
-                if self.is_12_or_24_word_phrase() == False:
+                if self.is_valid_bip39_word_count() == False:
                         return DecodeQRStatus.INVALID
                 self.complete = True
                 self.collected_segments = 1
@@ -902,7 +902,7 @@ class SeedQrDecoder(BaseSingleFrameQrDecoder):
                     # seed is not valid, return invalid
                     return DecodeQRStatus.INVALID
                 self.seed_phrase = words
-                if self.is_12_or_24_word_phrase() == False:
+                if self.is_valid_bip39_word_count() == False:
                         return DecodeQRStatus.INVALID
                 self.complete = True
                 self.collected_segments = 1
@@ -920,8 +920,8 @@ class SeedQrDecoder(BaseSingleFrameQrDecoder):
         return []
 
 
-    def is_12_or_24_word_phrase(self):
-        if len(self.seed_phrase) in (12, 24):
+    def is_valid_bip39_word_count(self):
+        if len(self.seed_phrase) in (12, 15, 24):
             return True
         return False
 
