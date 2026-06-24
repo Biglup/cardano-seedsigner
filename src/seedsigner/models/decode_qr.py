@@ -64,7 +64,7 @@ class DecodeQR:
         if self.qr_type == None:
             self.qr_type = qr_type
 
-            if self.qr_type in [QRType.PSBT__UR2, QRType.OUTPUT__UR, QRType.ACCOUNT__UR, QRType.BYTES__UR]:
+            if self.qr_type in [QRType.PSBT__UR2, QRType.OUTPUT__UR, QRType.ACCOUNT__UR, QRType.BYTES__UR, QRType.CARDANO_ACCOUNT_REQUEST, QRType.CARDANO_ACCOUNT]:
                 self.decoder = URDecoder() # BCUR Decoder
 
             elif self.qr_type == QRType.PSBT__SPECTER:
@@ -124,7 +124,7 @@ class DecodeQR:
             # it's already str data
             qr_str = data
 
-        if self.qr_type in [QRType.PSBT__UR2, QRType.OUTPUT__UR, QRType.ACCOUNT__UR, QRType.BYTES__UR]:
+        if self.qr_type in [QRType.PSBT__UR2, QRType.OUTPUT__UR, QRType.ACCOUNT__UR, QRType.BYTES__UR, QRType.CARDANO_ACCOUNT_REQUEST, QRType.CARDANO_ACCOUNT]:
             added_part = self.decoder.receive_part(qr_str)
             if self.decoder.is_complete():
                 self.complete = True
@@ -231,7 +231,7 @@ class DecodeQR:
         if not self.decoder:
             return 0
 
-        if self.qr_type in [QRType.PSBT__UR2, QRType.OUTPUT__UR, QRType.ACCOUNT__UR, QRType.BYTES__UR]:
+        if self.qr_type in [QRType.PSBT__UR2, QRType.OUTPUT__UR, QRType.ACCOUNT__UR, QRType.BYTES__UR, QRType.CARDANO_ACCOUNT_REQUEST, QRType.CARDANO_ACCOUNT]:
             return int(self.decoder.estimated_percent_complete(weight_mixed_frames=weight_mixed_frames) * 100)
 
         elif self.qr_type in [QRType.PSBT__SPECTER, QRType.PSBT__BBQR]:
@@ -295,6 +295,28 @@ class DecodeQR:
     @property
     def is_sign_message(self):
         return self.qr_type == QRType.SIGN_MESSAGE
+
+
+    @property
+    def is_cardano_account_request(self):
+        return self.qr_type == QRType.CARDANO_ACCOUNT_REQUEST
+
+
+    @property
+    def is_cardano_account(self):
+        return self.qr_type == QRType.CARDANO_ACCOUNT
+
+
+    def get_cardano_account_request(self):
+        from seedsigner.models.cardano_account import CardanoAccountRequest
+        cbor = self.decoder.result_message().cbor
+        return CardanoAccountRequest.from_cbor(cbor)
+
+
+    def get_cardano_account_response(self):
+        from seedsigner.models.cardano_account import CardanoAccountResponse
+        cbor = self.decoder.result_message().cbor
+        return CardanoAccountResponse.from_cbor(cbor)
         
 
     @property
@@ -353,6 +375,12 @@ class DecodeQR:
 
             elif re.search("^UR:CRYPTO-ACCOUNT/", s, re.IGNORECASE):
                 return QRType.ACCOUNT__UR
+
+            elif re.search("^UR:CARDANO-ACCOUNT-REQ/", s, re.IGNORECASE):
+                return QRType.CARDANO_ACCOUNT_REQUEST
+
+            elif re.search("^UR:CARDANO-ACCOUNT/", s, re.IGNORECASE):
+                return QRType.CARDANO_ACCOUNT
 
             elif re.search(r'^p(\d+)of(\d+) ([A-Za-z0-9+\/=]+$)', s, re.IGNORECASE): #must be base64 characters only in segment
                 return QRType.PSBT__SPECTER
