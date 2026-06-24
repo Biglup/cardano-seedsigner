@@ -396,3 +396,16 @@ class UrPsbtQrEncoder(BaseFountainQrEncoder):
         super().__post_init__()
         qr_ur_bytes = UR("crypto-psbt", UR_PSBT(self.psbt.serialize()).to_cbor())
         self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
+
+
+
+@dataclass
+class CardanoAccountQrEncoder(BaseFountainQrEncoder):
+    """Animated UR encoder that wraps a CardanoAccountResponse as a
+    cardano-account UR and fountain-encodes it for animated display."""
+    response: "CardanoAccountResponse" = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        qr_ur_bytes = UR("cardano-account", bytearray(self.response.to_cbor()))
+        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)

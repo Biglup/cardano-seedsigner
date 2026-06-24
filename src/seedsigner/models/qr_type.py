@@ -24,6 +24,9 @@ class QRType:
 
     SIGN_MESSAGE = "sign_message"
 
+    CARDANO_ACCOUNT_REQUEST = "cardano-account-req"
+    CARDANO_ACCOUNT = "cardano-account"
+
     WALLET__SPECTER = "wallet__specter"
     WALLET__UR = "wallet__ur"
     WALLET__CONFIGFILE = "wallet__configfile"
