@@ -120,6 +120,7 @@ class Controller(Singleton):
 
     # Cardano seed selected for TX signing / message signing
     cardano_seed: Seed = None
+    cardano_account_request = None
     # TODO: end refactor section
 
     # Destination placeholder for when we need to jump out to a side flow but intend to
@@ -127,6 +128,7 @@ class Controller(Singleton):
     # then resume PSBT flow).
     FLOW__PSBT = "psbt"
     FLOW__VERIFY_MULTISIG_ADDR = "multisig_addr"
+    FLOW__CARDANO_ACCOUNT_EXPORT = "cardano_account_export"
     resume_main_flow: str = None
 
     back_stack: BackStack = None

@@ -235,7 +235,11 @@ class SeedFinalizeView(View):
         )
 
         if button_data[selected_menu_num] == self.FINALIZE:
+            from seedsigner.controller import Controller
             seed_num = self.controller.storage.finalize_pending_seed()
+            if self.controller.resume_main_flow == Controller.FLOW__CARDANO_ACCOUNT_EXPORT:
+                self.controller.resume_main_flow = None
+                return Destination(CardanoExportSelectSeedView, clear_history=True)
             return Destination(SeedOptionsView, view_args={"seed_num": seed_num}, clear_history=True)
 
         elif button_data[selected_menu_num] == self.PASSPHRASE:
@@ -1123,10 +1127,9 @@ class CardanoExportAccountKeyView(View):
             )
 
         # Show a warning before exposing the account key
-        account_index = 0
         destination = Destination(
             CardanoExportAccountKeyQRView,
-            view_args={"seed_num": self.seed_num, "account_index": account_index},
+            view_args={"seed_num": self.seed_num, "account_indices": [0]},
             skip_current_view=True,
         )
 
@@ -1186,7 +1189,7 @@ class CardanoExportAccountKeySelectView(View):
         # Show privacy warning
         destination = Destination(
             CardanoExportAccountKeyQRView,
-            view_args={"seed_num": self.seed_num, "account_index": account_index},
+            view_args={"seed_num": self.seed_num, "account_indices": [account_index]},
             skip_current_view=True,
         )
 
@@ -1207,25 +1210,135 @@ class CardanoExportAccountKeySelectView(View):
 
 
 
-class CardanoExportAccountKeyQRView(View):
-    """Display the account extended public key as a QR code."""
+class CardanoExportSelectSeedView(View):
+    """Select which loaded seed to export account keys from."""
 
-    def __init__(self, seed_num: int, account_index: int = 0):
-        from cometa import Bip32PrivateKey, Bech32, mnemonic_to_entropy
+    SCAN_SEED = ButtonOption("Scan a seed", SeedSignerIconConstants.QRCODE)
+    TYPE_12WORD = ButtonOption("Enter 12-word seed", FontAwesomeIconConstants.KEYBOARD)
+    TYPE_24WORD = ButtonOption("Enter 24-word seed", FontAwesomeIconConstants.KEYBOARD)
+
+
+    def run(self):
+        from seedsigner.controller import Controller
+
+        seeds = self.controller.storage.seeds
+
+        if len(seeds) == 1:
+            return Destination(
+                CardanoExportAccountKeyConsentView,
+                view_args=dict(seed_num=0),
+                skip_current_view=True,
+            )
+
+        button_data = []
+        for seed in seeds:
+            button_data.append(ButtonOption(
+                seed.get_fingerprint(),
+                SeedSignerIconConstants.FINGERPRINT,
+                icon_color=GUIConstants.ACCENT_TEXT_COLOR,
+            ))
+        button_data.append(self.SCAN_SEED)
+        button_data.append(self.TYPE_12WORD)
+        button_data.append(self.TYPE_24WORD)
+
+        selected_menu_num = self.run_screen(
+            ButtonListScreen,
+            title=_("Select Seed"),
+            is_button_text_centered=False,
+            button_data=button_data,
+        )
+
+        if selected_menu_num == RET_CODE__BACK_BUTTON:
+            return Destination(BackStackView)
+
+        if len(seeds) > 0 and selected_menu_num < len(seeds):
+            return Destination(
+                CardanoExportAccountKeyConsentView,
+                view_args=dict(seed_num=selected_menu_num),
+                skip_current_view=True,
+            )
+
+        self.controller.resume_main_flow = Controller.FLOW__CARDANO_ACCOUNT_EXPORT
+
+        if button_data[selected_menu_num] == self.SCAN_SEED:
+            from seedsigner.views.scan_views import ScanSeedQRView
+            return Destination(ScanSeedQRView)
+
+        elif button_data[selected_menu_num] in [self.TYPE_12WORD, self.TYPE_24WORD]:
+            num_words = 12 if button_data[selected_menu_num] == self.TYPE_12WORD else 24
+            self.controller.storage.init_pending_mnemonic(num_words=num_words)
+            return Destination(SeedMnemonicEntryView)
+
+
+
+class CardanoExportAccountKeyConsentView(View):
+    """Enforce the multi-account gate and the privacy warning before export."""
+
+    def __init__(self, seed_num: int):
         super().__init__()
-        self.seed = self.controller.get_seed(seed_num)
+        self.seed_num = seed_num
+        self.request = self.controller.cardano_account_request
 
-        entropy = mnemonic_to_entropy(self.seed.mnemonic_list)
-        passphrase_bytes = self.seed.passphrase.encode('utf-8') if self.seed.passphrase else b""
-        root_key = Bip32PrivateKey.from_bip39_entropy(passphrase_bytes, entropy)
 
-        # CIP-1852: m/1852'/1815'/account'
-        account_key = root_key.derive([1852 | 0x80000000, 1815 | 0x80000000, account_index | 0x80000000])
-        account_pub = account_key.get_public_key()
+    def run(self):
+        account_indices = self.request.account_indices if self.request else [0]
+        request_id = self.request.request_id if self.request else ""
 
-        # Encode as bech32 with acct_xvk prefix
-        self.account_key_bech32 = Bech32.encode("acct_xvk", account_pub.to_bytes())
-        self.qr_encoder = GenericStaticQrEncoder(data=self.account_key_bech32)
+        multi_enabled = self.settings.get_value(SettingsConstants.SETTING__MULTI_ACCOUNTS) == SettingsConstants.OPTION__ENABLED
+        needs_multi = len(account_indices) > 1 or any(index != 0 for index in account_indices)
+        if needs_multi and not multi_enabled:
+            self.run_screen(
+                WarningScreen,
+                title=_("Multi Accounts"),
+                status_headline=_("Not Enabled"),
+                text=_("Enable Multi accounts in Settings to export these accounts."),
+                show_back_button=False,
+                button_data=[ButtonOption("OK")],
+            )
+            self.controller.cardano_account_request = None
+            return Destination(MainMenuView, clear_history=True)
+
+        destination = Destination(
+            CardanoExportAccountKeyQRView,
+            view_args=dict(seed_num=self.seed_num, account_indices=account_indices, request_id=request_id),
+            skip_current_view=True,
+        )
+
+        if self.settings.get_value(SettingsConstants.SETTING__PRIVACY_WARNINGS) == SettingsConstants.OPTION__DISABLED:
+            return destination
+
+        accounts_text = ", ".join(str(index) for index in account_indices)
+        selected_menu_num = self.run_screen(
+            WarningScreen,
+            status_headline=_("Privacy Leak!"),
+            text=_("Account key(s) for account {} can view all past and future transactions.").format(accounts_text),
+        )
+
+        if selected_menu_num == 0:
+            return destination
+
+        elif selected_menu_num == RET_CODE__BACK_BUTTON:
+            return Destination(BackStackView)
+
+
+
+class CardanoExportAccountKeyQRView(View):
+    """Display the account extended public key(s) as an animated QR code."""
+
+    def __init__(self, seed_num: int, account_indices: list = None, request_id: str = ""):
+        super().__init__()
+        from seedsigner.models.cardano_account import build_account_response
+        from seedsigner.models.encode_qr import CardanoAccountQrEncoder
+
+        seed = self.controller.get_seed(seed_num)
+        if account_indices is None:
+            account_indices = [0]
+
+        response = build_account_response(seed, request_id, account_indices)
+        self.qr_encoder = CardanoAccountQrEncoder(
+            response=response,
+            qr_density=self.settings.get_value(SettingsConstants.SETTING__QR_DENSITY),
+        )
 
 
     def run(self):
@@ -1235,6 +1348,7 @@ class CardanoExportAccountKeyQRView(View):
             qr_encoder=self.qr_encoder,
         )
 
+        self.controller.cardano_account_request = None
         return Destination(MainMenuView)
 
 

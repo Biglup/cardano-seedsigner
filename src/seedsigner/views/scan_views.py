@@ -156,7 +156,12 @@ class ScanView(View):
                         message=qr_data["message"],
                     )
                 )
-            
+
+            elif self.decoder.is_cardano_account_request:
+                from seedsigner.views.seed_views import CardanoExportSelectSeedView
+                self.controller.cardano_account_request = self.decoder.get_cardano_account_request()
+                return Destination(CardanoExportSelectSeedView, skip_current_view=True)
+
             else:
                 return Destination(NotYetImplementedView)
 
