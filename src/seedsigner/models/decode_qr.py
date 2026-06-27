@@ -134,11 +134,6 @@ class DecodeQR:
         if self.qr_type in UR_DECODER_QR_TYPES:
             return int(self.decoder.estimated_percent_complete(weight_mixed_frames=weight_mixed_frames) * 100)
 
-        elif self.qr_type in [QRType.PSBT__SPECTER, QRType.PSBT__BBQR]:
-            if self.decoder.total_segments == None:
-                return 0
-            return int((self.decoder.collected_segments / self.decoder.total_segments) * 100)
-
         elif self.decoder.total_segments == 1:
             # The single frame QR formats are all or nothing
             if self.decoder.complete:

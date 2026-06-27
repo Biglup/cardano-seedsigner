@@ -443,61 +443,6 @@ class ToolsCalcFinalWordDoneScreen(ButtonListScreen):
 
 
 @dataclass
-class ToolsAddressExplorerAddressTypeScreen(ButtonListScreen):
-    fingerprint: str = None
-    wallet_descriptor_display_name: Any = None
-    script_type: str = None
-    custom_derivation_path: str = None
-
-    def __post_init__(self):
-        # TRANSLATOR_NOTE: a label for the tool to explore public addresses for this seed.
-        self.title = _("Address Explorer")
-        self.is_bottom_list = True
-        super().__post_init__()
-
-        if self.fingerprint:
-            self.components.append(IconTextLine(
-                icon_name=SeedSignerIconConstants.FINGERPRINT,
-                icon_color=GUIConstants.INFO_COLOR,
-                # TRANSLATOR_NOTE: a label for the shortened Key-id of a BIP-32 master HD wallet
-                label_text=_("Fingerprint"),
-                value_text=self.fingerprint,
-                screen_x=GUIConstants.EDGE_PADDING,
-                screen_y=self.top_nav.height + GUIConstants.COMPONENT_PADDING,
-            ))
-
-            if self.script_type != SettingsConstants.CUSTOM_DERIVATION:
-                self.components.append(IconTextLine(
-                    icon_name=SeedSignerIconConstants.DERIVATION,
-                    # TRANSLATOR_NOTE: a label for the derivation-path into a BIP-32 HD wallet
-                    label_text=_("Derivation"),
-                    value_text=dict(SettingsConstants.ALL_SCRIPT_TYPES).get(self.script_type, self.script_type),
-                    screen_x=GUIConstants.EDGE_PADDING,
-                    screen_y=self.components[-1].screen_y + self.components[-1].height + 2*GUIConstants.COMPONENT_PADDING,
-                ))
-            else:
-                self.components.append(IconTextLine(
-                    icon_name=SeedSignerIconConstants.DERIVATION,
-                    # l10n_note already exists.
-                    label_text=_("Derivation"),
-                    value_text=self.custom_derivation_path,
-                    screen_x=GUIConstants.EDGE_PADDING,
-                    screen_y=self.components[-1].screen_y + self.components[-1].height + 2*GUIConstants.COMPONENT_PADDING,
-                ))
-
-        else:
-            self.components.append(IconTextLine(
-                # TRANSLATOR_NOTE: a label for a BIP-380-ish Output Descriptor
-                label_text=_("Wallet descriptor"),
-                value_text=self.wallet_descriptor_display_name,  # TODO: English text from embit (e.g. "1 / 2 multisig"); make l10 friendly
-                is_text_centered=True,
-                screen_x=GUIConstants.EDGE_PADDING,
-                screen_y=self.top_nav.height + GUIConstants.COMPONENT_PADDING,
-            ))
-
-
-
-@dataclass
 class ToolsAddressExplorerAddressListScreen(ButtonListScreen):
     start_index: int = 0
     addresses: list[str] = None

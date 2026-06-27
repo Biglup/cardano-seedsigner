@@ -246,8 +246,8 @@ def generate_screenshots(locale):
         )
         add_settings_entries(SettingsConstants.VISIBILITY__HARDWARE)
 
-        settingsqr_data_persistent = f"settings::v1 name=English_noob_mode persistent=E qr_density=M xpub_export=E xpub_details=E passphrase=E camera=0 compact_seedqr=E priv_warn=E dire_warn=E locale={locale}"
-        settingsqr_data_not_persistent = f"settings::v1 name=Mode_Ephemeral persistent=D qr_density=M xpub_export=E xpub_details=E passphrase=E camera=0 compact_seedqr=E priv_warn=E dire_warn=E locale={locale}"
+        settingsqr_data_persistent = f"settings::v1 name=English_noob_mode persistent=E qr_density=M passphrase=E camera=0 compact_seedqr=E priv_warn=E dire_warn=E locale={locale}"
+        settingsqr_data_not_persistent = f"settings::v1 name=Mode_Ephemeral persistent=D qr_density=M passphrase=E camera=0 compact_seedqr=E priv_warn=E dire_warn=E locale={locale}"
 
         screenshot_sections = {
             "Main Menu Views": [

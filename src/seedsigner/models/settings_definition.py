@@ -37,20 +37,6 @@ class SettingsConstants:
         (OPTION__REQUIRED, _mft("Required")),
     ]
 
-    # User-facing selection options
-    COORDINATOR__BLUE_WALLET = "bw"
-    COORDINATOR__NUNCHUK = "nun"
-    COORDINATOR__SPARROW = "spa"
-    COORDINATOR__SPECTER_DESKTOP = "spd"
-    COORDINATOR__KEEPER = "kpr"
-    ALL_COORDINATORS = [
-        (COORDINATOR__BLUE_WALLET, "BlueWallet"),
-        (COORDINATOR__NUNCHUK, "Nunchuk"),
-        (COORDINATOR__SPARROW, "Sparrow"),
-        (COORDINATOR__SPECTER_DESKTOP, "Specter Desktop"),
-        (COORDINATOR__KEEPER, "Keeper"),
-    ]
-
     # Over-specifying current and possible future locales to reduce/eliminate main repo
     # changes when adding/testing new languages.
     LOCALE__ARABIC = "ar"
@@ -225,17 +211,6 @@ class SettingsConstants:
         return detected_languages
 
 
-    BTC_DENOMINATION__BTC = "btc"
-    BTC_DENOMINATION__SATS = "sats"
-    BTC_DENOMINATION__THRESHOLD = "thr"
-    BTC_DENOMINATION__BTCSATSHYBRID = "hyb"
-    ALL_BTC_DENOMINATIONS = [
-        (BTC_DENOMINATION__BTC, _mft("BTC")),
-        (BTC_DENOMINATION__SATS, _mft("sats")),
-        (BTC_DENOMINATION__THRESHOLD, _mft("Threshold at 0.01")),
-        (BTC_DENOMINATION__BTCSATSHYBRID, _mft("BTC | sats hybrid")),
-    ]
-
     CAMERA_ROTATION__0 = 0
     CAMERA_ROTATION__90 = 90
     CAMERA_ROTATION__180 = 180
@@ -263,48 +238,8 @@ class SettingsConstants:
         (DENSITY__HIGH, density_high),
     ]
 
-    # Seed-related constants
-    MAINNET = "M"
-    TESTNET = "T"
-    REGTEST = "R"
-    ALL_NETWORKS = [
-        (MAINNET, _mft("Mainnet")),
-        (TESTNET, _mft("Testnet")),
-        (REGTEST, _mft("Regtest"))
-    ]
-
-    @classmethod
-    def map_network_to_embit(cls, network) -> str:
-        # Note these are `embit` constants; do not wrap for translation
-        if network == SettingsConstants.MAINNET:
-            return "main"
-        elif network == SettingsConstants.TESTNET:
-            return "test"
-        if network == SettingsConstants.REGTEST:
-            return "regtest"
-    
     PERSISTENT_SETTINGS__SD_INSERTED__HELP_TEXT = _mft("Store Settings on SD card")
     PERSISTENT_SETTINGS__SD_REMOVED__HELP_TEXT = _mft("Insert SD card to enable")
-
-    SINGLE_SIG = "ss"
-    MULTISIG = "ms"
-    ALL_SIG_TYPES = [
-        (SINGLE_SIG, _mft("Single Sig")),
-        (MULTISIG, _mft("Multisig")),
-    ]
-
-    LEGACY_P2PKH = "leg"
-    NATIVE_SEGWIT = "nat"
-    NESTED_SEGWIT = "nes"
-    TAPROOT = "tr"
-    CUSTOM_DERIVATION = "cus"
-    ALL_SCRIPT_TYPES = [
-        (NATIVE_SEGWIT, _mft("Native Segwit")),
-        (NESTED_SEGWIT, _mft("Nested Segwit")),
-        (LEGACY_P2PKH, _mft("Legacy")),
-        (TAPROOT, _mft("Taproot")),
-        (CUSTOM_DERIVATION, _mft("Custom Derivation")),
-    ]
 
     MICROSD_TOAST_TIMER_DISABLED = "D"
     MICROSD_TOAST_TIMER_FIVE_SECONDS = "E"
@@ -339,23 +274,14 @@ class SettingsConstants:
     SETTING__LOCALE = "locale"
     SETTING__WORDLIST_LANGUAGE = "wordlist_language"
     SETTING__PERSISTENT_SETTINGS = "persistent_settings"
-    SETTING__COORDINATORS = "coordinators"
-    SETTING__BTC_DENOMINATION = "denomination"
 
     SETTING__DISPLAY_CONFIGURATION = "display_config"
     SETTING__DISPLAY_COLOR_INVERTED = "color_inverted"
 
-    SETTING__NETWORK = "network"
     SETTING__QR_DENSITY = "qr_density"
-    SETTING__XPUB_EXPORT = "xpub_export"
-    SETTING__SIG_TYPES = "sig_types"
-    SETTING__SCRIPT_TYPES = "script_types"
-    SETTING__XPUB_DETAILS = "xpub_details"
     SETTING__PASSPHRASE = "passphrase"
     SETTING__CAMERA_ROTATION = "camera_rotation"
     SETTING__COMPACT_SEEDQR = "compact_seedqr"
-    SETTING__ELECTRUM_SEEDS = "electrum_seeds"
-    SETTING__MESSAGE_SIGNING = "message_signing"
     SETTING__MULTI_ACCOUNTS = "multi_accounts"
     SETTING__MULTI_CREDENTIALS = "multi_credentials"
     SETTING__PRIVACY_WARNINGS = "privacy_warnings"
@@ -412,11 +338,6 @@ class SettingsConstants:
         TYPE__ENABLED_DISABLED_PROMPT_REQUIRED,
     ]
 
-    # Electrum seed constants
-    ELECTRUM_SEED_STANDARD = "01"
-    ELECTRUM_SEED_SEGWIT = "100"
-    ELECTRUM_SEED_2FA = "101"
-    ELECTRUM_PBKDF2_ROUNDS=2048
 
     # Label strings
     LABEL__BIP39_PASSPHRASE = _mft("BIP-39 Passphrase")
@@ -592,18 +513,6 @@ class SettingsDefinition:
                       visibility=SettingsConstants.VISIBILITY__GENERAL,
                       selection_options=SettingsConstants.ALL_DENSITIES,
                       default_value=SettingsConstants.DENSITY__MEDIUM),
-
-        SettingsEntry(category=SettingsConstants.CATEGORY__FEATURES,
-                      attr_name=SettingsConstants.SETTING__XPUB_EXPORT,
-                      display_name=_mft("Xpub export"),
-                      visibility=SettingsConstants.VISIBILITY__GENERAL,
-                      default_value=SettingsConstants.OPTION__ENABLED),
-
-        SettingsEntry(category=SettingsConstants.CATEGORY__FEATURES,
-                      attr_name=SettingsConstants.SETTING__XPUB_DETAILS,
-                      display_name=_mft("Show xpub details"),
-                      visibility=SettingsConstants.VISIBILITY__GENERAL,
-                      default_value=SettingsConstants.OPTION__ENABLED),
 
         SettingsEntry(category=SettingsConstants.CATEGORY__FEATURES,
                       attr_name=SettingsConstants.SETTING__PASSPHRASE,
