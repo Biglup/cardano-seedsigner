@@ -1,5 +1,4 @@
 import logging
-import re
 
 from gettext import gettext as _
 from seedsigner.helpers.l10n import mark_for_translation as _mft
@@ -89,73 +88,10 @@ class ScanView(View):
                     else:
                         return Destination(SeedFinalizeView)
             
-            elif self.decoder.is_psbt:
-                from seedsigner.views.psbt_views import PSBTSelectSeedView
-                psbt = self.decoder.get_psbt()
-                self.controller.psbt = psbt
-                self.controller.psbt_parser = None
-                return Destination(PSBTSelectSeedView, skip_current_view=True)
-
             elif self.decoder.is_settings:
                 from seedsigner.views.settings_views import SettingsIngestSettingsQRView
                 data = self.decoder.get_settings_data()
                 return Destination(SettingsIngestSettingsQRView, view_args=dict(data=data))
-            
-            elif self.decoder.is_wallet_descriptor:
-                from embit.descriptor import Descriptor
-                from seedsigner.views.seed_views import MultisigWalletDescriptorView
-                descriptor_str = self.decoder.get_wallet_descriptor()
-
-                try:
-                    # We need to replace `/0/*` wildcards with `/{0,1}/*` in order to use
-                    # the Descriptor to verify change, too.
-                    orig_descriptor_str = descriptor_str
-                    if len(re.findall (r'\[([0-9,a-f,A-F]+?)(\/[0-9,\/,h\']+?)\].*?(\/0\/\*)', descriptor_str)) > 0:
-                        p = re.compile(r'(\[[0-9,a-f,A-F]+?\/[0-9,\/,h\']+?\].*?)(\/0\/\*)')
-                        descriptor_str = p.sub(r'\1/{0,1}/*', descriptor_str)
-                    elif len(re.findall (r'(\[[0-9,a-f,A-F]+?\/[0-9,\/,h,\']+?\][a-z,A-Z,0-9]*?)([\,,\)])', descriptor_str)) > 0:
-                        p = re.compile(r'(\[[0-9,a-f,A-F]+?\/[0-9,\/,h,\']+?\][a-z,A-Z,0-9]*?)([\,,\)])')
-                        descriptor_str = p.sub(r'\1/{0,1}/*\2', descriptor_str)
-                except Exception as e:
-                    logger.info(repr(e), exc_info=True)
-                    descriptor_str = orig_descriptor_str
-
-                descriptor = Descriptor.from_string(descriptor_str)
-
-                if not descriptor.is_basic_multisig:
-                    # TODO: Handle single-sig descriptors?
-                    logger.info(f"Received single sig descriptor: {descriptor}")
-                    return Destination(NotYetImplementedView)
-
-                self.controller.multisig_wallet_descriptor = descriptor
-                return Destination(MultisigWalletDescriptorView, skip_current_view=True)
-            
-            elif self.decoder.is_address:
-                from seedsigner.views.seed_views import AddressVerificationStartView
-                address = self.decoder.get_address()
-                (script_type, network) = self.decoder.get_address_type()
-
-                return Destination(
-                    AddressVerificationStartView,
-                    skip_current_view=True,
-                    view_args={
-                        "address": address,
-                        "script_type": script_type,
-                        "network": network,
-                    }
-                )
-            
-            elif self.decoder.is_sign_message:
-                from seedsigner.views.seed_views import SeedSignMessageStartView
-                qr_data = self.decoder.get_qr_data()
-
-                return Destination(
-                    SeedSignMessageStartView,
-                    view_args=dict(
-                        derivation_path=qr_data["derivation_path"],
-                        message=qr_data["message"],
-                    )
-                )
 
             elif self.decoder.is_cardano_account_request:
                 from seedsigner.views.seed_views import CardanoExportSelectSeedView
@@ -205,16 +141,6 @@ class ScanView(View):
 
 
 
-class ScanPSBTView(ScanView):
-    instructions_text = _mft("Scan Transaction")
-    invalid_qr_type_message = _mft("Expected a transaction")
-
-    @property
-    def is_valid_qr_type(self):
-        return self.decoder.is_psbt
-
-
-
 class ScanSeedQRView(ScanView):
     instructions_text = _mft("Scan SeedQR")
     invalid_qr_type_message = _mft("Expected a SeedQR")
@@ -222,26 +148,6 @@ class ScanSeedQRView(ScanView):
     @property
     def is_valid_qr_type(self):
         return self.decoder.is_seed
-
-
-
-class ScanWalletDescriptorView(ScanView):
-    instructions_text = _mft("Scan descriptor")
-    invalid_qr_type_message = _mft("Expected a wallet descriptor QR")
-
-    @property
-    def is_valid_qr_type(self):
-        return self.decoder.is_wallet_descriptor
-
-
-
-class ScanAddressView(ScanView):
-    instructions_text = _mft("Scan address QR")
-    invalid_qr_type_message = _mft("Expected an address QR")
-
-    @property
-    def is_valid_qr_type(self):
-        return self.decoder.is_address
 
 
 

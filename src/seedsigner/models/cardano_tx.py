@@ -847,17 +847,3 @@ class CardanoCip8SignResponse:
         if cose_key is None:
             raise ValueError("cardano-cip8-sig-res missing cose_key (key 3)")
         return cls(request_id=request_id, cose_sign1=cose_sign1, cose_key=cose_key)
-
-
-def format_derivation_path(path: list[int]) -> str:
-    """Convert a derivation path to human-readable format.
-
-    e.g. [2147485500, 2147485463, 2147483648, 0, 2] -> "m/1852'/1815'/0'/0/2"
-    """
-    parts = ["m"]
-    for component in path:
-        if component >= 0x80000000:
-            parts.append(f"{component - 0x80000000}'")
-        else:
-            parts.append(str(component))
-    return "/".join(parts)
