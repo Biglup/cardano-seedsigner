@@ -409,3 +409,53 @@ class CardanoAccountQrEncoder(BaseFountainQrEncoder):
         super().__post_init__()
         qr_ur_bytes = UR("cardano-account", bytearray(self.response.to_cbor()))
         self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
+
+
+@dataclass
+class CardanoTxSigResponseQrEncoder(BaseFountainQrEncoder):
+    """Animated UR encoder for a CardanoTxSignResponse (vkey witness set),
+    transmitted back to the host as a cardano-tx-sig-res UR."""
+    response: "CardanoTxSignResponse" = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        qr_ur_bytes = UR("cardano-tx-sig-res", bytearray(self.response.to_cbor()))
+        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
+
+
+@dataclass
+class CardanoCip8SigResponseQrEncoder(BaseFountainQrEncoder):
+    """Animated UR encoder for a CardanoCip8SignResponse (COSE_Sign1 + COSE_Key),
+    transmitted back to the host as a cardano-cip8-sig-res UR."""
+    response: "CardanoCip8SignResponse" = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        qr_ur_bytes = UR("cardano-cip8-sig-res", bytearray(self.response.to_cbor()))
+        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
+
+
+@dataclass
+class CardanoTxSigRequestQrEncoder(BaseFountainQrEncoder):
+    """Animated UR encoder for a CardanoSignRequest as a cardano-tx-sig-req UR.
+
+    Used by the host companion (and tests) to transmit a transaction to the
+    device for signing; the device decodes it via DecodeQR."""
+    request: "CardanoSignRequest" = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        qr_ur_bytes = UR("cardano-tx-sig-req", bytearray(self.request.to_cbor()))
+        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
+
+
+@dataclass
+class CardanoCip8SigRequestQrEncoder(BaseFountainQrEncoder):
+    """Animated UR encoder for a CardanoMessageSignRequest as a
+    cardano-cip8-sig-req UR (host companion / tests)."""
+    request: "CardanoMessageSignRequest" = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        qr_ur_bytes = UR("cardano-cip8-sig-req", bytearray(self.request.to_cbor()))
+        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)

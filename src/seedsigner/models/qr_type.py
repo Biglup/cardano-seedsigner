@@ -27,6 +27,11 @@ class QRType:
     CARDANO_ACCOUNT_REQUEST = "cardano-account-req"
     CARDANO_ACCOUNT = "cardano-account"
 
+    CARDANO_TX_SIG_REQUEST = "cardano-tx-sig-req"
+    CARDANO_TX_SIG_RESPONSE = "cardano-tx-sig-res"
+    CARDANO_CIP8_SIG_REQUEST = "cardano-cip8-sig-req"
+    CARDANO_CIP8_SIG_RESPONSE = "cardano-cip8-sig-res"
+
     WALLET__SPECTER = "wallet__specter"
     WALLET__UR = "wallet__ur"
     WALLET__CONFIGFILE = "wallet__configfile"
