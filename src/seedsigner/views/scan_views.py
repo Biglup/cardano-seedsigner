@@ -162,6 +162,36 @@ class ScanView(View):
                 self.controller.cardano_account_request = self.decoder.get_cardano_account_request()
                 return Destination(CardanoExportSelectSeedView, skip_current_view=True)
 
+            elif self.decoder.is_cardano_tx_sign_request:
+                from seedsigner.views.seed_views import CardanoTxSelectSeedView
+                try:
+                    self.controller.cardano_tx_sign_request = self.decoder.get_cardano_tx_sign_request()
+                except Exception as e:
+                    logger.info(repr(e), exc_info=True)
+                    return Destination(ErrorView, view_args=dict(
+                        title="Error",
+                        status_headline=_("Invalid Request"),
+                        text=_("Could not read the transaction sign request."),
+                        button_text="Back",
+                        next_destination=Destination(BackStackView, skip_current_view=True),
+                    ))
+                return Destination(CardanoTxSelectSeedView, skip_current_view=True)
+
+            elif self.decoder.is_cardano_cip8_sign_request:
+                from seedsigner.views.seed_views import CardanoMsgSelectSeedView
+                try:
+                    self.controller.cardano_cip8_sign_request = self.decoder.get_cardano_cip8_sign_request()
+                except Exception as e:
+                    logger.info(repr(e), exc_info=True)
+                    return Destination(ErrorView, view_args=dict(
+                        title="Error",
+                        status_headline=_("Invalid Request"),
+                        text=_("Could not read the message sign request."),
+                        button_text="Back",
+                        next_destination=Destination(BackStackView, skip_current_view=True),
+                    ))
+                return Destination(CardanoMsgSelectSeedView, skip_current_view=True)
+
             else:
                 return Destination(NotYetImplementedView)
 

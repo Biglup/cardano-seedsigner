@@ -1,9 +1,18 @@
-"""Final confirmation screen before signing a CIP-8 message."""
+"""Final confirmation screen before signing a CIP-8 message, and the animated QR
+view that transmits the resulting COSE_Sign1 + COSE_Key back to the host."""
+
+import logging
+from gettext import gettext as _
 
 from seedsigner.gui.screens import RET_CODE__BACK_BUTTON
-from seedsigner.models.cardano_tx import CardanoMessageSignRequest
+from seedsigner.gui.screens.screen import ButtonOption
+from seedsigner.models.cardano_tx import CardanoMessageSignRequest, CardanoCip8SignResponse
+from seedsigner.models.settings import SettingsConstants
 
 from seedsigner.views.view import View, Destination, BackStackView, MainMenuView
+
+
+logger = logging.getLogger(__name__)
 
 
 def _get_address_info(address_bytes):
@@ -51,6 +60,25 @@ class CardanoMsgSignView(View):
         self.msg_request = msg_request
 
     def run(self):
+        from seedsigner.gui.screens.screen import WarningScreen
+        from seedsigner.helpers.cardano_signing import build_cip8_sign_response
+
+        seed = self.controller.cardano_seed
+        request = self.msg_request
+
+        # Guard: the request may name a specific signer (xfp); the selected seed
+        # must match it, otherwise the signature would be from the wrong key.
+        if seed is not None and request.xfp and request.xfp != bytes.fromhex(seed.get_fingerprint()):
+            self.run_screen(
+                WarningScreen,
+                title=_("Cannot Sign"),
+                status_headline=_("Wrong Seed"),
+                text=_("This seed does not match the requested signer."),
+                show_back_button=False,
+                button_data=[ButtonOption("OK")],
+            )
+            return Destination(MainMenuView, clear_history=True)
+
         payload_hash = _compute_payload_hash(self.msg_request.message_payload)
 
         selected_menu_num = self.run_screen(
@@ -62,9 +90,50 @@ class CardanoMsgSignView(View):
             return Destination(BackStackView)
 
         if selected_menu_num == 0:  # Cancel
-            return Destination(MainMenuView)
-        elif selected_menu_num == 1:  # Sign
             return Destination(MainMenuView, clear_history=True)
+
+        elif selected_menu_num == 1:  # Sign
+            if seed is None:
+                return Destination(MainMenuView, clear_history=True)
+            try:
+                response = build_cip8_sign_response(seed, request)
+            except ValueError as e:
+                logger.info(repr(e), exc_info=True)
+                self.run_screen(
+                    WarningScreen,
+                    title=_("Cannot Sign"),
+                    status_headline=_("Rejected"),
+                    text=_("The message could not be signed for this address."),
+                    show_back_button=False,
+                    button_data=[ButtonOption("OK")],
+                )
+                return Destination(MainMenuView, clear_history=True)
+            return Destination(
+                CardanoMsgSignedQRView,
+                view_args=dict(response=response),
+            )
+
+
+class CardanoMsgSignedQRView(View):
+    """Transmit the COSE_Sign1 + COSE_Key back to the host as an animated QR."""
+
+    def __init__(self, response: CardanoCip8SignResponse):
+        super().__init__()
+        from seedsigner.models.encode_qr import CardanoCip8SigResponseQrEncoder
+
+        self.qr_encoder = CardanoCip8SigResponseQrEncoder(
+            response=response,
+            qr_density=self.settings.get_value(SettingsConstants.SETTING__QR_DENSITY),
+        )
+
+    def run(self):
+        from seedsigner.gui.screens.screen import QRDisplayScreen
+
+        self.run_screen(QRDisplayScreen, qr_encoder=self.qr_encoder)
+
+        self.controller.cardano_cip8_sign_request = None
+        self.controller.cardano_seed = None
+        return Destination(MainMenuView, clear_history=True)
 
 
 from dataclasses import dataclass
@@ -75,7 +144,7 @@ from seedsigner.gui.components import (
     FontAwesomeIconConstants,
     SeedSignerIconConstants,
 )
-from seedsigner.gui.screens.screen import ButtonListScreen, ButtonOption
+from seedsigner.gui.screens.screen import ButtonListScreen
 
 
 @dataclass

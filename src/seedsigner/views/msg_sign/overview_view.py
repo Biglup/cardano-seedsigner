@@ -24,7 +24,7 @@ class CardanoMsgOverviewView(View):
 
         # Verify the signing path matches the address
         if self.msg_request.address_bytes is not None:
-            seed = self.controller.storage.seeds[-1]
+            seed = self.controller.cardano_seed or self.controller.storage.seeds[-1]
             if not verify_message_signing_address(self.msg_request, seed):
                 self._show_rejection(
                     DireWarningScreen, GUIConstants, TextArea,
@@ -52,7 +52,20 @@ class CardanoMsgOverviewView(View):
         from .address_view import CardanoMsgAddressView
 
         from .sign_view import _get_address_info
-        network, addr_type = _get_address_info(self.msg_request.address_bytes)
+        from seedsigner.helpers.cardano_utils import (
+            classify_signing_credential,
+            CREDENTIAL_SHORT_LABEL,
+        )
+
+        network, _ = _get_address_info(self.msg_request.address_bytes)
+        if self.msg_request.address_bytes:
+            kind = classify_signing_credential(
+                self.msg_request.address_bytes,
+                self.msg_request.required_signing_path.path,
+            )
+            addr_type = CREDENTIAL_SHORT_LABEL[kind]
+        else:
+            addr_type = None
 
         payload_size = f"{len(self.msg_request.message_payload)} bytes"
 

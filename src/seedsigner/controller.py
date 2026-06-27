@@ -121,6 +121,8 @@ class Controller(Singleton):
     # Cardano seed selected for TX signing / message signing
     cardano_seed: Seed = None
     cardano_account_request = None
+    cardano_tx_sign_request = None
+    cardano_cip8_sign_request = None
     # TODO: end refactor section
 
     # Destination placeholder for when we need to jump out to a side flow but intend to
@@ -129,6 +131,8 @@ class Controller(Singleton):
     FLOW__PSBT = "psbt"
     FLOW__VERIFY_MULTISIG_ADDR = "multisig_addr"
     FLOW__CARDANO_ACCOUNT_EXPORT = "cardano_account_export"
+    FLOW__CARDANO_TX_SIGN = "cardano_tx_sign"
+    FLOW__CARDANO_CIP8_SIGN = "cardano_cip8_sign"
     resume_main_flow: str = None
 
     back_stack: BackStack = None
@@ -308,6 +312,9 @@ class Controller(Singleton):
                     self.psbt_parser = None
                     self.psbt_seed = None
                     self.cardano_seed = None
+                    self.cardano_account_request = None
+                    self.cardano_tx_sign_request = None
+                    self.cardano_cip8_sign_request = None
                 
                 logger.info(f"\nback_stack: {self.back_stack}")
 

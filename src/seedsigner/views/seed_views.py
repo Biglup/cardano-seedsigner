@@ -13,7 +13,7 @@ from seedsigner.models.qr_type import QRType
 from seedsigner.models.seed import Seed
 from seedsigner.models.settings import Settings, SettingsConstants
 from seedsigner.models.settings_definition import SettingsDefinition
-from seedsigner.views.view import NotYetImplementedView, OptionDisabledView, View, Destination, BackStackView, MainMenuView
+from seedsigner.views.view import NotYetImplementedView, OptionDisabledView, View, Destination, BackStackView, MainMenuView, ErrorView
 
 logger = logging.getLogger(__name__)
 
@@ -240,6 +240,12 @@ class SeedFinalizeView(View):
             if self.controller.resume_main_flow == Controller.FLOW__CARDANO_ACCOUNT_EXPORT:
                 self.controller.resume_main_flow = None
                 return Destination(CardanoExportSelectSeedView, clear_history=True)
+            if self.controller.resume_main_flow == Controller.FLOW__CARDANO_TX_SIGN:
+                self.controller.resume_main_flow = None
+                return Destination(CardanoTxSelectSeedView, clear_history=True)
+            if self.controller.resume_main_flow == Controller.FLOW__CARDANO_CIP8_SIGN:
+                self.controller.resume_main_flow = None
+                return Destination(CardanoMsgSelectSeedView, clear_history=True)
             return Destination(SeedOptionsView, view_args={"seed_num": seed_num}, clear_history=True)
 
         elif button_data[selected_menu_num] == self.PASSPHRASE:
@@ -1210,8 +1216,13 @@ class CardanoExportAccountKeySelectView(View):
 
 
 
-class CardanoExportSelectSeedView(View):
-    """Select which loaded seed to export account keys from."""
+class CardanoSelectSeedView(View):
+    """Shared seed-selection step for scan-initiated Cardano flows.
+
+    0 seeds -> offer Scan/Type and set the subclass resume flow; 1 -> auto-
+    select; N -> fingerprint picker. Subclasses provide ``_resume_flow`` and
+    the destination reached once a seed is chosen (``_seed_selected_destination``).
+    """
 
     SCAN_SEED = ButtonOption("Scan a seed", SeedSignerIconConstants.QRCODE)
     TYPE_12WORD = ButtonOption("Enter 12-word seed", FontAwesomeIconConstants.KEYBOARD)
@@ -1219,16 +1230,10 @@ class CardanoExportSelectSeedView(View):
 
 
     def run(self):
-        from seedsigner.controller import Controller
-
         seeds = self.controller.storage.seeds
 
         if len(seeds) == 1:
-            return Destination(
-                CardanoExportAccountKeyConsentView,
-                view_args=dict(seed_num=0),
-                skip_current_view=True,
-            )
+            return self._seed_selected_destination(0)
 
         button_data = []
         for seed in seeds:
@@ -1252,13 +1257,9 @@ class CardanoExportSelectSeedView(View):
             return Destination(BackStackView)
 
         if len(seeds) > 0 and selected_menu_num < len(seeds):
-            return Destination(
-                CardanoExportAccountKeyConsentView,
-                view_args=dict(seed_num=selected_menu_num),
-                skip_current_view=True,
-            )
+            return self._seed_selected_destination(selected_menu_num)
 
-        self.controller.resume_main_flow = Controller.FLOW__CARDANO_ACCOUNT_EXPORT
+        self.controller.resume_main_flow = self._resume_flow()
 
         if button_data[selected_menu_num] == self.SCAN_SEED:
             from seedsigner.views.scan_views import ScanSeedQRView
@@ -1268,6 +1269,40 @@ class CardanoExportSelectSeedView(View):
             num_words = 12 if button_data[selected_menu_num] == self.TYPE_12WORD else 24
             self.controller.storage.init_pending_mnemonic(num_words=num_words)
             return Destination(SeedMnemonicEntryView)
+
+
+    def _resume_flow(self):
+        raise NotImplementedError
+
+
+    def _seed_selected_destination(self, seed_num: int):
+        raise NotImplementedError
+
+
+    def _invalid_request_destination(self, text: str):
+        return Destination(ErrorView, view_args=dict(
+            title="Error",
+            status_headline=_("Invalid Request"),
+            text=text,
+            button_text="Back",
+            next_destination=Destination(MainMenuView, clear_history=True),
+        ), skip_current_view=True)
+
+
+
+class CardanoExportSelectSeedView(CardanoSelectSeedView):
+    """Select which loaded seed to export account keys from."""
+
+    def _resume_flow(self):
+        from seedsigner.controller import Controller
+        return Controller.FLOW__CARDANO_ACCOUNT_EXPORT
+
+    def _seed_selected_destination(self, seed_num: int):
+        return Destination(
+            CardanoExportAccountKeyConsentView,
+            view_args=dict(seed_num=seed_num),
+            skip_current_view=True,
+        )
 
 
 
@@ -1350,6 +1385,59 @@ class CardanoExportAccountKeyQRView(View):
 
         self.controller.cardano_account_request = None
         return Destination(MainMenuView)
+
+
+
+class CardanoTxSelectSeedView(CardanoSelectSeedView):
+    """Select which loaded seed signs a scanned Cardano transaction."""
+
+    def _resume_flow(self):
+        from seedsigner.controller import Controller
+        return Controller.FLOW__CARDANO_TX_SIGN
+
+    def _seed_selected_destination(self, seed_num: int):
+        from seedsigner.views.tx_review.overview_view import CardanoTxOverviewView
+        from seedsigner.models.cardano_tx import CardanoParsedTx
+        from seedsigner.helpers.cardano_utils import verify_change_outputs
+
+        seed = self.controller.get_seed(seed_num)
+        request = self.controller.cardano_tx_sign_request
+
+        try:
+            parsed_tx = CardanoParsedTx(request, verified_change_indices=[])
+            parsed_tx.verified_change_indices = verify_change_outputs(request, seed, parsed_tx.body)
+        except Exception as e:
+            logger.info(repr(e), exc_info=True)
+            return self._invalid_request_destination(_("Could not read the transaction to sign."))
+
+        self.controller.cardano_seed = seed
+        return Destination(
+            CardanoTxOverviewView,
+            view_args=dict(parsed_tx=parsed_tx),
+            skip_current_view=True,
+        )
+
+
+
+class CardanoMsgSelectSeedView(CardanoSelectSeedView):
+    """Select which loaded seed signs a scanned CIP-8 message."""
+
+    def _resume_flow(self):
+        from seedsigner.controller import Controller
+        return Controller.FLOW__CARDANO_CIP8_SIGN
+
+    def _seed_selected_destination(self, seed_num: int):
+        from seedsigner.views.msg_sign.overview_view import CardanoMsgOverviewView
+
+        seed = self.controller.get_seed(seed_num)
+        self.controller.cardano_seed = seed
+        request = self.controller.cardano_cip8_sign_request
+
+        return Destination(
+            CardanoMsgOverviewView,
+            view_args=dict(msg_request=request),
+            skip_current_view=True,
+        )
 
 
 
