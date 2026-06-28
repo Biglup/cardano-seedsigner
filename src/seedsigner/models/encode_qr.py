@@ -1,21 +1,12 @@
 import math
 
-from embit import bip32
-from embit.networks import NETWORKS
-from binascii import hexlify
 from dataclasses import dataclass
 from typing import List
-from embit import bip32
-from embit.networks import NETWORKS
-from embit.psbt import PSBT
 from seedsigner.helpers.ur2.ur_encoder import UREncoder
 from seedsigner.helpers.ur2.ur import UR
 from seedsigner.helpers.qr import QR
 from seedsigner.models.seed import Seed
 from seedsigner.models.settings import SettingsConstants
-
-from urtypes.crypto import PSBT as UR_PSBT
-from urtypes.crypto import Account, HDKey, Output, Keypath, PathComponent, SCRIPT_EXPRESSION_TAG_MAP, CoinInfo
 
 
 
@@ -141,45 +132,6 @@ class GenericStaticQrEncoder(BaseStaticQrEncoder):
 
 
 
-@dataclass
-class BaseXpubQrEncoder(BaseQrEncoder):
-    """
-    Base Xpub QrEncoder for static and animated formats
-    """
-    seed: Seed = None
-    derivation: str = None
-    network: str = SettingsConstants.MAINNET
-    sig_type : str = None
-
-    def prep_xpub(self):
-            
-        version = self.seed.detect_version(self.derivation, self.network, self.sig_type)
-        self.root = bip32.HDKey.from_seed(self.seed.seed_bytes, version=NETWORKS[SettingsConstants.map_network_to_embit(self.network)]["xprv"])
-        self.fingerprint = self.root.child(0).fingerprint
-        self.xprv = self.root.derive(self.derivation)
-        self.xpub = self.xprv.to_public()
-        self.xpub_base58 = self.xpub.to_string(version=version)
-
-        self.xpubstring = "[{}{}]{}".format(
-            hexlify(self.fingerprint).decode('utf-8'),
-            self.derivation[1:],
-            self.xpub_base58
-        )
-
-
-
-class StaticXpubQrEncoder(BaseXpubQrEncoder, BaseStaticQrEncoder):
-    def __post_init__(self):
-        super().__post_init__()
-        self.prep_xpub()
-
-
-    def next_part(self):
-        self.prep_xpub()
-        return self.xpubstring
-
-
-
 """**************************************************************************************
     Simple animated QR encoders
 **************************************************************************************"""
@@ -233,40 +185,6 @@ class BaseSimpleAnimatedQREncoder(BaseQrEncoder):
 
 
 
-@dataclass
-class SpecterXPubQrEncoder(BaseSimpleAnimatedQREncoder, BaseXpubQrEncoder):
-    @property
-    def qr_max_fragment_size(self):
-        density_mapping = {
-            SettingsConstants.DENSITY__LOW: 40,
-            SettingsConstants.DENSITY__MEDIUM: 65,
-            SettingsConstants.DENSITY__HIGH: 90,
-        }
-        return density_mapping.get(self.qr_density, 65)
-
-
-    def _create_parts(self):
-        self.prep_xpub()
-        start = 0
-        stop = self.qr_max_fragment_size
-        qr_cnt = ((len(self.xpubstring)-1) // self.qr_max_fragment_size) + 1
-
-        if qr_cnt == 1:
-            self.parts.append(self.xpubstring[start:stop])
-
-        cnt = 0
-        while cnt < qr_cnt and qr_cnt != 1:
-            part = "p" + str(cnt+1) + "of" + str(qr_cnt) + " " + self.xpubstring[start:stop]
-            self.parts.append(part)
-
-            start = start + self.qr_max_fragment_size
-            stop = stop + self.qr_max_fragment_size
-            if stop > len(self.xpubstring):
-                stop = len(self.xpubstring)
-            cnt += 1
-
-
-
 """**************************************************************************************
     Fountain encoded animated QR encoders
 **************************************************************************************"""
@@ -316,90 +234,6 @@ class BaseFountainQrEncoder(BaseQrEncoder):
 
 
 @dataclass
-class UrXpubQrEncoder(BaseFountainQrEncoder, BaseXpubQrEncoder):
-    def __post_init__(self):
-        super().__post_init__()
-        self.prep_xpub()
-        
-        def derivation_to_keypath(path: str) -> list:
-            arr = path.split("/")
-            if arr[0] == "m":
-                arr = arr[1:]
-            if len(arr) == 0:
-                return Keypath([],self.root.my_fingerprint, None)
-            if arr[-1] == "":
-                # trailing slash
-                arr = arr[:-1]
-
-            for i, e in enumerate(arr):
-                if e[-1] == "h" or e[-1] == "'":
-                    arr[i] = PathComponent(int(e[:-1]), True)
-                else:
-                    arr[i] = PathComponent(int(e), False)
-                    
-            return Keypath(arr, self.root.my_fingerprint, len(arr))
-            
-        origin = derivation_to_keypath(self.derivation)
-
-        # Implemts "use_info" member on HDKey class (urtypes/crypto packages-libs folder) construct, 
-        # so if working on TESTNET, Xpub can be exported accordingly. Default case, MAINNET: None value.
-        self.use_info = None if self.network == SettingsConstants.MAINNET else CoinInfo(type=None, network=1)
-        
-        self.ur_hdkey = HDKey({ 'key': self.xpub.key.serialize(),
-        'chain_code': self.xpub.chain_code,
-        'origin': origin,
-        'parent_fingerprint': self.xpub.fingerprint,
-        'use_info': self.use_info })
-
-        ur_outputs = []
-
-        if len(origin.components) > 0:
-            if origin.components[0].index == 84: # Native Single Sig
-                ur_outputs.append(Output([SCRIPT_EXPRESSION_TAG_MAP[404]],self.ur_hdkey))
-            elif origin.components[0].index == 49: # Nested Single Sig
-                ur_outputs.append(Output([SCRIPT_EXPRESSION_TAG_MAP[400], SCRIPT_EXPRESSION_TAG_MAP[404]],self.ur_hdkey))
-            elif origin.components[0].index == 48: # Multisig
-                if len(origin.components) >= 4:
-                    if origin.components[3].index == 2:  # Native Multisig
-                        ur_outputs.append(Output([SCRIPT_EXPRESSION_TAG_MAP[401]],self.ur_hdkey))
-                    elif origin.components[3].index == 1:  # Nested Multisig
-                        ur_outputs.append(Output([SCRIPT_EXPRESSION_TAG_MAP[400], SCRIPT_EXPRESSION_TAG_MAP[401]],self.ur_hdkey))
-            elif origin.components[0].index == 86: # P2TR
-                ur_outputs.append(Output([SCRIPT_EXPRESSION_TAG_MAP[409]],self.ur_hdkey))
-            elif origin.components[0].index == 44: # P2PKH
-                ur_outputs.append(Output([SCRIPT_EXPRESSION_TAG_MAP[403]],self.ur_hdkey))
-            elif origin.components[0].index == 45: # P2SH 
-                ur_outputs.append(Output([SCRIPT_EXPRESSION_TAG_MAP[400]],self.ur_hdkey))
-        
-        # If empty, add all script types
-        if len(ur_outputs) == 0:
-            ur_outputs.append(Output([SCRIPT_EXPRESSION_TAG_MAP[404]],self.ur_hdkey))
-            ur_outputs.append(Output([SCRIPT_EXPRESSION_TAG_MAP[400], SCRIPT_EXPRESSION_TAG_MAP[404]],self.ur_hdkey))
-            ur_outputs.append(Output([SCRIPT_EXPRESSION_TAG_MAP[401]],self.ur_hdkey))
-            ur_outputs.append(Output([SCRIPT_EXPRESSION_TAG_MAP[400], SCRIPT_EXPRESSION_TAG_MAP[401]],self.ur_hdkey))
-            ur_outputs.append(Output([SCRIPT_EXPRESSION_TAG_MAP[403]],self.ur_hdkey))
-            ur_outputs.append(Output([SCRIPT_EXPRESSION_TAG_MAP[400]],self.ur_hdkey))
-        
-        ur_account = Account(self.root.my_fingerprint, ur_outputs)
-
-        qr_ur_bytes = UR("crypto-account", ur_account.to_cbor())
-
-        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
-
-
-
-@dataclass
-class UrPsbtQrEncoder(BaseFountainQrEncoder):
-    psbt: PSBT = None
-
-    def __post_init__(self):
-        super().__post_init__()
-        qr_ur_bytes = UR("crypto-psbt", UR_PSBT(self.psbt.serialize()).to_cbor())
-        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
-
-
-
-@dataclass
 class CardanoAccountQrEncoder(BaseFountainQrEncoder):
     """Animated UR encoder that wraps a CardanoAccountResponse as a
     cardano-account UR and fountain-encodes it for animated display."""
@@ -408,4 +242,54 @@ class CardanoAccountQrEncoder(BaseFountainQrEncoder):
     def __post_init__(self):
         super().__post_init__()
         qr_ur_bytes = UR("cardano-account", bytearray(self.response.to_cbor()))
+        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
+
+
+@dataclass
+class CardanoTxSigResponseQrEncoder(BaseFountainQrEncoder):
+    """Animated UR encoder for a CardanoTxSignResponse (vkey witness set),
+    transmitted back to the host as a cardano-tx-sig-res UR."""
+    response: "CardanoTxSignResponse" = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        qr_ur_bytes = UR("cardano-tx-sig-res", bytearray(self.response.to_cbor()))
+        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
+
+
+@dataclass
+class CardanoCip8SigResponseQrEncoder(BaseFountainQrEncoder):
+    """Animated UR encoder for a CardanoCip8SignResponse (COSE_Sign1 + COSE_Key),
+    transmitted back to the host as a cardano-cip8-sig-res UR."""
+    response: "CardanoCip8SignResponse" = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        qr_ur_bytes = UR("cardano-cip8-sig-res", bytearray(self.response.to_cbor()))
+        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
+
+
+@dataclass
+class CardanoTxSigRequestQrEncoder(BaseFountainQrEncoder):
+    """Animated UR encoder for a CardanoSignRequest as a cardano-tx-sig-req UR.
+
+    Used by the host companion (and tests) to transmit a transaction to the
+    device for signing; the device decodes it via DecodeQR."""
+    request: "CardanoSignRequest" = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        qr_ur_bytes = UR("cardano-tx-sig-req", bytearray(self.request.to_cbor()))
+        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
+
+
+@dataclass
+class CardanoCip8SigRequestQrEncoder(BaseFountainQrEncoder):
+    """Animated UR encoder for a CardanoMessageSignRequest as a
+    cardano-cip8-sig-req UR (host companion / tests)."""
+    request: "CardanoMessageSignRequest" = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        qr_ur_bytes = UR("cardano-cip8-sig-req", bytearray(self.request.to_cbor()))
         self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)

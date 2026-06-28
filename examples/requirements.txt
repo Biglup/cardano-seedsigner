@@ -1,0 +1,18 @@
+# Companion demo dependencies.
+#
+# cometa (the Cardano library) is expected to already be importable — it is the
+# same library the device firmware uses. Install it from PyPI if needed:
+#   pip install biglup-cometa
+#
+# cbor2 is used for external CIP-8 / COSE verification (cometa signs but does not
+# verify). The opencv/pyzbar/qrcode/pillow group is only needed for the real-
+# hardware animated-QR transport; the --simulator path needs none of them.
+
+cbor2
+
+# hardware QR transport (optional; only for talking to a real SeedSigner)
+opencv-python
+pyzbar
+qrcode
+pillow
+numpy

@@ -1,11 +1,59 @@
 """
-Cardano Transaction Signing Request Data Structures
+Cardano signing request/response data structures and CBOR codecs.
+
+Covers transaction signing (``cardano-tx-sig-req`` / ``cardano-tx-sig-res``) and
+CIP-8 message signing (``cardano-cip8-sig-req`` / ``cardano-cip8-sig-res``).
+
+The message type is identified by the **UR type string** at the transport layer,
+and each message body is **untagged CBOR**. This follows the Blockchain Commons
+Uniform Resources convention: a top-level UR carries the bare CBOR payload, and a
+registry tag (here 88000-88003) is only applied when a structure is embedded
+inside another CBOR structure. The tag numbers are recorded per class as the
+registry identity, but are not written on-wire. Consistent with the M4 account
+export (``cardano_account.py``).
+
+Each request carries the master fingerprint (``xfp``) per signer so the device
+can match a required signer to the loaded seed whose ``Seed.get_fingerprint()``
+equals it. This is the same 4-byte BTC BIP-32 value the M4 account export returns
+as ``master_fingerprint`` (see ``cardano_account.py``).
 """
 
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from cometa import NetworkId
+from cometa import CborReader, CborWriter, NetworkId
+
+
+XFP_LEN = 4                       # master fingerprint is 4 bytes (BTC BIP-32)
+TX_HASH_LEN = 32                  # UTXO transaction hash is 32 bytes
+MAX_PATH_COMPONENTS = 10          # CIP-1852 paths are 5; cap well above to reject abuse
+MAX_PATH_COMPONENT = 0xFFFFFFFF   # each derivation index fits in 32 bits
+
+
+def _write_path(w: "CborWriter", path: list[int]) -> None:
+    w.write_start_array(len(path))
+    for component in path:
+        w.write_int(component)
+
+
+def _read_path(r: "CborReader") -> list[int]:
+    count = r.read_array_len()
+    if count > MAX_PATH_COMPONENTS:
+        raise ValueError(f"derivation path too long ({count} > {MAX_PATH_COMPONENTS})")
+    path = [r.read_uint() for _ in range(count)]
+    r.read_array_end()
+    for component in path:
+        if component > MAX_PATH_COMPONENT:
+            raise ValueError(f"derivation path component out of range: {component}")
+    return path
+
+
+def _check_xfp(xfp: bytes, *, allow_empty: bool) -> bytes:
+    if xfp == b"" and allow_empty:
+        return xfp
+    if len(xfp) != XFP_LEN:
+        raise ValueError(f"xfp must be {XFP_LEN} bytes, got {len(xfp)}")
+    return xfp
 
 
 
@@ -21,6 +69,40 @@ class SigningInput:
     xfp: bytes                  # 4 bytes - master fingerprint
     path: list[int]             # derivation path components (hardened = val + 0x80000000)
 
+    def to_cbor(self, w: "CborWriter") -> None:
+        w.write_start_map(4)
+        w.write_int(1)
+        w.write_bytes(self.tx_hash)
+        w.write_int(2)
+        w.write_int(self.index)
+        w.write_int(3)
+        w.write_bytes(self.xfp)
+        w.write_int(4)
+        _write_path(w, self.path)
+
+    @classmethod
+    def from_cbor(cls, r: "CborReader") -> "SigningInput":
+        tx_hash = index = xfp = path = None
+        for _ in range(r.read_map_len()):
+            key = r.read_uint()
+            if key == 1:
+                tx_hash = r.read_bytes()
+            elif key == 2:
+                index = r.read_uint()
+            elif key == 3:
+                xfp = r.read_bytes()
+            elif key == 4:
+                path = _read_path(r)
+            else:
+                r.skip_value()
+        r.read_map_end()
+        if tx_hash is None or index is None or xfp is None or path is None:
+            raise ValueError("SigningInput missing required field (keys 1-4)")
+        if len(tx_hash) != TX_HASH_LEN:
+            raise ValueError(f"SigningInput tx_hash must be {TX_HASH_LEN} bytes, got {len(tx_hash)}")
+        _check_xfp(xfp, allow_empty=False)
+        return cls(tx_hash=tx_hash, index=index, xfp=xfp, path=path)
+
 
 @dataclass
 class ChangeOutput:
@@ -30,9 +112,42 @@ class ChangeOutput:
     actual output address in the transaction body. If verification fails,
     the output is treated as external (safe failure mode: user sees
     inflated sending amount rather than missing a spend).
+
+    `xfp` identifies which loaded seed owns this change path (needed when
+    multiple seeds are resident). Empty bytes means unspecified.
     """
     index: int                  # output index in the transaction body
     path: list[int]             # derivation path to verify the address
+    xfp: bytes = b""            # 4 bytes - master fingerprint (which seed owns this change)
+
+    def to_cbor(self, w: "CborWriter") -> None:
+        w.write_start_map(3)
+        w.write_int(1)
+        w.write_int(self.index)
+        w.write_int(2)
+        w.write_bytes(self.xfp)
+        w.write_int(3)
+        _write_path(w, self.path)
+
+    @classmethod
+    def from_cbor(cls, r: "CborReader") -> "ChangeOutput":
+        index = path = None
+        xfp = b""
+        for _ in range(r.read_map_len()):
+            key = r.read_uint()
+            if key == 1:
+                index = r.read_uint()
+            elif key == 2:
+                xfp = r.read_bytes()
+            elif key == 3:
+                path = _read_path(r)
+            else:
+                r.skip_value()
+        r.read_map_end()
+        if index is None or path is None:
+            raise ValueError("ChangeOutput missing required field (keys 1, 3)")
+        _check_xfp(xfp, allow_empty=True)
+        return cls(index=index, path=path, xfp=xfp)
 
 
 @dataclass
@@ -41,12 +156,36 @@ class ExtraSigner:
     xfp: bytes                  # 4 bytes - master fingerprint
     path: list[int]             # derivation path
 
+    def to_cbor(self, w: "CborWriter") -> None:
+        w.write_start_map(2)
+        w.write_int(1)
+        w.write_bytes(self.xfp)
+        w.write_int(2)
+        _write_path(w, self.path)
+
+    @classmethod
+    def from_cbor(cls, r: "CborReader") -> "ExtraSigner":
+        xfp = path = None
+        for _ in range(r.read_map_len()):
+            key = r.read_uint()
+            if key == 1:
+                xfp = r.read_bytes()
+            elif key == 2:
+                path = _read_path(r)
+            else:
+                r.skip_value()
+        r.read_map_end()
+        if xfp is None or path is None:
+            raise ValueError("ExtraSigner missing required field (keys 1, 2)")
+        _check_xfp(xfp, allow_empty=False)
+        return cls(xfp=xfp, path=path)
+
 
 @dataclass
 class CardanoSignRequest:
     """Top-level signing request decoded from a UR QR code.
 
-    UR type: cardano-tx-sig-req (CBOR tag 88000)
+    UR type: cardano-tx-sig-req (registry id 88000; body is untagged CBOR)
 
     CDDL:
         CardanoSignRequest = {
@@ -66,6 +205,147 @@ class CardanoSignRequest:
     change_outputs: list[ChangeOutput]               # change outputs with paths to verify
     network: NetworkId                               # intended network for this transaction
     extra_signers: list[ExtraSigner] = field(default_factory=list)
+
+    def to_cbor(self) -> bytes:
+        w = CborWriter()
+        num_entries = 6 + (1 if self.origin is not None else 0)
+        w.write_start_map(num_entries)
+        w.write_int(1)
+        w.write_str(self.request_id)
+        if self.origin is not None:
+            w.write_int(2)
+            w.write_str(self.origin)
+        w.write_int(3)
+        w.write_bytes(self.sign_data)
+        w.write_int(4)
+        w.write_start_array(len(self.inputs))
+        for signing_input in self.inputs:
+            signing_input.to_cbor(w)
+        w.write_int(5)
+        w.write_start_array(len(self.change_outputs))
+        for change_output in self.change_outputs:
+            change_output.to_cbor(w)
+        w.write_int(6)
+        w.write_start_array(len(self.extra_signers))
+        for extra_signer in self.extra_signers:
+            extra_signer.to_cbor(w)
+        w.write_int(7)
+        w.write_int(int(self.network))
+        return w.encode()
+
+    @classmethod
+    def from_cbor(cls, data: bytes) -> "CardanoSignRequest":
+        try:
+            return cls._from_cbor(data)
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError(f"malformed cardano-tx-sig-req: {e}") from e
+
+    @classmethod
+    def _from_cbor(cls, data: bytes) -> "CardanoSignRequest":
+        r = CborReader.from_bytes(data)
+        request_id = sign_data = network = None
+        origin = None
+        inputs: list[SigningInput] = []
+        change_outputs: list[ChangeOutput] = []
+        extra_signers: list[ExtraSigner] = []
+
+        for _ in range(r.read_map_len()):
+            key = r.read_uint()
+            if key == 1:
+                request_id = r.read_str()
+            elif key == 2:
+                origin = r.read_str()
+            elif key == 3:
+                sign_data = r.read_bytes()
+            elif key == 4:
+                inputs = [SigningInput.from_cbor(r) for _ in range(r.read_array_len())]
+                r.read_array_end()
+            elif key == 5:
+                change_outputs = [ChangeOutput.from_cbor(r) for _ in range(r.read_array_len())]
+                r.read_array_end()
+            elif key == 6:
+                extra_signers = [ExtraSigner.from_cbor(r) for _ in range(r.read_array_len())]
+                r.read_array_end()
+            elif key == 7:
+                network = NetworkId(r.read_uint())
+            else:
+                r.skip_value()
+        r.read_map_end()
+
+        if request_id is None:
+            raise ValueError("cardano-tx-sig-req missing request_id (key 1)")
+        if sign_data is None:
+            raise ValueError("cardano-tx-sig-req missing sign_data (key 3)")
+        if network is None:
+            raise ValueError("cardano-tx-sig-req missing network (key 7)")
+
+        return cls(
+            request_id=request_id,
+            origin=origin,
+            sign_data=sign_data,
+            inputs=inputs,
+            change_outputs=change_outputs,
+            network=network,
+            extra_signers=extra_signers,
+        )
+
+
+@dataclass
+class CardanoTxSignResponse:
+    """The device's reply carrying the vkey witness set.
+
+    UR type: ``cardano-tx-sig-res`` (registry id 88002; body is untagged CBOR).
+
+    CDDL:
+        CardanoTxSignResponse = {
+            1: tstr,            ; request_id (echoed)
+            2: bstr             ; vkey_witness_set_cbor
+        }
+
+    Key 2 is a cometa ``VkeyWitnessSet`` serialized to CBOR (a tag-258 set of
+    vkey witnesses), NOT a full ``TransactionWitnessSet`` map. The host decodes
+    it with ``VkeyWitnessSet.from_cbor`` and applies it to the transaction.
+    """
+    request_id: str
+    vkey_witness_set: bytes
+
+    def to_cbor(self) -> bytes:
+        w = CborWriter()
+        w.write_start_map(2)
+        w.write_int(1)
+        w.write_str(self.request_id)
+        w.write_int(2)
+        w.write_bytes(self.vkey_witness_set)
+        return w.encode()
+
+    @classmethod
+    def from_cbor(cls, data: bytes) -> "CardanoTxSignResponse":
+        try:
+            return cls._from_cbor(data)
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError(f"malformed cardano-tx-sig-res: {e}") from e
+
+    @classmethod
+    def _from_cbor(cls, data: bytes) -> "CardanoTxSignResponse":
+        r = CborReader.from_bytes(data)
+        request_id = ""
+        vkey_witness_set = None
+        for _ in range(r.read_map_len()):
+            key = r.read_uint()
+            if key == 1:
+                request_id = r.read_str()
+            elif key == 2:
+                vkey_witness_set = r.read_bytes()
+            else:
+                r.skip_value()
+        r.read_map_end()
+        if vkey_witness_set is None:
+            raise ValueError("cardano-tx-sig-res missing vkey_witness_set (key 2)")
+        return cls(request_id=request_id, vkey_witness_set=vkey_witness_set)
 
 
 class CardanoParsedTx:
@@ -391,20 +671,45 @@ class SigningPath:
     index: int
     path: list[int]  # hardened = val + 0x80000000
 
+    def to_cbor(self, w: "CborWriter") -> None:
+        w.write_start_map(2)
+        w.write_int(1)
+        w.write_int(self.index)
+        w.write_int(2)
+        _write_path(w, self.path)
+
+    @classmethod
+    def from_cbor(cls, r: "CborReader") -> "SigningPath":
+        index = path = None
+        for _ in range(r.read_map_len()):
+            key = r.read_uint()
+            if key == 1:
+                index = r.read_uint()
+            elif key == 2:
+                path = _read_path(r)
+            else:
+                r.skip_value()
+        r.read_map_end()
+        if index is None or path is None:
+            raise ValueError("SigningPath missing required field (keys 1, 2)")
+        return cls(index=index, path=path)
+
 
 @dataclass
 class CardanoMessageSignRequest:
     """CIP-8 message signing request.
 
-    UR type: cardano-sign-data-req
+    UR type: cardano-cip8-sig-req (registry id 88001; body is untagged CBOR)
 
-    CDDL:
-        CardanoSignDataRequest = {
+    `xfp` identifies which loaded seed must sign (single-key CIP-8). Empty
+    bytes means unspecified. CDDL:
+        CardanoCip8SignRequest = {
             1: tstr,                ; request_id (UUID)
             ? 2: tstr,             ; origin (optional wallet name)
             3: bstr,               ; message_payload
-            ? 4: bstr,             ; address_bytes (optional)
+            4: bstr,               ; xfp (4 bytes, master fingerprint)
             5: SigningPath,         ; required_signing_path
+            ? 6: bstr,             ; address_bytes (sign-with address, optional)
         }
     """
     request_id: str
@@ -412,17 +717,133 @@ class CardanoMessageSignRequest:
     message_payload: bytes
     required_signing_path: SigningPath
     address_bytes: Optional[bytes] = None
+    xfp: bytes = b""
+
+    def to_cbor(self) -> bytes:
+        w = CborWriter()
+        num_entries = 4 + (1 if self.origin is not None else 0) \
+            + (1 if self.address_bytes is not None else 0)
+        w.write_start_map(num_entries)
+        w.write_int(1)
+        w.write_str(self.request_id)
+        if self.origin is not None:
+            w.write_int(2)
+            w.write_str(self.origin)
+        w.write_int(3)
+        w.write_bytes(self.message_payload)
+        w.write_int(4)
+        w.write_bytes(self.xfp)
+        w.write_int(5)
+        self.required_signing_path.to_cbor(w)
+        if self.address_bytes is not None:
+            w.write_int(6)
+            w.write_bytes(self.address_bytes)
+        return w.encode()
+
+    @classmethod
+    def from_cbor(cls, data: bytes) -> "CardanoMessageSignRequest":
+        try:
+            return cls._from_cbor(data)
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError(f"malformed cardano-cip8-sig-req: {e}") from e
+
+    @classmethod
+    def _from_cbor(cls, data: bytes) -> "CardanoMessageSignRequest":
+        r = CborReader.from_bytes(data)
+        request_id = message_payload = required_signing_path = None
+        origin = address_bytes = None
+        xfp = b""
+        for _ in range(r.read_map_len()):
+            key = r.read_uint()
+            if key == 1:
+                request_id = r.read_str()
+            elif key == 2:
+                origin = r.read_str()
+            elif key == 3:
+                message_payload = r.read_bytes()
+            elif key == 4:
+                xfp = r.read_bytes()
+            elif key == 5:
+                required_signing_path = SigningPath.from_cbor(r)
+            elif key == 6:
+                address_bytes = r.read_bytes()
+            else:
+                r.skip_value()
+        r.read_map_end()
+        if request_id is None:
+            raise ValueError("cardano-cip8-sig-req missing request_id (key 1)")
+        if message_payload is None:
+            raise ValueError("cardano-cip8-sig-req missing message_payload (key 3)")
+        if required_signing_path is None:
+            raise ValueError("cardano-cip8-sig-req missing required_signing_path (key 5)")
+        _check_xfp(xfp, allow_empty=True)
+        return cls(
+            request_id=request_id,
+            origin=origin,
+            message_payload=message_payload,
+            required_signing_path=required_signing_path,
+            address_bytes=address_bytes,
+            xfp=xfp,
+        )
 
 
-def format_derivation_path(path: list[int]) -> str:
-    """Convert a derivation path to human-readable format.
+@dataclass
+class CardanoCip8SignResponse:
+    """The device's reply carrying the COSE_Sign1 + COSE_Key.
 
-    e.g. [2147485500, 2147485463, 2147483648, 0, 2] -> "m/1852'/1815'/0'/0/2"
+    UR type: ``cardano-cip8-sig-res`` (registry id 88003; body is untagged CBOR).
+
+    CDDL:
+        CardanoCip8SignResponse = {
+            1: tstr,            ; request_id (echoed)
+            2: bstr,            ; cose_sign1_cbor
+            3: bstr             ; cose_key_cbor
+        }
     """
-    parts = ["m"]
-    for component in path:
-        if component >= 0x80000000:
-            parts.append(f"{component - 0x80000000}'")
-        else:
-            parts.append(str(component))
-    return "/".join(parts)
+    request_id: str
+    cose_sign1: bytes
+    cose_key: bytes
+
+    def to_cbor(self) -> bytes:
+        w = CborWriter()
+        w.write_start_map(3)
+        w.write_int(1)
+        w.write_str(self.request_id)
+        w.write_int(2)
+        w.write_bytes(self.cose_sign1)
+        w.write_int(3)
+        w.write_bytes(self.cose_key)
+        return w.encode()
+
+    @classmethod
+    def from_cbor(cls, data: bytes) -> "CardanoCip8SignResponse":
+        try:
+            return cls._from_cbor(data)
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError(f"malformed cardano-cip8-sig-res: {e}") from e
+
+    @classmethod
+    def _from_cbor(cls, data: bytes) -> "CardanoCip8SignResponse":
+        r = CborReader.from_bytes(data)
+        request_id = ""
+        cose_sign1 = cose_key = None
+        for _ in range(r.read_map_len()):
+            key = r.read_uint()
+            if key == 1:
+                request_id = r.read_str()
+            elif key == 2:
+                cose_sign1 = r.read_bytes()
+            elif key == 3:
+                cose_key = r.read_bytes()
+            else:
+                r.skip_value()
+        r.read_map_end()
+        if cose_sign1 is None:
+            raise ValueError("cardano-cip8-sig-res missing cose_sign1 (key 2)")
+        if cose_key is None:
+            raise ValueError("cardano-cip8-sig-res missing cose_key (key 3)")
+        return cls(request_id=request_id, cose_sign1=cose_sign1, cose_key=cose_key)

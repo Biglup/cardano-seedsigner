@@ -4,6 +4,106 @@ and CIP-8 message signing address verification.
 """
 
 
+def root_key_from_seed(seed):
+    """Derive the Cardano CIP-1852 BIP32 root private key from a loaded Seed.
+
+    Single source of truth for seed -> root key (entropy + optional passphrase),
+    shared by change-output verification, message-address verification, and the
+    signing core, so the derivation can never drift between them.
+    """
+    from cometa import Bip32PrivateKey, mnemonic_to_entropy
+
+    entropy = mnemonic_to_entropy(seed.mnemonic_list)
+    passphrase_bytes = seed.passphrase.encode("utf-8") if seed.passphrase else b""
+    return Bip32PrivateKey.from_bip39_entropy(passphrase_bytes, entropy)
+
+
+ROLE_STAKE = 2
+ROLE_DREP = 3
+
+
+def drep_id_from_key_hash(key_hash: bytes) -> str:
+    """The CIP-129 DRep ID (``drep1...``) for a 28-byte DRep key hash."""
+    from cometa import Blake2bHash, Credential, DRep, DRepType
+
+    cred = Credential.from_key_hash(Blake2bHash.from_bytes(key_hash))
+    return DRep.new(DRepType.KEY_HASH, cred).to_cip129_string()
+
+
+# Short type label shown on the overview screen, keyed by credential kind.
+CREDENTIAL_SHORT_LABEL = {
+    "payment": "Payment",
+    "stake": "Stake",
+    "drep": "DRep",
+    "unknown": "Unknown",
+}
+
+
+def classify_signing_credential(address_bytes, signing_path=None) -> str:
+    """Classify a CIP-8 signing credential as ``payment`` / ``stake`` / ``drep``
+    / ``unknown``.
+
+    The derivation-path role is the primary signal (the signing intent), so a
+    DRep (role 3) or stake key (role 2) is identified even when the credential is
+    supplied as a type-6 enterprise wrapper that would otherwise look like a
+    payment address. Falls back to the address structure when no path is given.
+    """
+    from cometa import Address, AddressType
+
+    role = signing_path[3] if signing_path and len(signing_path) > 3 else None
+
+    if role == ROLE_DREP and _credential_key_hash(address_bytes) is not None:
+        return "drep"
+    if role == ROLE_STAKE:
+        return "stake"
+
+    try:
+        addr = Address.from_bytes(address_bytes)
+        if addr.type in (AddressType.REWARD_KEY, AddressType.REWARD_SCRIPT):
+            return "stake"
+        return "payment"
+    except Exception:
+        pass
+
+    if len(address_bytes) == 28:
+        return "drep"
+
+    return "unknown"
+
+
+def describe_signing_credential(address_bytes, signing_path=None) -> tuple:
+    """Classify the CIP-8 signing credential for display as ``(label, value)``,
+    e.g. ``("DRep ID:", "drep1...")``. Role-aware (see
+    :func:`classify_signing_credential`)."""
+    from cometa import Address
+
+    kind = classify_signing_credential(address_bytes, signing_path)
+
+    if kind == "drep":
+        return "DRep ID:", drep_id_from_key_hash(_credential_key_hash(address_bytes))
+    if kind == "stake":
+        return "Stake Address:", str(Address.from_bytes(address_bytes))
+    if kind == "payment":
+        return "Payment Address:", str(Address.from_bytes(address_bytes))
+
+    return "Address:", address_bytes.hex()
+
+
+def _credential_key_hash(address_bytes):
+    """The 28-byte credential key hash from a bare hash or a type-6 enterprise
+    address wrapper; ``None`` if it can't be extracted."""
+    if len(address_bytes) == 28:
+        return address_bytes
+    try:
+        from cometa import Address
+        enterprise = Address.from_bytes(address_bytes).to_enterprise_address()
+        if enterprise is not None:
+            return enterprise.payment_credential.hash.to_bytes()
+    except Exception:
+        pass
+    return None
+
+
 def verify_change_outputs(sign_request, seed, body) -> list[int]:
     """Verify which claimed change outputs actually belong to this wallet.
 
@@ -22,13 +122,11 @@ def verify_change_outputs(sign_request, seed, body) -> list[int]:
     Returns a list of output indices that are verified as change.
     """
     from cometa import (
-        Bip32PrivateKey,
         Address,
         AddressType,
         BaseAddress,
         EnterpriseAddress,
         Credential,
-        mnemonic_to_entropy,
     )
 
     # Address types we can verify
@@ -40,9 +138,7 @@ def verify_change_outputs(sign_request, seed, body) -> list[int]:
         AddressType.ENTERPRISE_KEY,
     }
 
-    entropy = mnemonic_to_entropy(seed.mnemonic_list)
-    passphrase_bytes = seed.passphrase.encode('utf-8') if seed.passphrase else b""
-    root_key = Bip32PrivateKey.from_bip39_entropy(passphrase_bytes, entropy)
+    root_key = root_key_from_seed(seed)
     network_id = sign_request.network
     verified = []
 
@@ -101,22 +197,18 @@ def verify_message_signing_address(msg_request, seed) -> bool:
     Returns False if verification fails (wrong key, unknown address type).
     """
     from cometa import (
-        Bip32PrivateKey,
         Address,
         AddressType,
         BaseAddress,
         EnterpriseAddress,
         RewardAddress,
         Credential,
-        mnemonic_to_entropy,
     )
 
     if msg_request.address_bytes is None:
         return True
 
-    entropy = mnemonic_to_entropy(seed.mnemonic_list)
-    passphrase_bytes = seed.passphrase.encode('utf-8') if seed.passphrase else b""
-    root_key = Bip32PrivateKey.from_bip39_entropy(passphrase_bytes, entropy)
+    root_key = root_key_from_seed(seed)
     path = msg_request.required_signing_path.path
 
     # Try standard Cardano address first

@@ -235,11 +235,9 @@ def derive_account_keys(seed, account_indices: list[int],
     (``m/purpose'/1815'/account'``). A client soft-derives payment (role 0),
     stake (role 2), DRep (role 3) and addresses from these.
     """
-    from cometa import Bip32PrivateKey, mnemonic_to_entropy
+    from seedsigner.helpers.cardano_utils import root_key_from_seed
 
-    entropy = mnemonic_to_entropy(seed.mnemonic_list)
-    passphrase_bytes = seed.passphrase.encode("utf-8") if seed.passphrase else b""
-    root_key = Bip32PrivateKey.from_bip39_entropy(passphrase_bytes, entropy)
+    root_key = root_key_from_seed(seed)
 
     keys = []
     for account_index in account_indices:

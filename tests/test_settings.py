@@ -31,7 +31,7 @@ class TestSettings(BaseTest):
         are ignored by the parser.
         """
         settings_name = "Test SettingsQR"
-        settingsqr_data = f"""settings::v1 name={ settings_name.replace(" ", "_") } persistent=D qr_density=M xpub_export=E xpub_details=E passphrase=E camera=180 compact_seedqr=E priv_warn=E dire_warn=E"""
+        settingsqr_data = f"""settings::v1 name={ settings_name.replace(" ", "_") } persistent=D qr_density=M passphrase=E camera=180 compact_seedqr=E priv_warn=E dire_warn=E"""
 
         # First explicitly set settings that differ from the settingsqr_data
         self.settings.set_value(SettingsConstants.SETTING__COMPACT_SEEDQR, SettingsConstants.OPTION__DISABLED)
@@ -73,11 +73,11 @@ class TestSettings(BaseTest):
 
     def test_settingsqr_ignores_unrecognized_setting(self):
         """ SettingsQR parser should ignore unrecognized settings """
-        settingsqr_data = "settings::v1 name=Foo favorite_food=bacon xpub_export=D"
+        settingsqr_data = "settings::v1 name=Foo favorite_food=bacon compact_seedqr=D"
         config_name, settings_update_dict = Settings.parse_settingsqr(settingsqr_data)
 
         assert "favorite_food" not in settings_update_dict
-        assert "xpub_export" in settings_update_dict
+        assert "compact_seedqr" in settings_update_dict
 
         # Accepts update with no Exceptions
         self.settings.update(new_settings=settings_update_dict)
@@ -85,15 +85,15 @@ class TestSettings(BaseTest):
 
     def test_settingsqr_fails_unrecognized_option(self):
         """ SettingsQR parser should fail if a settings has an unrecognized option """
-        settingsqr_data = "settings::v1 name=Foo xpub_export=Yep"
+        settingsqr_data = "settings::v1 name=Foo compact_seedqr=Yep"
         with pytest.raises(InvalidSettingsQRData) as e:
             Settings.parse_settingsqr(settingsqr_data)
-        assert "xpub_export" in str(e.value)
+        assert "compact_seedqr" in str(e.value)
 
 
     def test_settingsqr_parses_line_break_separators(self):
         """ SettingsQR parser should read line breaks as acceptable separators """
-        settingsqr_data = "settings::v1\nname=Foo\nxpub_export=E\ncompact_seedqr=E\npassphrase=E\n"
+        settingsqr_data = "settings::v1\nname=Foo\nqr_density=M\ncompact_seedqr=E\npassphrase=E\n"
         config_name, settings_update_dict = Settings.parse_settingsqr(settingsqr_data)
 
         assert len(settings_update_dict.keys()) == 3

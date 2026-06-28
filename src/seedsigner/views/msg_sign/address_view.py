@@ -27,7 +27,10 @@ class CardanoMsgAddressView(View):
         content = []
 
         if self.msg_request.address_bytes:
-            label, bech32_str = _decode_address(self.msg_request.address_bytes)
+            from seedsigner.helpers.cardano_utils import describe_signing_credential
+            signing_path = self.msg_request.required_signing_path.path
+            label, bech32_str = describe_signing_credential(
+                self.msg_request.address_bytes, signing_path)
             content.append(("label", label))
             content.append(("spacer_small", ""))
             fmt, hn, tn = _format_bech32(bech32_str)
@@ -66,34 +69,3 @@ class CardanoMsgAddressView(View):
             )
 
         return Destination(BackStackView)
-
-
-def _decode_address(address_bytes):
-    """Decode address_bytes to (label, bech32_str).
-
-    Tries standard Cardano address first, falls back to DRep credential
-    (28-byte raw key hash).
-    """
-    from cometa import Address, AddressType
-
-    try:
-        addr = Address.from_bytes(address_bytes)
-        addr_type = addr.type
-        bech32_str = str(addr)
-
-        if addr_type in (AddressType.REWARD_KEY, AddressType.REWARD_SCRIPT):
-            return "Stake Address:", bech32_str
-        else:
-            return "Payment Address:", bech32_str
-    except Exception:
-        pass
-
-    # 28-byte raw hash → DRep credential
-    if len(address_bytes) == 28:
-        from cometa import Blake2bHash, Credential, DRep, DRepType
-        h = Blake2bHash.from_bytes(address_bytes)
-        cred = Credential.from_key_hash(h)
-        drep = DRep.new(DRepType.KEY_HASH, cred)
-        return "DRep ID:", str(drep)
-
-    return "Address:", address_bytes.hex()

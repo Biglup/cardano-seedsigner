@@ -1,9 +1,12 @@
-"""Final confirmation screen before signing a Cardano transaction."""
+"""Final confirmation screen before signing a Cardano transaction, and the
+animated QR view that transmits the resulting witness set back to the host."""
 
 from gettext import gettext as _
 
 from seedsigner.gui.screens import RET_CODE__BACK_BUTTON
-from seedsigner.models.cardano_tx import CardanoParsedTx
+from seedsigner.gui.screens.screen import ButtonOption
+from seedsigner.models.cardano_tx import CardanoParsedTx, CardanoTxSignResponse
+from seedsigner.models.settings import SettingsConstants
 
 from seedsigner.views.view import View, Destination, BackStackView, MainMenuView
 
@@ -17,6 +20,31 @@ class CardanoTxSignView(View):
 
     def run(self):
         from seedsigner.gui.screens.tx_review import CardanoTxSignScreen
+        from seedsigner.gui.screens.screen import WarningScreen
+        from seedsigner.helpers.cardano_signing import (
+            matching_signing_paths,
+            build_tx_sign_response,
+        )
+
+        seed = self.controller.cardano_seed
+        # Sign exactly the transaction the user reviewed (carried on parsed_tx),
+        # not a controller field that a later scan could have overwritten.
+        request = self.parsed_tx.sign_request
+
+        # Guard: the selected seed must sign at least one required signer. An
+        # empty match means the wrong seed was chosen (would emit an empty
+        # witness set that looks like success). A partial match is valid
+        # (cross-device multisig) and proceeds.
+        if seed is not None and request is not None and not matching_signing_paths(request, seed):
+            self.run_screen(
+                WarningScreen,
+                title=_("Cannot Sign"),
+                status_headline=_("Wrong Seed"),
+                text=_("This seed does not sign any of the inputs in this transaction."),
+                show_back_button=False,
+                button_data=[ButtonOption("OK")],
+            )
+            return Destination(MainMenuView, clear_history=True)
 
         selected_menu_num = self.run_screen(
             CardanoTxSignScreen,
@@ -28,6 +56,35 @@ class CardanoTxSignView(View):
             return Destination(BackStackView)
 
         if selected_menu_num == 0:  # Cancel
-            return Destination(MainMenuView)
-        elif selected_menu_num == 1:  # Sign
             return Destination(MainMenuView, clear_history=True)
+
+        elif selected_menu_num == 1:  # Sign
+            if seed is None or request is None:
+                return Destination(MainMenuView, clear_history=True)
+            response = build_tx_sign_response(seed, request)
+            return Destination(
+                CardanoTxSignedQRView,
+                view_args=dict(response=response),
+            )
+
+
+class CardanoTxSignedQRView(View):
+    """Transmit the signed witness set back to the host as an animated QR."""
+
+    def __init__(self, response: CardanoTxSignResponse):
+        super().__init__()
+        from seedsigner.models.encode_qr import CardanoTxSigResponseQrEncoder
+
+        self.qr_encoder = CardanoTxSigResponseQrEncoder(
+            response=response,
+            qr_density=self.settings.get_value(SettingsConstants.SETTING__QR_DENSITY),
+        )
+
+    def run(self):
+        from seedsigner.gui.screens.screen import QRDisplayScreen
+
+        self.run_screen(QRDisplayScreen, qr_encoder=self.qr_encoder)
+
+        self.controller.cardano_tx_sign_request = None
+        self.controller.cardano_seed = None
+        return Destination(MainMenuView, clear_history=True)

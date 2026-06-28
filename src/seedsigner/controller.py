@@ -2,12 +2,9 @@ import logging
 import time
 import traceback
 
-from embit.descriptor import Descriptor
-from embit.psbt import PSBT
 from PIL.Image import Image
 
 from seedsigner.gui.toast import BaseToastOverlayManagerThread
-from seedsigner.models.psbt_parser import PSBTParser
 from seedsigner.models.seed import Seed
 from seedsigner.models.seed_storage import SeedStorage
 from seedsigner.models.settings import Settings
@@ -64,7 +61,6 @@ class BackgroundImportThread(BaseThread):
             # print(f"{time.time() - last:0.4f}: {module_name}")
 
         time_import('embit')
-        time_import('seedsigner.helpers.embit_utils')
 
         # Do costly initializations
         time_import('seedsigner.models.seed_storage')
@@ -109,26 +105,21 @@ class Controller(Singleton):
 
     # TODO: Refactor these flow-related attrs that survive across multiple Screens.
     # TODO: Should all in-memory flow-related attrs get wiped on MainMenuView?
-    psbt: PSBT = None
-    psbt_seed: Seed = None
-    psbt_parser: PSBTParser = None
-
-    multisig_wallet_descriptor: Descriptor = None
-
     image_entropy_preview_frames: list[Image] = None
     image_entropy_final_image: Image = None
 
     # Cardano seed selected for TX signing / message signing
     cardano_seed: Seed = None
     cardano_account_request = None
+    cardano_tx_sign_request = None
+    cardano_cip8_sign_request = None
     # TODO: end refactor section
 
     # Destination placeholder for when we need to jump out to a side flow but intend to
-    # return navigation to the main flow (e.g. PSBT flow, load multisig descriptor,
-    # then resume PSBT flow).
-    FLOW__PSBT = "psbt"
-    FLOW__VERIFY_MULTISIG_ADDR = "multisig_addr"
+    # return navigation to the main flow (e.g. load a seed mid-flow, then resume).
     FLOW__CARDANO_ACCOUNT_EXPORT = "cardano_account_export"
+    FLOW__CARDANO_TX_SIGN = "cardano_tx_sign"
+    FLOW__CARDANO_CIP8_SIGN = "cardano_cip8_sign"
     resume_main_flow: str = None
 
     back_stack: BackStack = None
@@ -179,10 +170,6 @@ class Controller(Singleton):
         
         controller.microsd = MicroSD.get_instance()
         controller.microsd.start_detection()
-
-        # Store one working psbt in memory
-        controller.psbt = None
-        controller.psbt_parser = None
 
         # Configure the Renderer
         Renderer.configure_instance()
@@ -303,11 +290,10 @@ class Controller(Singleton):
                     
                     # Home always wipes the back_stack/state of temp vars
                     self.resume_main_flow = None
-                    self.multisig_wallet_descriptor = None
-                    self.psbt = None
-                    self.psbt_parser = None
-                    self.psbt_seed = None
                     self.cardano_seed = None
+                    self.cardano_account_request = None
+                    self.cardano_tx_sign_request = None
+                    self.cardano_cip8_sign_request = None
                 
                 logger.info(f"\nback_stack: {self.back_stack}")
 

@@ -7,7 +7,7 @@ from seedsigner.controller import Controller
 from seedsigner.gui.screens.screen import RET_CODE__BACK_BUTTON, RET_CODE__POWER_BUTTON, ButtonListScreen, ButtonOption
 from seedsigner.models.seed import Seed
 from seedsigner.views import scan_views
-from seedsigner.views.psbt_views import PSBTSelectSeedView
+from seedsigner.views.tx_review.sign_view import CardanoTxSignView
 from seedsigner.views.seed_views import SeedBackupView, SeedMnemonicEntryView, SeedOptionsView, SeedsMenuView
 from seedsigner.views.view import Destination, MainMenuView, PowerOptionsView, UnhandledExceptionView, RemoveMicroSDWarningView, MainMenuView, View
 from seedsigner.views.tools_views import ToolsMenuView, ToolsCalcFinalWordNumWordsView
@@ -56,16 +56,16 @@ class TestFlowTest(FlowTest):
         # is breaking). The sequence should fail with FlowTestUnexpectedViewException.
         with pytest.raises(FlowTestUnexpectedViewException):
             self.run_sequence([
-                FlowStep(PSBTSelectSeedView),  # <-- There is no PSBT loaded. Should raise an exception that routes us to the UnhandledExceptionView.
+                FlowStep(CardanoTxSignView),  # <-- No parsed_tx; run() raises and routes us to the UnhandledExceptionView.
                 FlowStep(scan_views.ScanSeedQRView),  # <-- This is not the View we'll end up at; FlowTest should raise the FlowTestUnexpectedViewException
-            ])
+            ], initial_destination_view_args=dict(parsed_tx=None))
 
         # This sequence *expects* an exception to route us to the UnhandledExceptionView
         # and therefore can complete successfully.
         self.run_sequence([
-            FlowStep(PSBTSelectSeedView),  # <-- There's no PSBT loaded.
+            FlowStep(CardanoTxSignView),  # <-- No parsed_tx; run() raises.
             FlowStep(UnhandledExceptionView),
-        ])
+        ], initial_destination_view_args=dict(parsed_tx=None))
 
 
     def test_FlowTestInvalidButtonDataSelectionException(self):
