@@ -18,6 +18,7 @@ from cometa import NetworkId
 from companion.device import SimulatedDevice, HardwareDevice
 from companion.flows import request_account, new_request_id
 from companion import messages
+from companion import console as ui
 from companion.cip8_verify import verify_cose_sign1, signed_payload, cose_key_hash_hex
 
 from seedsigner.models.cardano_tx import CardanoMessageSignRequest, SigningPath
@@ -58,22 +59,23 @@ def main():
     network = NetworkId.MAINNET if args.mainnet else NetworkId.TESTNET
     device = build_device(args)
 
-    print("STEP 1: requesting account key ...")
-    wallet, _, _ = request_account(device, account_index=args.account, network=network)
-
     credentials = ["payment", "stake", "drep"] if args.credential == "all" else [args.credential]
     payload = args.message.encode("utf-8")
+    total = 1 + len(credentials)
+
+    ui.step(1, total, "Export Extended Account Key")
+    ui.action("Scan the request QR with the device, then approve the export on the device")
+    wallet, _, _ = request_account(device, account_index=args.account, network=network)
+    ui.ok("Received account extended public key")
 
     all_ok = True
-    for credential in credentials:
-        print("\n" + "#" * 64)
-        print(f"# Signing with {credential.upper()} key")
-        print("#" * 64)
+    for index, credential in enumerate(credentials):
+        ui.step(2 + index, total, f"Sign Message with {credential.upper()} Key")
         all_ok &= sign_one(device, wallet, credential, payload, args.evidence_dir)
 
     if not all_ok:
         raise SystemExit("VERIFICATION FAILED")
-    print("\nALL OK")
+    ui.ok("All messages signed and verified")
 
 
 def _credential_params(wallet, credential):
@@ -92,7 +94,8 @@ def sign_one(device, wallet, credential, payload, evidence_dir) -> bool:
     """Build, sign, and verify one CIP-8 message for the given credential. Returns
     whether all checks passed."""
     signing_path, address_bytes, expected_hash, bound_to = _credential_params(wallet, credential)
-    print(f"  signing with {credential} key, bound to {bound_to}")
+    ui.info(f"Message    : {payload.decode('utf-8', 'replace')}")
+    ui.info(f"Bound to   : {bound_to}")
 
     request = CardanoMessageSignRequest(
         request_id=new_request_id(),
@@ -104,31 +107,34 @@ def sign_one(device, wallet, credential, payload, evidence_dir) -> bool:
     )
     request_cbor = request.to_cbor()
 
-    print("  sending message to device for signing ...")
+    ui.action("Scan the message QR with the device")
+    ui.action("Review the message on the device, approve, then point the webcam at the signature QR")
     response_cbor = device.exchange(messages.UR_CIP8_SIG_REQ, request_cbor, messages.UR_CIP8_SIG_RES)
     response = messages.parse_response(messages.UR_CIP8_SIG_RES, response_cbor)
+    ui.ok("Received signature (COSE_Sign1) from the device")
 
     if response.request_id != request.request_id:
-        print("  [FAIL] response request_id does not match the request")
+        ui.info("[FAIL] response request_id does not match the request")
         return False
 
     ok = verify_cose_sign1(response.cose_sign1, response.cose_key)
     payload_ok = signed_payload(response.cose_sign1) == payload
     key_ok = cose_key_hash_hex(response.cose_key) == expected_hash
 
-    print(f"  cose_sign1 ({len(response.cose_sign1)} bytes): {response.cose_sign1.hex()}")
-    print(f"  cose_key   ({len(response.cose_key)} bytes): {response.cose_key.hex()}")
-    print(f"  signature valid                : {ok}")
-    print(f"  signed payload == sent message : {payload_ok}")
-    print(f"  signing key == {credential} key{' ' * (15 - len(credential))}: {key_ok}")
+    ui.result("cose_sign1", f"{len(response.cose_sign1)} bytes  {response.cose_sign1.hex()}")
+    ui.result("cose_key", f"{len(response.cose_key)} bytes  {response.cose_key.hex()}")
+    ui.result("signature valid", ok)
+    ui.result("signed payload matches", payload_ok)
+    ui.result(f"signed with {credential} key", key_ok)
 
     if evidence_dir:
         os.makedirs(evidence_dir, exist_ok=True)
         _dump(evidence_dir, f"cip8_sig_req_{credential}.txt", request_cbor.hex())
         _dump(evidence_dir, f"cip8_sig_res_{credential}.txt", response_cbor.hex())
+        ui.ok(f"Evidence (request / response CBOR) written to {evidence_dir}")
 
     passed = ok and payload_ok and key_ok
-    print(f"  -> {credential.upper()}: {'OK' if passed else 'FAILED'}")
+    ui.ok(f"{credential.upper()} key: {'VERIFIED' if passed else 'FAILED'}")
     return passed
 
 

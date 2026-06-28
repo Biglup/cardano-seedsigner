@@ -19,6 +19,7 @@ from cometa import NetworkId
 
 from companion.device import SimulatedDevice, HardwareDevice
 from companion.flows import request_account
+from companion import console as ui
 
 DEFAULT_MNEMONIC = (
     "abandon abandon abandon abandon abandon abandon abandon abandon "
@@ -52,19 +53,19 @@ def main():
     network = NetworkId.MAINNET if args.mainnet else NetworkId.TESTNET
     device = build_device(args)
 
+    ui.step(1, 1, "Export Extended Account Key")
+    ui.action("Scan the request QR with the device, then approve the export on the device")
     wallet, response, _ = request_account(device, account_index=args.account, network=network)
+    ui.ok("Received account extended public key (watch-only, no private keys)")
 
-    print("=" * 64)
-    print("Account export received")
-    print("=" * 64)
-    print(f"device label       : {response.device_label}")
-    print(f"master fingerprint : {response.master_fingerprint.hex()}")
-    print(f"account index      : {args.account}")
-    print(f"account xpub       : {wallet.account_xpub.to_bytes().hex()}")
-    print(f"network            : {'mainnet' if args.mainnet else 'testnet/preprod'}")
-    print(f"base address       : {wallet.address_bech32()}")
-    print(f"enterprise address : {wallet.enterprise_address().to_bech32()}")
-    print(f"reward address     : {wallet.reward_address().to_bech32()}")
+    ui.result("device label", response.device_label)
+    ui.result("master fingerprint", response.master_fingerprint.hex())
+    ui.result("account index", args.account)
+    ui.result("account xpub", wallet.account_xpub.to_bytes().hex())
+    ui.result("network", "mainnet" if args.mainnet else "testnet/preprod")
+    ui.result("base address", wallet.address_bech32())
+    ui.result("enterprise address", wallet.enterprise_address().to_bech32())
+    ui.result("reward address", wallet.reward_address().to_bech32())
 
 
 if __name__ == "__main__":

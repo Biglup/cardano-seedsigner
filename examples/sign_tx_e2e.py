@@ -38,6 +38,7 @@ from cometa import (
 from companion.device import SimulatedDevice, HardwareDevice
 from companion.flows import request_account, new_request_id
 from companion import messages
+from companion import console as ui
 
 from seedsigner.models.cardano_tx import CardanoSignRequest, SigningInput, ChangeOutput
 
@@ -88,16 +89,19 @@ def main():
     provider = BlockfrostProvider(network=NetworkMagic.PREPROD, project_id=project_id)
     device = build_device(args)
 
-    print("STEP 1: requesting account key ...")
+    ui.step(1, 5, "Export Extended Account Key")
+    ui.action("Scan the request QR with the device, then approve the export on the device")
     wallet, _, _ = request_account(device, account_index=args.account, network=NetworkId.TESTNET)
     address = wallet.address_bech32()
-    print(f"  wallet address: {address}")
+    ui.ok("Received account extended public key")
+    ui.result("master fingerprint", wallet.master_fingerprint.hex())
+    ui.result("wallet address", address)
 
-    print("STEP 2: fetching UTXOs + protocol parameters ...")
+    ui.step(2, 5, "Build Transaction")
+    ui.info("Fetching UTXOs and protocol parameters from Blockfrost (preprod) ...")
     utxos = UtxoList.from_list(provider.get_unspent_outputs(address))
     params = provider.get_parameters()
 
-    print("STEP 3: building transaction (watch-only) ...")
     builder = TxBuilder(params, SlotConfig.preprod())
     builder.set_utxos(utxos)
     builder.set_change_address(address)
@@ -132,15 +136,20 @@ def main():
         network=NetworkId.TESTNET,
     )
     request_cbor = request.to_cbor()
+    ui.ok(f"Built transaction (txid {transaction.id.to_hex()})")
+    ui.result("sending", f"{args.lovelace} lovelace to {args.to}")
 
-    print(f"STEP 4: sending tx to device for signing (txid {transaction.id.to_hex()}) ...")
+    ui.step(3, 5, "Sign Transaction on Device")
+    ui.action("Scan the transaction QR with the device")
+    ui.action("Review the details on the device, approve, then point the webcam at the witness QR")
     response_cbor = device.exchange(messages.UR_TX_SIG_REQ, request_cbor, messages.UR_TX_SIG_RES)
     response = messages.parse_response(messages.UR_TX_SIG_RES, response_cbor)
+    ui.ok("Received witness data from the device")
 
     if response.request_id != request.request_id:
         raise SystemExit("response request_id does not match the request")
 
-    print("STEP 5: validating + applying the witness set ...")
+    ui.step(4, 5, "Verify and Apply Witness")
     witness_set = VkeyWitnessSet.from_cbor(CborReader.from_bytes(response.vkey_witness_set))
     # Don't broadcast device output blind: every witness must be from a required
     # signer and verify over this transaction's id (the body hash).
@@ -153,32 +162,29 @@ def main():
         if not pub.verify(Ed25519Signature.from_bytes(witness.signature), tx_id):
             raise SystemExit("device returned an invalid signature")
 
+    ui.ok(f"All {len(witness_set)} witness signature(s) verified against the transaction")
     transaction.apply_vkey_witnesses(witness_set)
     signed_cbor = transaction.serialize_to_cbor()
-
-    print("=" * 64)
-    print(f"txid              : {transaction.id.to_hex()}")
-    print(f"witnesses applied : {len(witness_set)}")
-    print(f"signed tx cbor    : {signed_cbor}")
-    print("=" * 64)
+    ui.result("txid", transaction.id.to_hex())
 
     if args.evidence_dir:
         os.makedirs(args.evidence_dir, exist_ok=True)
         _dump(args.evidence_dir, "tx_sig_req.txt", request_cbor.hex())
         _dump(args.evidence_dir, "tx_sig_res.txt", response.vkey_witness_set.hex())
         _dump(args.evidence_dir, "tx_signed.txt", signed_cbor)
-        print(f"evidence written to {args.evidence_dir}")
+        ui.ok(f"Evidence (request / witness / signed-tx CBOR) written to {args.evidence_dir}")
 
+    ui.step(5, 5, "Broadcast Transaction")
     if args.broadcast:
-        print("STEP 6: broadcasting ...")
+        ui.info("Submitting the signed transaction to preprod ...")
         tx_id = provider.submit_transaction(signed_cbor)
-        print(f"submitted: {tx_id}")
+        ui.ok(f"Submitted: {tx_id}")
         if provider.confirm_transaction(tx_id, 90000):
-            print("confirmed on-chain.")
+            ui.ok("Confirmed on-chain")
         else:
-            print("[warn] not confirmed within timeout.")
+            ui.info("[warn] not confirmed within timeout")
     else:
-        print("(dry run — pass --broadcast to submit)")
+        ui.info("Dry run — re-run with --broadcast to submit to the network")
 
 
 def _dump(directory, name, text):
