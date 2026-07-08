@@ -53,6 +53,12 @@ git checkout "$SEEDSIGNER_OS_VERSION" 2>/dev/null || git checkout "tags/$SEEDSIG
 # Ensure submodules are at correct version
 git submodule update --init --recursive
 
+# Reset boot scripts in case a previous dev-image build patched them
+# (build-dev-image.sh rewrites start.sh and swaps S02seedsigner for S50seedsigner)
+echo "Resetting rootfs-overlay boot scripts..."
+git checkout -- opt/rootfs-overlay/start.sh opt/rootfs-overlay/etc/init.d/
+rm -f opt/rootfs-overlay/etc/init.d/S50seedsigner
+
 # Copy source into overlay
 echo "Copying cardano-seedsigner source..."
 mkdir -p opt/rootfs-overlay/opt
