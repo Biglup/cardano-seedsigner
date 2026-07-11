@@ -36,6 +36,10 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
     - value_text: regular centered text
     - verified: green check icon + white text, centered (ownership badge)
     - foreign: red centered text (negative ownership badge)
+    - hero_fields: 2-tuple (type, fields) where fields is a list of
+      (label, label_suffix, value) — each field is a small centered label
+      (suffix in accent color) over a large fixed-width value, and the whole
+      stack is centered vertically in the viewport
     - spacer / spacer_small: vertical spacing
     """
     content: list = field(default_factory=list)
@@ -69,7 +73,21 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
             line_type = entry[0]
             text = entry[1]
 
-            if line_type in ("value_highlight", "value_highlight_warn", "value_highlight_yes", "value_highlight_no") and vh_font.getlength(text) > max_w:
+            if line_type == "hero_fields":
+                fields = []
+                for field_label, label_suffix, field_value in entry[1]:
+                    font_size = 24
+                    font = Fonts.get_font(GUIConstants.FIXED_WIDTH_FONT_NAME, font_size)
+                    while font_size > 16 and font.getlength(field_value) > max_w:
+                        font_size -= 1
+                        font = Fonts.get_font(GUIConstants.FIXED_WIDTH_FONT_NAME, font_size)
+                    if font.getlength(field_value) <= max_w:
+                        value_lines = [field_value]
+                    else:
+                        value_lines = self._wrap_path(field_value, font, max_w)
+                    fields.append((field_label, label_suffix, value_lines, font_size))
+                self._lines.append(("hero_fields", fields))
+            elif line_type in ("value_highlight", "value_highlight_warn", "value_highlight_yes", "value_highlight_no") and vh_font.getlength(text) > max_w:
                 for wrapped in self._wrap_text(text, vh_font, max_w):
                     self._lines.append((line_type, wrapped))
             elif line_type == "mono_text":
@@ -119,6 +137,12 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
         self._spacer_height = 16
         self._spacer_small_height = 8
 
+        self._hero_fields_height = self.content_height - self._spacer_height
+        for line_type, payload in self._lines:
+            if line_type == "hero_fields":
+                self._hero_fields_height = max(
+                    self._hero_fields_height, self._hero_block_height(payload))
+
         bottom_padding = self._spacer_height
         total = sum(self._line_height_for(t) for t, _ in self._lines) + bottom_padding
         self.scroll_unit = 40
@@ -141,6 +165,7 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
             "mono_text": self._mono_text_height,
             "value_text": self._value_text_height,
             "verified": self._label_height,
+            "hero_fields": self._hero_fields_height,
             "spacer": self._spacer_height,
             "spacer_small": self._spacer_small_height,
         }
@@ -279,6 +304,48 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
                             anchor="lt",
                         )
                         x_cursor += int(char_w * len(seg_text))
+                elif line_type == "hero_fields":
+                    fields = text
+                    field_label_font = Fonts.get_font(
+                        GUIConstants.get_body_font_name(),
+                        GUIConstants.get_body_font_size() - 2,
+                    )
+                    field_gap = 24
+                    block_h = self._hero_block_height(fields)
+                    cur_y = y + max(0, (h - block_h) // 2)
+
+                    for field_label, label_suffix, value_lines, font_size in fields:
+                        label_w = field_label_font.getlength(field_label)
+                        suffix_w = (field_label_font.getlength(" " + label_suffix)
+                                    if label_suffix else 0)
+                        label_x = center_x - (label_w + suffix_w) / 2
+                        self.renderer.draw.text(
+                            (label_x, cur_y),
+                            field_label,
+                            font=field_label_font,
+                            fill=GUIConstants.LABEL_FONT_COLOR,
+                            anchor="lt",
+                        )
+                        if label_suffix:
+                            self.renderer.draw.text(
+                                (label_x + field_label_font.getlength(field_label + " "), cur_y),
+                                label_suffix,
+                                font=field_label_font,
+                                fill=GUIConstants.ACCENT_TEXT_COLOR,
+                                anchor="lt",
+                            )
+                        cur_y += 20 + 6
+                        value_font = Fonts.get_font(GUIConstants.FIXED_WIDTH_FONT_NAME, font_size)
+                        for value_line in value_lines:
+                            self.renderer.draw.text(
+                                (center_x, cur_y),
+                                value_line,
+                                font=value_font,
+                                fill=GUIConstants.BODY_FONT_COLOR,
+                                anchor="mt",
+                            )
+                            cur_y += font_size + 8
+                        cur_y += field_gap
                 elif line_type == "mono_text":
                     self.renderer.draw.text(
                         (self.content_x + 4, y),
@@ -331,6 +398,33 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
             if line_type == "hash_line":
                 hash_line_idx += 1
             y += h
+
+    @staticmethod
+    def _hero_block_height(fields) -> int:
+        """Pixel height of a hero_fields stack. Sized so an unusually long
+        value (e.g. a many-component derivation path) makes the page
+        scrollable rather than silently cropping lines the user must see."""
+        field_gap = 24
+        block_h = sum(20 + 6 + len(value_lines) * (font_size + 8)
+                      for _, _, value_lines, font_size in fields)
+        return block_h + field_gap * (len(fields) - 1)
+
+    @staticmethod
+    def _wrap_path(value, font, max_w):
+        """Break a derivation path into lines at '/' boundaries; continuation
+        lines start with '/' so the split reads unambiguously."""
+        segments = value.split("/")
+        lines = []
+        current = segments[0]
+        for segment in segments[1:]:
+            candidate = f"{current}/{segment}"
+            if font.getlength(candidate) <= max_w:
+                current = candidate
+            else:
+                lines.append(current)
+                current = f"/{segment}"
+        lines.append(current)
+        return lines
 
     @staticmethod
     def _wrap_text(text, font, max_w):

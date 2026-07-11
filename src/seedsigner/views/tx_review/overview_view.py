@@ -60,6 +60,26 @@ class CardanoTxOverviewView(View):
         from seedsigner.gui.screens.tx_review.utils import format_ada
         from .sequential_review_view import CardanoTxSequentialReviewView
 
+        if self.parsed_tx.has_unverified_outputs and not self.parsed_tx.unverified_warning_acknowledged:
+            from seedsigner.gui.screens.screen import WarningScreen
+
+            if self.parsed_tx.has_failed_change_claims:
+                status_headline = _("Cannot Verify Change")
+                text = _("The declared change is not this wallet's. Confirm the destinations in your host wallet.")
+            else:
+                status_headline = _("All Amounts Leaving")
+                text = _("No outputs belong to this wallet. Confirm the destinations in your host wallet.")
+
+            selected_menu_num = self.run_screen(
+                WarningScreen,
+                title=_("Unverified Outputs"),
+                status_headline=status_headline,
+                text=text,
+            )
+            if selected_menu_num == RET_CODE__BACK_BUTTON:
+                return Destination(BackStackView)
+            self.parsed_tx.unverified_warning_acknowledged = True
+
         origin = _sanitize_origin(self.parsed_tx.sign_request.origin)
 
         selected_menu_num = self.run_screen(
@@ -68,6 +88,8 @@ class CardanoTxOverviewView(View):
             fee=format_ada(self.parsed_tx.fee),
             network=self.parsed_tx.network.name.capitalize(),
             origin=origin,
+            unverified_outputs=self.parsed_tx.has_unverified_outputs,
+            num_outputs=len(self.parsed_tx.outputs),
         )
 
         if selected_menu_num == RET_CODE__BACK_BUTTON:
@@ -98,11 +120,19 @@ from seedsigner.gui.components import GUIConstants, TextArea
 
 @dataclass
 class _TxOverviewScreen(ButtonListScreen):
-    """TX overview with left-aligned label/value rows."""
+    """TX overview with left-aligned label/value rows.
+
+    When no output could be verified as this wallet's change, the single
+    "Sending" figure is a net the device cannot prove, so it is replaced by
+    the output count (per-output amounts follow in the sequential review and
+    on the sign confirmation).
+    """
     sending: str = ""
     fee: str = ""
     network: str = ""
     origin: str = None
+    unverified_outputs: bool = False
+    num_outputs: int = 0
 
     def __post_init__(self):
         self.title = _("Sign Transaction")
@@ -114,8 +144,11 @@ class _TxOverviewScreen(ButtonListScreen):
         rows = []
         if self.origin:
             rows.append(("Origin:", self.origin))
+        if self.unverified_outputs:
+            rows.append(("Outputs:", str(self.num_outputs)))
+        else:
+            rows.append(("Sending:", self.sending))
         rows += [
-            ("Sending:", self.sending),
             ("Fee:", self.fee),
             ("Network:", self.network),
         ]

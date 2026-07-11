@@ -1114,7 +1114,11 @@ class SeedTranscribeSeedQRConfirmSuccessView(View):
     Cardano Account Key Export
 ****************************************************************************"""
 class CardanoExportAccountKeyView(View):
-    """Export a CIP-1852 account extended public key as a bech32-encoded QR code."""
+    """Export an account extended public key as a bech32-encoded QR code,
+    choosing between an ordinary (CIP-1852) and a multisig (CIP-1854) key."""
+
+    SINGLE_SIG = ButtonOption("Single-sig (CIP-1852)")
+    MULTI_SIG = ButtonOption("Multisig (CIP-1854)")
 
     def __init__(self, seed_num: int):
         super().__init__()
@@ -1122,10 +1126,24 @@ class CardanoExportAccountKeyView(View):
 
 
     def run(self):
+        from seedsigner.models.cardano_account import PURPOSE_CIP1852, PURPOSE_CIP1854
+
+        button_data = [self.SINGLE_SIG, self.MULTI_SIG]
+        selected_menu_num = self.run_screen(
+            ButtonListScreen,
+            title=_("Export Account Key"),
+            is_button_text_centered=False,
+            button_data=button_data,
+        )
+
+        if selected_menu_num == RET_CODE__BACK_BUTTON:
+            return Destination(BackStackView)
+
+        key_purpose = (PURPOSE_CIP1854 if button_data[selected_menu_num] == self.MULTI_SIG
+                       else PURPOSE_CIP1852)
         return Destination(
             CardanoExportAccountKeySelectView,
-            view_args=dict(seed_num=self.seed_num),
-            skip_current_view=True,
+            view_args=dict(seed_num=self.seed_num, key_purpose=key_purpose),
         )
 
 
@@ -1135,10 +1153,12 @@ class CardanoExportAccountKeySelectView(View):
 
     ACCOUNTS_PER_PAGE = 10
 
-    def __init__(self, seed_num: int, start_index: int = 0):
+    def __init__(self, seed_num: int, start_index: int = 0, key_purpose: int = None):
         super().__init__()
+        from seedsigner.models.cardano_account import PURPOSE_CIP1852
         self.seed_num = seed_num
         self.start_index = start_index
+        self.key_purpose = key_purpose if key_purpose is not None else PURPOSE_CIP1852
 
 
     def run(self):
@@ -1146,7 +1166,7 @@ class CardanoExportAccountKeySelectView(View):
 
         addresses = []
         for i in range(self.start_index, self.start_index + self.ACCOUNTS_PER_PAGE):
-            addresses.append(f"m/1852'/1815'/{i}'")
+            addresses.append(f"m/{self.key_purpose}'/1815'/{i}'")
 
         selected_menu_num = self.run_screen(
             ToolsAddressExplorerAddressListScreen,
@@ -1161,7 +1181,9 @@ class CardanoExportAccountKeySelectView(View):
         if selected_menu_num == len(addresses):
             return Destination(
                 CardanoExportAccountKeySelectView,
-                view_args=dict(seed_num=self.seed_num, start_index=self.start_index + self.ACCOUNTS_PER_PAGE),
+                view_args=dict(seed_num=self.seed_num,
+                               start_index=self.start_index + self.ACCOUNTS_PER_PAGE,
+                               key_purpose=self.key_purpose),
             )
 
         account_index = selected_menu_num + self.start_index
@@ -1169,7 +1191,8 @@ class CardanoExportAccountKeySelectView(View):
         # Show privacy warning
         destination = Destination(
             CardanoExportAccountKeyDetailsView,
-            view_args={"seed_num": self.seed_num, "account_indices": [account_index]},
+            view_args={"seed_num": self.seed_num, "account_indices": [account_index],
+                       "key_purpose": self.key_purpose},
             skip_current_view=True,
         )
 
@@ -1290,8 +1313,11 @@ class CardanoExportAccountKeyConsentView(View):
 
 
     def run(self):
+        from seedsigner.models.cardano_account import PURPOSE_CIP1852
+
         account_indices = self.request.account_indices if self.request else [0]
         request_id = self.request.request_id if self.request else ""
+        key_purpose = self.request.key_purpose if self.request else PURPOSE_CIP1852
 
         multi_enabled = self.settings.get_value(SettingsConstants.SETTING__MULTI_ACCOUNTS) == SettingsConstants.OPTION__ENABLED
         needs_multi = len(account_indices) > 1 or any(index != 0 for index in account_indices)
@@ -1309,7 +1335,8 @@ class CardanoExportAccountKeyConsentView(View):
 
         destination = Destination(
             CardanoExportAccountKeyDetailsView,
-            view_args=dict(seed_num=self.seed_num, account_indices=account_indices, request_id=request_id),
+            view_args=dict(seed_num=self.seed_num, account_indices=account_indices,
+                           request_id=request_id, key_purpose=key_purpose),
             skip_current_view=True,
         )
 
@@ -1338,29 +1365,36 @@ class CardanoExportAccountKeyDetailsView(View):
     screen (``key_index`` walks ``account_indices``) before the QR is shown.
     """
 
-    def __init__(self, seed_num: int, account_indices: list = None, request_id: str = "", key_index: int = 0):
+    def __init__(self, seed_num: int, account_indices: list = None, request_id: str = "",
+                 key_index: int = 0, key_purpose: int = None):
         super().__init__()
+        from seedsigner.models.cardano_account import PURPOSE_CIP1852
         self.seed_num = seed_num
         self.account_indices = account_indices if account_indices is not None else [0]
         self.request_id = request_id
         self.key_index = key_index
+        self.key_purpose = key_purpose if key_purpose is not None else PURPOSE_CIP1852
         self.seed = self.controller.get_seed(seed_num)
 
 
     def run(self):
         from cometa import Bech32
         from seedsigner.gui.screens.screen import LoadingScreenThread
-        from seedsigner.models.cardano_account import derive_account_keys, format_derivation_path
+        from seedsigner.models.cardano_account import (
+            account_xpub_hrp,
+            derive_account_keys,
+            format_derivation_path,
+        )
 
         account_index = self.account_indices[self.key_index]
 
         loading_screen = LoadingScreenThread(text=_("Generating xpub..."))
         loading_screen.start()
         try:
-            account_key = derive_account_keys(self.seed, [account_index])[0]
+            account_key = derive_account_keys(self.seed, [account_index], self.key_purpose)[0]
             fingerprint = self.seed.get_fingerprint()
             derivation_path = format_derivation_path(account_key.path)
-            xpub = Bech32.encode("acct_xvk", account_key.xpub)
+            xpub = Bech32.encode(account_xpub_hrp(self.key_purpose), account_key.xpub)
         finally:
             loading_screen.stop()
 
@@ -1382,12 +1416,14 @@ class CardanoExportAccountKeyDetailsView(View):
                     account_indices=self.account_indices,
                     request_id=self.request_id,
                     key_index=self.key_index + 1,
+                    key_purpose=self.key_purpose,
                 ),
             )
 
         return Destination(
             CardanoExportAccountKeyQRView,
-            view_args=dict(seed_num=self.seed_num, account_indices=self.account_indices, request_id=self.request_id),
+            view_args=dict(seed_num=self.seed_num, account_indices=self.account_indices,
+                           request_id=self.request_id, key_purpose=self.key_purpose),
         )
 
 
@@ -1395,16 +1431,19 @@ class CardanoExportAccountKeyDetailsView(View):
 class CardanoExportAccountKeyQRView(View):
     """Display the account extended public key(s) as an animated QR code."""
 
-    def __init__(self, seed_num: int, account_indices: list = None, request_id: str = ""):
+    def __init__(self, seed_num: int, account_indices: list = None, request_id: str = "",
+                 key_purpose: int = None):
         super().__init__()
-        from seedsigner.models.cardano_account import build_account_response
+        from seedsigner.models.cardano_account import PURPOSE_CIP1852, build_account_response
         from seedsigner.models.encode_qr import CardanoAccountQrEncoder
 
         seed = self.controller.get_seed(seed_num)
         if account_indices is None:
             account_indices = [0]
+        if key_purpose is None:
+            key_purpose = PURPOSE_CIP1852
 
-        response = build_account_response(seed, request_id, account_indices)
+        response = build_account_response(seed, request_id, account_indices, key_purpose)
         self.qr_encoder = CardanoAccountQrEncoder(
             response=response,
             qr_density=self.settings.get_value(SettingsConstants.SETTING__QR_DENSITY),

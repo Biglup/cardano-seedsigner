@@ -18,8 +18,33 @@ def root_key_from_seed(seed):
     return Bip32PrivateKey.from_bip39_entropy(passphrase_bytes, entropy)
 
 
+ROLE_PAYMENT = 0
+ROLE_CHANGE = 1
 ROLE_STAKE = 2
 ROLE_DREP = 3
+
+PURPOSE_MULTISIG = 1854
+PURPOSE_MINTING = 1855
+
+HARDENED_OFFSET = 0x80000000
+
+
+def path_purpose(path) -> int:
+    """The unhardened purpose component of a derivation path, or ``None``."""
+    if not path:
+        return None
+    return path[0] & ~HARDENED_OFFSET
+
+
+def path_role(path) -> int:
+    """The role component of a 5-component CIP-1852-style path, or ``None``.
+
+    Unhardened: a hardened role (nonstandard, but host-controlled) still
+    classifies by its role number rather than falling through to a default.
+    """
+    if path and len(path) > 3:
+        return path[3] & ~HARDENED_OFFSET
+    return None
 
 
 def drep_id_from_key_hash(key_hash: bytes) -> str:
@@ -35,22 +60,34 @@ CREDENTIAL_SHORT_LABEL = {
     "payment": "Payment",
     "stake": "Stake",
     "drep": "DRep",
+    "multisig": "Multisig",
+    "minting": "Minting",
     "unknown": "Unknown",
 }
 
 
 def classify_signing_credential(address_bytes, signing_path=None) -> str:
     """Classify a CIP-8 signing credential as ``payment`` / ``stake`` / ``drep``
-    / ``unknown``.
+    / ``multisig`` / ``minting`` / ``unknown``.
 
-    The derivation-path role is the primary signal (the signing intent), so a
-    DRep (role 3) or stake key (role 2) is identified even when the credential is
-    supplied as a type-6 enterprise wrapper that would otherwise look like a
-    payment address. Falls back to the address structure when no path is given.
+    The derivation-path purpose is checked first: a CIP-1854 (multisig) or
+    CIP-1855 (minting policy) key must never be presented as a plain payment
+    or stake address, because its on-chain identity is a script hash the
+    device cannot compute. The role is the next signal (the signing intent),
+    so a DRep (role 3) or stake key (role 2) is identified even when the
+    credential is supplied as a type-6 enterprise wrapper that would otherwise
+    look like a payment address. Falls back to the address structure when no
+    path is given.
     """
     from cometa import Address, AddressType
 
-    role = signing_path[3] if signing_path and len(signing_path) > 3 else None
+    purpose = path_purpose(signing_path)
+    if purpose == PURPOSE_MULTISIG:
+        return "multisig"
+    if purpose == PURPOSE_MINTING:
+        return "minting"
+
+    role = path_role(signing_path)
 
     if role == ROLE_DREP and _credential_key_hash(address_bytes) is not None:
         return "drep"
@@ -66,39 +103,76 @@ def classify_signing_credential(address_bytes, signing_path=None) -> str:
         pass
 
     if len(address_bytes) == 28:
-        return "drep"
+        if role in (None, ROLE_DREP):
+            return "drep"
+        if role in (ROLE_PAYMENT, ROLE_CHANGE):
+            return "payment"
 
     return "unknown"
 
 
 def describe_signing_credential(address_bytes, signing_path=None) -> tuple:
     """Classify the CIP-8 signing credential for display as ``(label, value)``,
-    e.g. ``("DRep ID:", "drep1...")``. Role-aware (see
-    :func:`classify_signing_credential`)."""
+    e.g. ``("DRep ID:", "drep1...")``. Purpose- and role-aware (see
+    :func:`classify_signing_credential`).
+
+    A multisig (1854') or minting (1855') key is shown as its bare key hash in
+    hex: the on-chain identity is a script address whose hash depends on the
+    full policy, which the device does not have, so wrapping the key hash in
+    an address would produce a valid-looking address that belongs to no
+    wallet. Hex is also how coordinators show cosigner keys, so it is directly
+    comparable on the host side.
+    """
     from cometa import Address
 
     kind = classify_signing_credential(address_bytes, signing_path)
+    role = path_role(signing_path)
 
+    if kind in ("multisig", "minting"):
+        key_hash = _credential_key_hash(address_bytes, role)
+        if key_hash is None:
+            return "Key Hash:", address_bytes.hex()
+        return "Key Hash:", key_hash.hex()
     if kind == "drep":
         return "DRep ID:", drep_id_from_key_hash(_credential_key_hash(address_bytes))
-    if kind == "stake":
-        return "Stake Address:", str(Address.from_bytes(address_bytes))
-    if kind == "payment":
-        return "Payment Address:", str(Address.from_bytes(address_bytes))
+    if kind in ("stake", "payment"):
+        try:
+            value = str(Address.from_bytes(address_bytes))
+        except Exception:
+            value = None
+        if value is not None:
+            label = "Stake Address:" if kind == "stake" else "Payment Address:"
+            return label, value
+        key_hash = _credential_key_hash(address_bytes, role)
+        if key_hash is not None:
+            return "Key Hash:", key_hash.hex()
 
     return "Address:", address_bytes.hex()
 
 
-def _credential_key_hash(address_bytes):
-    """The 28-byte credential key hash from a bare hash or a type-6 enterprise
-    address wrapper; ``None`` if it can't be extracted."""
+def _credential_key_hash(address_bytes, role=None):
+    """The 28-byte credential key hash from a bare hash or an address wrapper
+    (enterprise, base, reward); ``None`` if it can't be extracted.
+
+    A base address holds two credentials: `role` selects the stake credential
+    for a stake-role (2) signing key, the payment credential otherwise. A
+    reward address always yields its stake credential.
+    """
     if len(address_bytes) == 28:
         return address_bytes
     try:
         from cometa import Address
-        enterprise = Address.from_bytes(address_bytes).to_enterprise_address()
+        addr = Address.from_bytes(address_bytes)
+        enterprise = addr.to_enterprise_address()
         if enterprise is not None:
             return enterprise.payment_credential.hash.to_bytes()
+        base = addr.to_base_address()
+        if base is not None:
+            cred = base.stake_credential if role == ROLE_STAKE else base.payment_credential
+            return cred.hash.to_bytes()
+        reward = addr.to_reward_address()
+        if reward is not None:
+            return reward.credential.hash.to_bytes()
     except Exception:
         pass
     return None
@@ -216,7 +290,7 @@ def derive_owned_key_hashes(sign_request, seed) -> set:
 
     paths = set()
     for signing_input in sign_request.inputs:
-        if signing_input.xfp == fingerprint:
+        if signing_input.path is not None and signing_input.xfp == fingerprint:
             paths.add(tuple(signing_input.path))
     for extra_signer in sign_request.extra_signers:
         if extra_signer.xfp == fingerprint:

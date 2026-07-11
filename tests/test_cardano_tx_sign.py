@@ -316,3 +316,114 @@ def test_malformed_cbor_raises_valueerror_not_cometa_error():
     w.write_bytes(b"\xa0")
     with pytest.raises(ValueError):
         CardanoSignRequest.from_cbor(w.encode())
+
+
+def test_script_locked_input_roundtrips_without_path():
+    req = CardanoSignRequest(
+        request_id="script-1",
+        origin=None,
+        sign_data=b"\x01\x02",
+        inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0)],
+        change_outputs=[],
+        network=NetworkId.TESTNET,
+        extra_signers=[ExtraSigner(xfp=XFP, path=PATH_PAYMENT)],
+    )
+    decoded = CardanoSignRequest.from_cbor(req.to_cbor())
+    assert decoded.inputs[0].tx_hash == b"\x00" * 32
+    assert decoded.inputs[0].index == 0
+    assert decoded.inputs[0].xfp == b""
+    assert decoded.inputs[0].path is None
+    assert decoded.extra_signers[0].path == PATH_PAYMENT
+
+
+def test_mixed_script_locked_and_owned_inputs_roundtrip():
+    req = CardanoSignRequest(
+        request_id="mixed-1",
+        origin=None,
+        sign_data=b"\x01",
+        inputs=[
+            SigningInput(tx_hash=b"\x00" * 32, index=0),
+            SigningInput(tx_hash=b"\x11" * 32, index=1, xfp=XFP, path=PATH_PAYMENT),
+        ],
+        change_outputs=[],
+        network=NetworkId.MAINNET,
+    )
+    decoded = CardanoSignRequest.from_cbor(req.to_cbor())
+    assert decoded.inputs[0].path is None
+    assert decoded.inputs[1].path == PATH_PAYMENT
+    assert decoded.inputs[1].xfp == XFP
+
+
+def test_signing_input_path_without_xfp_raises():
+    from cometa import CborReader
+    w = CborWriter()
+    w.write_start_map(3)
+    w.write_int(1)
+    w.write_bytes(b"\x00" * 32)
+    w.write_int(2)
+    w.write_int(0)
+    w.write_int(4)
+    w.write_start_array(1)
+    w.write_int(0)
+    with pytest.raises(ValueError):
+        SigningInput.from_cbor(CborReader.from_bytes(w.encode()))
+
+
+BODY_CBOR_ONE_OUTPUT = bytes.fromhex(
+    "a3"
+    "00" "81" "82" "5820" + "00" * 32 + "00"
+    "01" "81" "82" "581d61" + "11" * 28 + "1a000f4240"
+    "02" "1a0002bf20"
+)
+
+
+def _parsed_tx(verified_change_indices):
+    from seedsigner.models.cardano_tx import CardanoParsedTx
+    req = CardanoSignRequest(
+        request_id="w-1", origin=None, sign_data=BODY_CBOR_ONE_OUTPUT,
+        inputs=[], change_outputs=[], network=NetworkId.MAINNET,
+    )
+    return CardanoParsedTx(req, verified_change_indices=verified_change_indices)
+
+
+def test_unverified_outputs_flag_fires_when_no_change_verified():
+    parsed = _parsed_tx([])
+    assert parsed.has_unverified_outputs
+    assert parsed.output_amounts == [1_000_000]
+
+
+def test_unverified_outputs_flag_clear_when_change_verified():
+    parsed = _parsed_tx([0])
+    assert not parsed.has_unverified_outputs
+
+
+def test_signing_input_encode_path_without_xfp_raises():
+    si = SigningInput(tx_hash=b"\x00" * 32, index=0, path=PATH_PAYMENT)
+    with pytest.raises(ValueError):
+        si.to_cbor(CborWriter())
+
+
+def test_request_with_no_signers_at_all_raises():
+    req = CardanoSignRequest(
+        request_id="no-signers", origin=None, sign_data=b"\x01",
+        inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0)],
+        change_outputs=[], network=NetworkId.TESTNET,
+    )
+    with pytest.raises(ValueError):
+        CardanoSignRequest.from_cbor(req.to_cbor())
+
+
+def test_failed_change_claim_flag():
+    from seedsigner.models.cardano_tx import CardanoParsedTx
+
+    def parsed(change_outputs, verified):
+        req = CardanoSignRequest(
+            request_id="c-1", origin=None, sign_data=BODY_CBOR_ONE_OUTPUT,
+            inputs=[], change_outputs=change_outputs, network=NetworkId.MAINNET,
+        )
+        return CardanoParsedTx(req, verified_change_indices=verified)
+
+    claim = ChangeOutput(index=0, path=PATH_CHANGE)
+    assert parsed([claim], []).has_failed_change_claims
+    assert not parsed([claim], [0]).has_failed_change_claims
+    assert not parsed([], []).has_failed_change_claims

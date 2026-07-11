@@ -88,7 +88,7 @@ def _build_cardano_parsed_tx() -> CardanoParsedTx:
             SigningInput(
                 tx_hash=bytes.fromhex("0f3abbc8fc19c2e61bab6059bf8a466e6e754833a08a62a6c56fe0e78f19d9d5"),
                 index=0,
-                xfp=bytes.fromhex("b2743478"),
+                xfp=bytes.fromhex(seed_12.get_fingerprint()),
                 path=[2147485500, 2147485463, 2147483648, 0, 0],
             ),
         ],
@@ -99,7 +99,12 @@ def _build_cardano_parsed_tx() -> CardanoParsedTx:
             ),
         ],
         network=NetworkId.MAINNET,
-        extra_signers=[],
+        extra_signers=[
+            ExtraSigner(xfp=bytes.fromhex(seed_12.get_fingerprint()),
+                        path=[1854 + 2**31, 1815 + 2**31, 2**31, 0, 0]),
+            ExtraSigner(xfp=bytes.fromhex("deadbeef"),
+                        path=[1854 + 2**31, 1815 + 2**31, 2**31, 0, 1]),
+        ],
     )
     # For screenshots, use a simple verified_change_indices without actual key derivation
     # Index 2 is the intended change output in the test data
@@ -128,7 +133,9 @@ def _build_cardano_msg_request():
 def _build_cardano_screenshot_configs():
     """Build screenshot configs for Cardano TX and message signing views."""
     parsed_tx = _build_cardano_parsed_tx()
+    parsed_tx_unverified = CardanoParsedTx(parsed_tx.sign_request, verified_change_indices=[])
     msg_request = _build_cardano_msg_request()
+    Controller.get_instance().cardano_seed = seed_12
 
     # Global indices for the test TX (64 pages, 0-63):
     # 7 outputs@0-6, fee@7, validity_start@8, ttl@9, 20 certs@10-29,
@@ -140,11 +147,21 @@ def _build_cardano_screenshot_configs():
     from seedsigner.views.msg_sign.address_view import CardanoMsgAddressView
     from seedsigner.views.msg_sign.payload_view import CardanoMsgPayloadView
     from seedsigner.views.msg_sign.sign_view import CardanoMsgSignView
+    from seedsigner.views.msg_sign.signing_key_view import CardanoMsgSigningKeyView
 
     return [
         # TX Overview / Summary / Sign
         ScreenshotConfig(cardano_tx_views.CardanoTxOverviewView, dict(parsed_tx=parsed_tx)),
         ScreenshotConfig(cardano_tx_views.CardanoTxSignView, dict(parsed_tx=parsed_tx)),
+        ScreenshotConfig(cardano_tx_views.CardanoTxOverviewView, dict(parsed_tx=parsed_tx_unverified),
+                         screenshot_name="CardanoTxOverviewView_unverified_outputs"),
+        ScreenshotConfig(cardano_tx_views.CardanoTxSignView, dict(parsed_tx=parsed_tx_unverified),
+                         screenshot_name="CardanoTxSignView_unverified_outputs"),
+
+        ScreenshotConfig(cardano_tx_views.CardanoTxSigningKeysView, dict(parsed_tx=parsed_tx, key_index=0),
+                         screenshot_name="SigningKeys_ordinary_payment", scroll_all=True),
+        ScreenshotConfig(cardano_tx_views.CardanoTxSigningKeysView, dict(parsed_tx=parsed_tx, key_index=1),
+                         screenshot_name="SigningKeys_multisig", scroll_all=True),
 
         # Sequential review — one sample page per section type (scroll_all captures full content)
         ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=0), screenshot_name="SeqReview_output_first", scroll_all=True),
@@ -177,6 +194,7 @@ def _build_cardano_screenshot_configs():
         ))),
         ScreenshotConfig(CardanoMsgAddressView, dict(msg_request=msg_request, page_index=0), scroll_all=True),
         ScreenshotConfig(CardanoMsgPayloadView, dict(msg_request=msg_request, page_index=1), scroll_all=True),
+        ScreenshotConfig(CardanoMsgSigningKeyView, dict(msg_request=msg_request)),
         ScreenshotConfig(CardanoMsgSignView, dict(msg_request=msg_request)),
     ]
 

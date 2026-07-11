@@ -42,7 +42,6 @@ from companion import console as ui
 
 from seedsigner.models.cardano_tx import (
     CardanoSignRequest,
-    SigningInput,
     ChangeOutput,
     ExtraSigner,
 )
@@ -51,7 +50,6 @@ DEFAULT_MNEMONIC = (
     "abandon abandon abandon abandon abandon abandon abandon abandon "
     "abandon abandon abandon about"
 )
-ZERO_TX_HASH = b"\x00" * 32
 
 
 def build_device(args):
@@ -142,12 +140,16 @@ def main():
             path=wallet.payment_signing_path(),
         )
 
+    # Every signer rides in extra_signers: the witness is a signature over the
+    # whole body hash regardless of which field declared the path, and this is
+    # also how script-locked (multisig) inputs are signed, since they have no
+    # single owning key to attach to an input entry.
     request = CardanoSignRequest(
         request_id=new_request_id(),
         origin="Companion",
         sign_data=body_cbor(transaction),
-        inputs=[SigningInput(tx_hash=ZERO_TX_HASH, index=0,
-                             xfp=wallet.master_fingerprint, path=p) for p in paths],
+        inputs=[],
+        extra_signers=[ExtraSigner(xfp=wallet.master_fingerprint, path=p) for p in paths],
         change_outputs=change_outputs,
         network=NetworkId.TESTNET,
         collateral_return_path=collateral_return_path,

@@ -41,6 +41,8 @@ def main():
     parser.add_argument("--mnemonic", default=DEFAULT_MNEMONIC, help="simulator seed mnemonic")
     parser.add_argument("--passphrase", default="", help="simulator seed passphrase")
     parser.add_argument("--account", type=int, default=0, help="CIP-1852 account index")
+    parser.add_argument("--purpose", type=int, default=1852, choices=[1852, 1854],
+                        help="derivation purpose: 1852 (ordinary) or 1854 (multisig)")
     parser.add_argument("--mainnet", action="store_true", help="derive a mainnet address")
     parser.add_argument("--fragment", type=int, default=90, help="max UR fragment length (hardware)")
     parser.add_argument("--fps", type=float, default=6.0, help="animated QR frames/sec (hardware)")
@@ -55,17 +57,25 @@ def main():
 
     ui.step(1, 1, "Export Extended Account Key")
     ui.action("Scan the request QR with the device, then approve the export on the device")
-    wallet, response, _ = request_account(device, account_index=args.account, network=network)
+    wallet, response, _ = request_account(device, account_index=args.account, network=network,
+                                          key_purpose=args.purpose)
     ui.ok("Received account extended public key (watch-only, no private keys)")
 
     ui.result("device label", response.device_label)
     ui.result("master fingerprint", response.master_fingerprint.hex())
     ui.result("account index", args.account)
+    ui.result("derivation purpose", f"{args.purpose}'")
     ui.result("account xpub", wallet.account_xpub.to_bytes().hex())
     ui.result("network", "mainnet" if args.mainnet else "testnet/preprod")
-    ui.result("base address", wallet.address_bech32())
-    ui.result("enterprise address", wallet.enterprise_address().to_bech32())
-    ui.result("reward address", wallet.reward_address().to_bech32())
+    if args.purpose == 1854:
+        ui.result("payment key hash", wallet.payment_key_hash_hex())
+        ui.result("stake key hash", wallet.stake_key_hash_hex())
+        ui.info("Multisig keys have no single-key address; the wallet address is "
+                "the script address your host wallet builds from all cosigners.")
+    else:
+        ui.result("base address", wallet.address_bech32())
+        ui.result("enterprise address", wallet.enterprise_address().to_bech32())
+        ui.result("reward address", wallet.reward_address().to_bech32())
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ from seedsigner.gui.screens.tx_review import (
 from seedsigner.models.cardano_tx import CardanoMessageSignRequest
 from seedsigner.views.view import View, Destination, BackStackView
 
-_TOTAL_PAGES = 2
+_TOTAL_PAGES = 3
 
 
 def _is_printable_ascii(data: bytes) -> bool:
@@ -87,7 +87,7 @@ class CardanoMsgPayloadView(View):
 
     def _handle_navigation(self, result):
         from .address_view import CardanoMsgAddressView
-        from .sign_view import CardanoMsgSignView
+        from .signing_key_view import CardanoMsgSigningKeyView
 
         if result == RET_CODE__BACK_BUTTON or result == -1:
             return Destination(BackStackView)
@@ -101,7 +101,7 @@ class CardanoMsgPayloadView(View):
 
         if result == RET_CODE__RIGHT_BUTTON:
             return Destination(
-                CardanoMsgSignView,
+                CardanoMsgSigningKeyView,
                 view_args=dict(msg_request=self.msg_request),
             )
 

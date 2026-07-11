@@ -63,26 +63,40 @@ class SigningInput:
 
     The device uses the derivation path to locate the signing key.
     The tx_hash + index identify the UTXO being spent.
+
+    A script-locked input (multisig / Plutus) has no single owning key — its
+    witnesses arrive via ``extra_signers`` — so ``xfp`` and ``path`` are
+    optional. An input that does declare a path must also declare the xfp
+    that owns it.
     """
-    tx_hash: bytes              # 32 bytes - transaction hash of the UTXO
-    index: int                  # output index within that transaction
-    xfp: bytes                  # 4 bytes - master fingerprint
-    path: list[int]             # derivation path components (hardened = val + 0x80000000)
+    tx_hash: bytes                      # 32 bytes - transaction hash of the UTXO
+    index: int                          # output index within that transaction
+    xfp: bytes = b""                    # 4 bytes - master fingerprint ("" = script-locked)
+    path: Optional[list[int]] = None    # derivation path (hardened = val + 0x80000000)
 
     def to_cbor(self, w: "CborWriter") -> None:
-        w.write_start_map(4)
+        _check_xfp(self.xfp, allow_empty=(self.path is None))
+        num_entries = (
+            2
+            + (1 if self.xfp else 0)
+            + (1 if self.path is not None else 0)
+        )
+        w.write_start_map(num_entries)
         w.write_int(1)
         w.write_bytes(self.tx_hash)
         w.write_int(2)
         w.write_int(self.index)
-        w.write_int(3)
-        w.write_bytes(self.xfp)
-        w.write_int(4)
-        _write_path(w, self.path)
+        if self.xfp:
+            w.write_int(3)
+            w.write_bytes(self.xfp)
+        if self.path is not None:
+            w.write_int(4)
+            _write_path(w, self.path)
 
     @classmethod
     def from_cbor(cls, r: "CborReader") -> "SigningInput":
-        tx_hash = index = xfp = path = None
+        tx_hash = index = path = None
+        xfp = b""
         for _ in range(r.read_map_len()):
             key = r.read_uint()
             if key == 1:
@@ -96,11 +110,11 @@ class SigningInput:
             else:
                 r.skip_value()
         r.read_map_end()
-        if tx_hash is None or index is None or xfp is None or path is None:
-            raise ValueError("SigningInput missing required field (keys 1-4)")
+        if tx_hash is None or index is None:
+            raise ValueError("SigningInput missing required field (keys 1-2)")
         if len(tx_hash) != TX_HASH_LEN:
             raise ValueError(f"SigningInput tx_hash must be {TX_HASH_LEN} bytes, got {len(tx_hash)}")
-        _check_xfp(xfp, allow_empty=False)
+        _check_xfp(xfp, allow_empty=(path is None))
         return cls(tx_hash=tx_hash, index=index, xfp=xfp, path=path)
 
 
@@ -299,6 +313,12 @@ class CardanoSignRequest:
             raise ValueError("cardano-tx-sig-req missing sign_data (key 3)")
         if network is None:
             raise ValueError("cardano-tx-sig-req missing network (key 7)")
+        has_pathless_input = any(si.path is None for si in inputs)
+        has_attributed_signer = bool(extra_signers) or any(si.path is not None for si in inputs)
+        if has_pathless_input and not has_attributed_signer:
+            raise ValueError(
+                "cardano-tx-sig-req declares no signer at all: every input is "
+                "script-locked (no signing path) and extra_signers is empty")
 
         return cls(
             request_id=request_id,
@@ -389,6 +409,7 @@ class CardanoParsedTx:
         self.verified_change_indices = verified_change_indices
         self.collateral_return_verified = False
         self.owned_key_hashes: set = set()
+        self.unverified_warning_acknowledged = False
         self.network_mismatch_error = (
             self.body.network_id is not None
             and self.body.network_id != sign_request.network
@@ -445,6 +466,30 @@ class CardanoParsedTx:
     @property
     def num_recipients(self) -> int:
         return len(self.outputs) - len(self.verified_change_indices)
+
+    @property
+    def has_unverified_outputs(self) -> bool:
+        """True when no output could be verified as belonging to this wallet.
+
+        Every amount is then shown as leaving; a total \"sending\" figure would
+        be a net the device cannot prove, so callers switch to per-output
+        display and surface a notice.
+        """
+        return len(self.outputs) > 0 and not self.verified_change_indices
+
+    @property
+    def has_failed_change_claims(self) -> bool:
+        """True when the request declared change output(s) that did NOT verify
+        against this seed — a stronger signal than merely having no change
+        (which is normal for send-all and multisig transactions): the host
+        claimed an output was ours and the claim failed.
+        """
+        return any(change_output.index not in self.verified_change_indices
+                   for change_output in self.sign_request.change_outputs)
+
+    @property
+    def output_amounts(self) -> list[int]:
+        return [output.value.coin for output in self.outputs]
 
     @property
     def change_amount(self) -> int:

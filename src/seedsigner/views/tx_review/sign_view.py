@@ -50,6 +50,8 @@ class CardanoTxSignView(View):
             CardanoTxSignScreen,
             sending_amount=self.parsed_tx.sending_amount,
             fee_amount=self.parsed_tx.fee,
+            output_amounts=(self.parsed_tx.output_amounts
+                            if self.parsed_tx.has_unverified_outputs else None),
         )
 
         if selected_menu_num == RET_CODE__BACK_BUTTON:

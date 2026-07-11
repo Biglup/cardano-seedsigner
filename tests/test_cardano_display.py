@@ -30,6 +30,9 @@ H = 0x80000000
 PATH_PAYMENT = [1852 + H, 1815 + H, 0 + H, 0, 0]
 PATH_STAKE = [1852 + H, 1815 + H, 0 + H, 2, 0]
 PATH_DREP = [1852 + H, 1815 + H, 0 + H, 3, 0]
+PATH_MULTISIG = [1854 + H, 1815 + H, 0 + H, 0, 0]
+PATH_MULTISIG_STAKE = [1854 + H, 1815 + H, 0 + H, 2, 0]
+PATH_MINTING = [1855 + H, 1815 + H, 0 + H, 0, 0]
 
 
 def _seed():
@@ -119,3 +122,90 @@ def test_classify_kinds_match_overview_short_labels():
     assert CREDENTIAL_SHORT_LABEL["payment"] == "Payment"
     assert CREDENTIAL_SHORT_LABEL["stake"] == "Stake"
     assert CREDENTIAL_SHORT_LABEL["drep"] == "DRep"
+
+
+def test_multisig_key_shown_as_shared_key_hash_not_address():
+    seed = _seed()
+    key_hash = _key_hash_bytes(seed, PATH_MULTISIG)
+    label, value = describe_signing_credential(key_hash, PATH_MULTISIG)
+    assert label == "Key Hash:"
+    assert value == key_hash.hex()
+
+
+def test_multisig_stake_key_shown_as_hex_key_hash():
+    seed = _seed()
+    key_hash = _key_hash_bytes(seed, PATH_MULTISIG_STAKE)
+    label, value = describe_signing_credential(key_hash, PATH_MULTISIG_STAKE)
+    assert label == "Key Hash:"
+    assert value == key_hash.hex()
+
+
+def test_multisig_enterprise_wrapper_not_mislabelled_as_payment():
+    seed = _seed()
+    wrapped = EnterpriseAddress.from_credentials(
+        NetworkId.TESTNET, _cred(seed, PATH_MULTISIG)).to_bytes()
+    label, value = describe_signing_credential(wrapped, PATH_MULTISIG)
+    assert label == "Key Hash:"
+    assert value == _key_hash_bytes(seed, PATH_MULTISIG).hex()
+
+
+def test_minting_key_shown_as_hex_key_hash():
+    seed = _seed()
+    key_hash = _key_hash_bytes(seed, PATH_MINTING)
+    label, value = describe_signing_credential(key_hash, PATH_MINTING)
+    assert label == "Key Hash:"
+    assert value == key_hash.hex()
+
+
+def test_classify_multisig_and_minting_kinds():
+    seed = _seed()
+    key_hash = _key_hash_bytes(seed, PATH_MULTISIG)
+    assert classify_signing_credential(key_hash, PATH_MULTISIG) == "multisig"
+    assert classify_signing_credential(key_hash, PATH_MINTING) == "minting"
+    assert CREDENTIAL_SHORT_LABEL["multisig"] == "Multisig"
+    assert CREDENTIAL_SHORT_LABEL["minting"] == "Minting"
+
+
+
+
+
+
+
+
+def test_stake_bare_key_hash_shows_key_hash_not_crash():
+    seed = _seed()
+    key_hash = _key_hash_bytes(seed, PATH_STAKE)
+    label, value = describe_signing_credential(key_hash, PATH_STAKE)
+    assert label == "Key Hash:"
+    assert value == key_hash.hex()
+
+
+def test_payment_bare_key_hash_not_mislabelled_drep():
+    seed = _seed()
+    key_hash = _key_hash_bytes(seed, PATH_PAYMENT)
+    label, value = describe_signing_credential(key_hash, PATH_PAYMENT)
+    assert label == "Key Hash:"
+    assert value == key_hash.hex()
+
+
+
+def test_base_wrapped_multisig_key_shows_shared_key_hash():
+    seed = _seed()
+    base = BaseAddress.from_credentials(
+        NetworkId.TESTNET, _cred(seed, PATH_MULTISIG), _cred(seed, PATH_MULTISIG_STAKE)).to_bytes()
+
+    label, value = describe_signing_credential(base, PATH_MULTISIG)
+    assert label == "Key Hash:"
+    assert value == _key_hash_bytes(seed, PATH_MULTISIG).hex()
+
+    label, value = describe_signing_credential(base, PATH_MULTISIG_STAKE)
+    assert label == "Key Hash:"
+    assert value == _key_hash_bytes(seed, PATH_MULTISIG_STAKE).hex()
+
+
+def test_reward_wrapped_stake_credential_unwraps():
+    seed = _seed()
+    reward = RewardAddress.from_credentials(NetworkId.TESTNET, _cred(seed, PATH_MULTISIG_STAKE)).to_bytes()
+    label, value = describe_signing_credential(reward, PATH_MULTISIG_STAKE)
+    assert label == "Key Hash:"
+    assert value == _key_hash_bytes(seed, PATH_MULTISIG_STAKE).hex()
