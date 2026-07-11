@@ -40,7 +40,12 @@ from companion.flows import request_account, new_request_id
 from companion import messages
 from companion import console as ui
 
-from seedsigner.models.cardano_tx import CardanoSignRequest, SigningInput, ChangeOutput
+from seedsigner.models.cardano_tx import (
+    CardanoSignRequest,
+    SigningInput,
+    ChangeOutput,
+    ExtraSigner,
+)
 
 DEFAULT_MNEMONIC = (
     "abandon abandon abandon abandon abandon abandon abandon abandon "
@@ -126,6 +131,17 @@ def main():
                 xfp=wallet.master_fingerprint,
             ))
 
+    # Same declaration for the collateral return (tx body key 16), so a
+    # Plutus transaction's collateral change is badged as an own address
+    # instead of a foreign recipient.
+    collateral_return_path = None
+    collateral_return = transaction.body.collateral_return
+    if collateral_return is not None and str(collateral_return.address) == address:
+        collateral_return_path = ExtraSigner(
+            xfp=wallet.master_fingerprint,
+            path=wallet.payment_signing_path(),
+        )
+
     request = CardanoSignRequest(
         request_id=new_request_id(),
         origin="Companion",
@@ -134,6 +150,7 @@ def main():
                              xfp=wallet.master_fingerprint, path=p) for p in paths],
         change_outputs=change_outputs,
         network=NetworkId.TESTNET,
+        collateral_return_path=collateral_return_path,
     )
     request_cbor = request.to_cbor()
     ui.ok(f"Built transaction (txid {transaction.id.to_hex()})")

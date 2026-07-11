@@ -253,17 +253,37 @@ class CertificateReviewView(BaseSequentialSectionView):
         lines.append(("spacer_small", ""))
         lines.append(("hash_display", fmt, hn, tn))
 
+    def _add_credential_display(self, lines, base_label, bech32_str, credential):
+        """Display a credential with its ownership badge.
+
+        Key-hash credentials are checked against the key hashes derived
+        on-device from the request's declared paths: a match is proof the
+        credential is the wallet's ("Own Key" badge), otherwise it is
+        badged "Unknown Key" (ownership could not be verified — it may
+        equally be a third party's key or an undeclared own key). Script
+        credentials can't be proven either way and stay unbadged.
+        """
+        self._add_bech32_display(lines, f"{base_label}:", bech32_str)
+        if not credential.is_key_hash:
+            return
+
+        lines.append(("spacer_small", ""))
+        if credential.hash_bytes in self.parsed_tx.owned_key_hashes:
+            lines.append(("verified", "Own Key"))
+        else:
+            lines.append(("foreign", "Unknown Key"))
+
     def _add_stake_credential(self, lines, credential):
         prefix = "stake_vkh" if credential.is_key_hash else "script"
         bech32_str = Bech32.encode(prefix, credential.hash_bytes)
-        self._add_bech32_display(lines, "Credential:", bech32_str)
+        self._add_credential_display(lines, "Credential", bech32_str, credential)
 
     def _add_drep_credential(self, lines, credential):
         """Encode a DRep credential using CIP-129 format."""
         from cometa import DRep as DRepCls, DRepType
         dt = DRepType.KEY_HASH if credential.is_key_hash else DRepType.SCRIPT_HASH
         drep = DRepCls.new(dt, credential)
-        self._add_bech32_display(lines, "DRep ID:", str(drep))
+        self._add_credential_display(lines, "DRep ID", str(drep), credential)
 
     def _add_pool(self, lines, pool_key_hash):
         bech32_str = Bech32.encode("pool", pool_key_hash.to_bytes())
@@ -275,7 +295,7 @@ class CertificateReviewView(BaseSequentialSectionView):
 
     def _add_bech32_credential(self, lines, label, credential, prefix):
         bech32_str = Bech32.encode(prefix, credential.hash_bytes)
-        self._add_bech32_display(lines, label, bech32_str)
+        self._add_credential_display(lines, label.rstrip(":"), bech32_str, credential)
 
     def _add_amount_field(self, lines, label, lovelace):
         lines.append(("spacer", ""))

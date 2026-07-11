@@ -49,6 +49,11 @@ class VotingReviewView(BaseSequentialSectionView):
         content.append(("label", f"Voter ({friendly}):"))
         content.append(("spacer_small", ""))
         content.append(("hash_display", fmt, hn, tn))
+        if voter.credential.is_key_hash:
+            is_own = voter.credential.hash_bytes in self.parsed_tx.owned_key_hashes
+            content.append(("spacer_small", ""))
+            content.append(("verified", "Own Key") if is_own
+                           else ("foreign", "Unknown Key"))
 
         # Gov Action
         content.append(("spacer", ""))

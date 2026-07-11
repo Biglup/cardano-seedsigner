@@ -16,6 +16,7 @@ class RequiredSignerReviewView(BaseSequentialSectionView):
         signer_bytes = signer if isinstance(signer, bytes) else signer.to_bytes()
         bech32_str = Bech32.encode("req_signer_vkh", signer_bytes)
         _, hn, tn = _format_bech32(bech32_str)
+        is_own = signer_bytes in self.parsed_tx.owned_key_hashes
 
         return self.run_screen(
             CardanoAuxDataHashScreen,
@@ -27,4 +28,6 @@ class RequiredSignerReviewView(BaseSequentialSectionView):
             hash_hex=bech32_str,
             head_n=hn,
             tail_n=tn,
+            badge_text="Own Key" if is_own else "Unknown Key",
+            badge_own=is_own,
         )

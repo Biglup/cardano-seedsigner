@@ -1,5 +1,7 @@
 """Collateral return output section review view."""
 
+from gettext import gettext as _
+
 from seedsigner.gui.screens.tx_review import format_ada
 
 from .base import BaseSequentialSectionView
@@ -15,16 +17,21 @@ class CollateralReturnReviewView(BaseSequentialSectionView):
         output = page.data
         addr_str = str(output.address)
         fmt, hn, tn = _format_bech32(addr_str)
+        is_own = self.parsed_tx.collateral_return_verified
 
         content = [
             ("label", "Amount:"),
             ("spacer_small", ""),
             ("value_large", format_ada(output.value.coin)),
             ("spacer", ""),
-            ("label", "Address:"),
+            ("label_own" if is_own else "label_foreign",
+             "Address (Own):" if is_own else "Address (Foreign):"),
             ("spacer_small", ""),
             ("hash_display", fmt, hn, tn),
         ]
+        if is_own:
+            content.append(("spacer_small", ""))
+            content.append(("verified", _("Verified Address")))
 
         return self.run_screen(
             CardanoCertificateSequentialScreen,
