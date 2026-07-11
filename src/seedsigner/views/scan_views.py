@@ -9,6 +9,16 @@ from seedsigner.gui.screens.screen import ButtonOption
 logger = logging.getLogger(__name__)
 
 
+def _error_detail(e: Exception) -> str:
+    """A short diagnostic line for the error screen.
+
+    Restricted to printable ASCII so a hostile QR payload echoed through an
+    exception message can't render arbitrary text on the device.
+    """
+    raw = f"{type(e).__name__}: {e}"
+    return "".join(ch for ch in raw if ch.isprintable() and ord(ch) < 127)[:120]
+
+
 
 class ScanView(View):
     """
@@ -107,7 +117,7 @@ class ScanView(View):
                     return Destination(ErrorView, view_args=dict(
                         title="Error",
                         status_headline=_("Invalid Request"),
-                        text=_("Could not read the transaction sign request."),
+                        text=_("Could not read the transaction sign request.") + "\n" + _error_detail(e),
                         button_text="Back",
                         next_destination=Destination(BackStackView, skip_current_view=True),
                     ))
@@ -122,7 +132,7 @@ class ScanView(View):
                     return Destination(ErrorView, view_args=dict(
                         title="Error",
                         status_headline=_("Invalid Request"),
-                        text=_("Could not read the message sign request."),
+                        text=_("Could not read the message sign request.") + "\n" + _error_detail(e),
                         button_text="Back",
                         next_destination=Destination(BackStackView, skip_current_view=True),
                     ))
