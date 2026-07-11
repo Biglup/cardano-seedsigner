@@ -195,8 +195,16 @@ class CardanoSignRequest:
             4: [* SigningInput],    ; inputs
             5: [* ChangeOutput],    ; change_outputs
             6: [* ExtraSigner],     ; extra_signers
-            7: uint                 ; network (0 = testnet, 1 = mainnet)
+            7: uint,                ; network (0 = testnet, 1 = mainnet)
+            ? 8: SignerPath         ; collateral_return_path
         }
+        SignerPath = {1: bstr .size 4, 2: [*uint]}   ; same shape as ExtraSigner
+
+    Key 8 declares that the transaction body's collateral_return output
+    (body key 16) pays back to this wallet: the device derives the address
+    from the path and, only if it matches, badges the collateral return as
+    a verified own address. Absent or mismatched, the collateral return is
+    shown as an external output (safe failure mode).
     """
     request_id: str                                  # UUID for tracking
     origin: Optional[str]                            # wallet name (e.g. "Eternl", "Lace")
@@ -205,10 +213,15 @@ class CardanoSignRequest:
     change_outputs: list[ChangeOutput]               # change outputs with paths to verify
     network: NetworkId                               # intended network for this transaction
     extra_signers: list[ExtraSigner] = field(default_factory=list)
+    collateral_return_path: Optional[ExtraSigner] = None
 
     def to_cbor(self) -> bytes:
         w = CborWriter()
-        num_entries = 6 + (1 if self.origin is not None else 0)
+        num_entries = (
+            6
+            + (1 if self.origin is not None else 0)
+            + (1 if self.collateral_return_path is not None else 0)
+        )
         w.write_start_map(num_entries)
         w.write_int(1)
         w.write_str(self.request_id)
@@ -231,6 +244,9 @@ class CardanoSignRequest:
             extra_signer.to_cbor(w)
         w.write_int(7)
         w.write_int(int(self.network))
+        if self.collateral_return_path is not None:
+            w.write_int(8)
+            self.collateral_return_path.to_cbor(w)
         return w.encode()
 
     @classmethod
@@ -250,6 +266,7 @@ class CardanoSignRequest:
         inputs: list[SigningInput] = []
         change_outputs: list[ChangeOutput] = []
         extra_signers: list[ExtraSigner] = []
+        collateral_return_path: Optional[ExtraSigner] = None
 
         for _ in range(r.read_map_len()):
             key = r.read_uint()
@@ -270,6 +287,8 @@ class CardanoSignRequest:
                 r.read_array_end()
             elif key == 7:
                 network = NetworkId(r.read_uint())
+            elif key == 8:
+                collateral_return_path = ExtraSigner.from_cbor(r)
             else:
                 r.skip_value()
         r.read_map_end()
@@ -289,6 +308,7 @@ class CardanoSignRequest:
             change_outputs=change_outputs,
             network=network,
             extra_signers=extra_signers,
+            collateral_return_path=collateral_return_path,
         )
 
 
@@ -352,6 +372,13 @@ class CardanoParsedTx:
     """Holds the parsed cometa TransactionBody + verified change indices.
 
     Views access cometa objects directly — no wrapper dataclasses.
+
+    `collateral_return_verified` is True when the request's
+    collateral_return_path derives to the body's collateral_return address.
+    `owned_key_hashes` holds the blake2b-224 hashes of every public key
+    derivable from the request's declared paths for the selected seed;
+    a credential hash found in this set is cryptographically proven to
+    belong to this wallet.
     """
 
     def __init__(self, sign_request: CardanoSignRequest, verified_change_indices: list[int]):
@@ -360,6 +387,8 @@ class CardanoParsedTx:
         self.body = TransactionBody.from_cbor(reader)
         self.sign_request = sign_request
         self.verified_change_indices = verified_change_indices
+        self.collateral_return_verified = False
+        self.owned_key_hashes: set = set()
         self.network_mismatch_error = (
             self.body.network_id is not None
             and self.body.network_id != sign_request.network

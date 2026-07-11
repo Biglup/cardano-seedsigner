@@ -2,19 +2,26 @@
 
 from dataclasses import dataclass
 
-from seedsigner.gui.components import GUIConstants, Fonts
+from seedsigner.gui.components import GUIConstants, Fonts, SeedSignerIconConstants
 
 from .sequential_base_screen import CardanoSequentialBaseScreen
 
 
 @dataclass
 class CardanoAuxDataHashScreen(CardanoSequentialBaseScreen):
-    """Displays a single hex hash centered on screen with head/tail highlighting."""
+    """Displays a single hex hash centered on screen with head/tail highlighting.
+
+    When `badge_text` is set, an ownership badge is rendered below the hash:
+    a green check icon + white text when `badge_own` is True, red text when
+    False.
+    """
 
     hash_hex: str = ""
     highlight_n: int = 8
     head_n: int = 0  # Override head highlight size (0 = use highlight_n)
     tail_n: int = 0  # Override tail highlight size (0 = use highlight_n)
+    badge_text: str = ""
+    badge_own: bool = False
 
     def __post_init__(self):
         from seedsigner.gui.renderer import Renderer
@@ -55,7 +62,8 @@ class CardanoAuxDataHashScreen(CardanoSequentialBaseScreen):
 
     def _render_content(self):
         line_h = 28
-        total_h = line_h * len(self._hash_lines)
+        badge_h = line_h if self.badge_text else 0
+        total_h = line_h * len(self._hash_lines) + badge_h
         visible_top = self.top_nav_height
         visible_bottom = self.canvas_height - self.bottom_bar_height
         y = visible_top + (visible_bottom - visible_top - total_h) // 2
@@ -93,3 +101,46 @@ class CardanoAuxDataHashScreen(CardanoSequentialBaseScreen):
                 x_cursor += int(char_w * len(seg_text))
 
             y += line_h
+
+        if self.badge_text:
+            label_font = Fonts.get_font(
+                GUIConstants.get_body_font_name(), GUIConstants.get_body_font_size() + 2
+            )
+            y += 4
+
+            if not self.badge_own:
+                self.renderer.draw.text(
+                    (center_x, y),
+                    self.badge_text,
+                    font=label_font,
+                    fill="#CF6679",
+                    anchor="mt",
+                )
+                return
+
+            icon_font = Fonts.get_font(
+                GUIConstants.ICON_FONT_NAME__SEEDSIGNER, 18, file_extension="otf"
+            )
+            icon_char = SeedSignerIconConstants.SUCCESS
+            icon_bbox = icon_font.getbbox(icon_char)
+            icon_w = icon_bbox[2] - icon_bbox[0]
+            text_bbox = label_font.getbbox(self.badge_text)
+            text_w = text_bbox[2] - text_bbox[0]
+            gap = 6
+            total_w = icon_w + gap + text_w
+            start_x = center_x - total_w // 2
+
+            self.renderer.draw.text(
+                (start_x, y),
+                icon_char,
+                font=icon_font,
+                fill=GUIConstants.SUCCESS_COLOR,
+                anchor="lt",
+            )
+            self.renderer.draw.text(
+                (start_x + icon_w + gap, y),
+                self.badge_text,
+                font=label_font,
+                fill="#ffffff",
+                anchor="lt",
+            )

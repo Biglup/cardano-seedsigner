@@ -25,6 +25,11 @@ class WithdrawalReviewView(BaseSequentialSectionView):
             ("spacer_small", ""),
             ("hash_display", fmt, hn, tn),
         ]
+        if self._is_key_hash_account(reward_addr):
+            content.append(("spacer_small", ""))
+            content.append(("verified", "Own Reward Account")
+                           if self._is_own_reward_account(reward_addr)
+                           else ("foreign", "Unknown Reward Account"))
 
         return self.run_screen(
             CardanoCertificateSequentialScreen,
@@ -35,3 +40,26 @@ class WithdrawalReviewView(BaseSequentialSectionView):
             has_right=has_right,
             content=content,
         )
+
+    def _is_key_hash_account(self, reward_addr) -> bool:
+        """Only key-hash reward accounts get an ownership badge; script-hash
+        accounts can't be proven either way and stay unbadged (same policy
+        as certificate and voter credentials)."""
+        try:
+            return reward_addr.credential.is_key_hash
+        except Exception:
+            return False
+
+    def _is_own_reward_account(self, reward_addr) -> bool:
+        """A reward account is fully determined by its stake credential and
+        network, so an owned key-hash credential on the request's network
+        proves the whole address is the wallet's."""
+        try:
+            cred = reward_addr.credential
+            return (
+                cred.is_key_hash
+                and cred.hash_bytes in self.parsed_tx.owned_key_hashes
+                and reward_addr.network_id == self.parsed_tx.network
+            )
+        except Exception:
+            return False

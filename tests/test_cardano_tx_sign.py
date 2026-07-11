@@ -183,6 +183,55 @@ def test_tx_request_multi_change_and_signers_roundtrip():
     assert CardanoSignRequest.from_cbor(req.to_cbor()) == req
 
 
+def test_tx_request_collateral_return_path_roundtrips():
+    req = CardanoSignRequest(
+        request_id="r-cr",
+        origin="Lace",
+        sign_data=b"\xa0",
+        inputs=[SigningInput(tx_hash=b"\x0f" * 32, index=0, xfp=XFP, path=PATH_PAYMENT)],
+        change_outputs=[],
+        network=NetworkId.TESTNET,
+        collateral_return_path=ExtraSigner(xfp=XFP, path=PATH_CHANGE),
+    )
+    decoded = CardanoSignRequest.from_cbor(req.to_cbor())
+    assert decoded == req
+    assert decoded.collateral_return_path.path == PATH_CHANGE
+    assert decoded.collateral_return_path.xfp == XFP
+
+
+def test_tx_request_collateral_return_path_defaults_to_none():
+    req = CardanoSignRequest(
+        request_id="r",
+        origin=None,
+        sign_data=b"\xa0",
+        inputs=[],
+        change_outputs=[],
+        network=NetworkId.TESTNET,
+    )
+    decoded = CardanoSignRequest.from_cbor(req.to_cbor())
+    assert decoded.collateral_return_path is None
+
+
+def test_tx_request_malformed_collateral_return_path_raises():
+    w = CborWriter()
+    w.write_start_map(4)
+    w.write_int(1)
+    w.write_str("r-bad-crp")
+    w.write_int(3)
+    w.write_bytes(b"\xa0")
+    w.write_int(7)
+    w.write_int(0)
+    w.write_int(8)
+    w.write_start_map(2)
+    w.write_int(1)
+    w.write_bytes(b"\x01\x02\x03")
+    w.write_int(2)
+    w.write_start_array(1)
+    w.write_int(0)
+    with pytest.raises(ValueError):
+        CardanoSignRequest.from_cbor(w.encode())
+
+
 def test_tx_request_unknown_key_is_skipped():
     # Forward-compat: an unknown top-level key (99) with a nested container value
     # must be skipped without corrupting subsequent reads.

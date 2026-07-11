@@ -9,9 +9,11 @@ Renders certificate fields with the same visual patterns as the output screen:
 """
 
 from dataclasses import dataclass, field
-from seedsigner.gui.components import GUIConstants, Fonts
+from seedsigner.gui.components import GUIConstants, Fonts, SeedSignerIconConstants
 
 from .sequential_base_screen import CardanoSequentialBaseScreen
+
+_FOREIGN_COLOR = "#CF6679"
 
 
 @dataclass
@@ -25,11 +27,15 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
 
     Supported line types:
     - label: white left-aligned section label
+    - label_own / label_foreign: like label, but the ownership tag word
+      ("Own" / "Foreign" / "Unknown") inside the text is drawn green/red
     - value_highlight: big blue centered text (certificate type name, key values)
     - value_large: big accent centered text (ADA amounts)
     - hash_display: monospace hash with first/last N chars highlighted (auto-split)
     - mono_text: left-aligned monospace text (JSON, hex dumps)
     - value_text: regular centered text
+    - verified: green check icon + white text, centered (ownership badge)
+    - foreign: red centered text (negative ownership badge)
     - spacer / spacer_small: vertical spacing
     """
     content: list = field(default_factory=list)
@@ -113,13 +119,17 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
         self._spacer_height = 16
         self._spacer_small_height = 8
 
-        total = sum(self._line_height_for(t) for t, _ in self._lines)
+        bottom_padding = self._spacer_height
+        total = sum(self._line_height_for(t) for t, _ in self._lines) + bottom_padding
         self.scroll_unit = 40
         self.max_scroll = max(0, total - self.content_height)
 
     def _line_height_for(self, line_type):
         heights = {
             "label": self._label_height,
+            "label_own": self._label_height,
+            "label_foreign": self._label_height,
+            "foreign": self._label_height,
             "value_highlight": self._value_highlight_height,
             "value_highlight_warn": self._value_highlight_height,
             "value_highlight_yes": self._value_highlight_height,
@@ -130,6 +140,7 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
             "hash_line": self._hash_line_height,
             "mono_text": self._mono_text_height,
             "value_text": self._value_text_height,
+            "verified": self._label_height,
             "spacer": self._spacer_height,
             "spacer_small": self._spacer_small_height,
         }
@@ -152,6 +163,9 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
         value_text_font = Fonts.get_font(
             GUIConstants.get_body_font_name(), GUIConstants.get_body_font_size()
         )
+        icon_font = Fonts.get_font(
+            GUIConstants.ICON_FONT_NAME__SEEDSIGNER, 18, file_extension="otf"
+        )
 
         y = self.content_y - self.scroll_offset
         center_x = self.canvas_width // 2
@@ -169,6 +183,34 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
                         fill="#ffffff",
                         anchor="lt",
                     )
+                elif line_type in ("label_own", "label_foreign"):
+                    if line_type == "label_own":
+                        tag_word = "Own"
+                    else:
+                        tag_word = next(
+                            (w for w in ("Foreign", "Unknown") if w in text), "")
+                    tag_color = (GUIConstants.SUCCESS_COLOR
+                                 if line_type == "label_own" else _FOREIGN_COLOR)
+                    if not tag_word or tag_word not in text:
+                        before, tag_word, after = text, "", ""
+                    else:
+                        before, _, after = text.partition(tag_word)
+                    x_cursor = self.content_x + 4
+                    for part_text, part_color in [
+                        (before, "#ffffff"),
+                        (tag_word, tag_color),
+                        (after, "#ffffff"),
+                    ]:
+                        if not part_text:
+                            continue
+                        self.renderer.draw.text(
+                            (int(x_cursor), y),
+                            part_text,
+                            font=label_font,
+                            fill=part_color,
+                            anchor="lt",
+                        )
+                        x_cursor += label_font.getlength(part_text)
                 elif line_type in ("value_highlight", "value_highlight_warn", "value_highlight_yes", "value_highlight_no"):
                     _VH_COLORS = {
                         "value_highlight_warn": "#CF6679",
@@ -252,6 +294,38 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
                         font=value_text_font,
                         fill=GUIConstants.BODY_FONT_COLOR,
                         anchor="mt",
+                    )
+                elif line_type == "foreign":
+                    self.renderer.draw.text(
+                        (center_x, y),
+                        text,
+                        font=label_font,
+                        fill=_FOREIGN_COLOR,
+                        anchor="mt",
+                    )
+                elif line_type == "verified":
+                    icon_char = SeedSignerIconConstants.SUCCESS
+                    icon_bbox = icon_font.getbbox(icon_char)
+                    icon_w = icon_bbox[2] - icon_bbox[0]
+                    text_bbox = label_font.getbbox(text)
+                    text_w = text_bbox[2] - text_bbox[0]
+                    gap = 6
+                    total_w = icon_w + gap + text_w
+                    start_x = center_x - total_w // 2
+
+                    self.renderer.draw.text(
+                        (start_x, y),
+                        icon_char,
+                        font=icon_font,
+                        fill=GUIConstants.SUCCESS_COLOR,
+                        anchor="lt",
+                    )
+                    self.renderer.draw.text(
+                        (start_x + icon_w + gap, y),
+                        text,
+                        font=label_font,
+                        fill="#ffffff",
+                        anchor="lt",
                     )
 
             if line_type == "hash_line":

@@ -1398,7 +1398,11 @@ class CardanoTxSelectSeedView(CardanoSelectSeedView):
     def _seed_selected_destination(self, seed_num: int):
         from seedsigner.views.tx_review.overview_view import CardanoTxOverviewView
         from seedsigner.models.cardano_tx import CardanoParsedTx
-        from seedsigner.helpers.cardano_utils import verify_change_outputs
+        from seedsigner.helpers.cardano_utils import (
+            verify_change_outputs,
+            verify_collateral_return,
+            derive_owned_key_hashes,
+        )
 
         seed = self.controller.get_seed(seed_num)
         request = self.controller.cardano_tx_sign_request
@@ -1406,6 +1410,8 @@ class CardanoTxSelectSeedView(CardanoSelectSeedView):
         try:
             parsed_tx = CardanoParsedTx(request, verified_change_indices=[])
             parsed_tx.verified_change_indices = verify_change_outputs(request, seed, parsed_tx.body)
+            parsed_tx.collateral_return_verified = verify_collateral_return(request, seed, parsed_tx.body)
+            parsed_tx.owned_key_hashes = derive_owned_key_hashes(request, seed)
         except Exception as e:
             logger.info(repr(e), exc_info=True)
             return self._invalid_request_destination(_("Could not read the transaction to sign."))
