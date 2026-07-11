@@ -1651,9 +1651,19 @@ class CardanoExportAccountKeyDetailsScreen(WarningEdgesMixin, ButtonListScreen):
         )
         self.components.append(self.derivation_line)
 
-        xpub_display = FormattedAddress(
-            address=self.xpub,
-            max_lines=2,
+        left, top, right, bottom = Fonts.get_font(GUIConstants.FIXED_WIDTH_FONT_NAME, value_font_size).getbbox("X")
+        char_width = right - left
+        num_chars = int((self.canvas_width - GUIConstants.ICON_FONT_SIZE - 2*GUIConstants.COMPONENT_PADDING) / char_width) - 3  # ellipsis
+
+        self.xpub_line = IconTextLine(
+            icon_name=FontAwesomeIconConstants.X,
+            icon_color=GUIConstants.INFO_COLOR,
+            label_text=_("Xpub"),
+            label_font_size=GUIConstants.get_body_font_size(),
+            value_text=f"{self.xpub[:num_chars]}...",
+            font_name=GUIConstants.FIXED_WIDTH_FONT_NAME,
+            font_size=value_font_size,
+            screen_x=GUIConstants.COMPONENT_PADDING,
             screen_y=self.components[-1].screen_y + self.components[-1].height + GUIConstants.COMPONENT_PADDING,
         )
-        self.components.append(xpub_display)
+        self.components.append(self.xpub_line)
