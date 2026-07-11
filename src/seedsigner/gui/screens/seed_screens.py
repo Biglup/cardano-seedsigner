@@ -1614,7 +1614,6 @@ class CardanoExportAccountKeyDetailsScreen(WarningEdgesMixin, ButtonListScreen):
         super().__post_init__()
 
         value_font_size = GUIConstants.get_body_font_size() + 5
-        label_font_color = GUIConstants.DISABLED_COLOR
 
         self.fingerprint_line = IconTextLine(
             icon_name=SeedSignerIconConstants.FINGERPRINT,
@@ -1622,7 +1621,6 @@ class CardanoExportAccountKeyDetailsScreen(WarningEdgesMixin, ButtonListScreen):
             # TRANSLATOR_NOTE: Short for "BIP-32 Master Fingerprint"
             label_text=_("Fingerprint"),
             label_font_size=GUIConstants.get_body_font_size(),
-            label_font_color=label_font_color,
             value_text=self.fingerprint,
             font_name=GUIConstants.FIXED_WIDTH_FONT_NAME,
             font_size=value_font_size,
@@ -1645,7 +1643,6 @@ class CardanoExportAccountKeyDetailsScreen(WarningEdgesMixin, ButtonListScreen):
             # TRANSLATOR_NOTE: Short for "Derivation Path"
             label_text=_("Derivation"),
             label_font_size=GUIConstants.get_body_font_size(),
-            label_font_color=label_font_color,
             value_text=self.derivation_path,
             font_name=GUIConstants.FIXED_WIDTH_FONT_NAME,
             font_size=derivation_font_size,
@@ -1663,7 +1660,6 @@ class CardanoExportAccountKeyDetailsScreen(WarningEdgesMixin, ButtonListScreen):
             icon_color=GUIConstants.INFO_COLOR,
             label_text=_("Xpub"),
             label_font_size=GUIConstants.get_body_font_size(),
-            label_font_color=label_font_color,
             value_text=f"{self.xpub[:num_chars]}...",
             font_name=GUIConstants.FIXED_WIDTH_FONT_NAME,
             font_size=value_font_size,

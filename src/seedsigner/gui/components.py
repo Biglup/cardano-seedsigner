@@ -491,15 +491,16 @@ class TextArea(BaseComponent):
         else:
             supersampled_font = font
 
-        img = Image.new(
-            "RGBA",
-            (
-                image_width * self.supersampling_factor,
-                (total_text_height + 2*resample_padding) * self.supersampling_factor
-            ),
-            self.background_color
-            # "red"
+        img_size = (
+            image_width * self.supersampling_factor,
+            (total_text_height + 2*resample_padding) * self.supersampling_factor
         )
+        if self.supersampling_factor > 1:
+            img = Image.new("L", img_size, 0)
+            text_fill = 255
+        else:
+            img = Image.new("RGBA", img_size, self.background_color)
+            text_fill = self.font_color
         draw = ImageDraw.Draw(img)
 
         cur_y = (resample_padding + self.text_height_above_baseline) * self.supersampling_factor
@@ -526,7 +527,7 @@ class TextArea(BaseComponent):
                 # Scrolling temp img isn't relative to any positioning other than its own text
                 text_x = 0
 
-            draw.text((text_x * self.supersampling_factor, cur_y), line["text"], fill=self.font_color, font=supersampled_font, anchor=anchor)
+            draw.text((text_x * self.supersampling_factor, cur_y), line["text"], fill=text_fill, font=supersampled_font, anchor=anchor)
 
             # Debugging: show the exact vertical extents of each line of text
             # draw.line((0, cur_y - self.text_height_above_baseline * self.supersampling_factor, image_width * self.supersampling_factor, cur_y - self.text_height_above_baseline * self.supersampling_factor), fill="blue", width=int(self.supersampling_factor))
@@ -538,9 +539,11 @@ class TextArea(BaseComponent):
         if self.supersampling_factor > 1:
             resized = img.resize((image_width, total_text_height + 2*resample_padding), Image.Resampling.LANCZOS)
             sharpened = resized.filter(ImageFilter.SHARPEN)
+            mask = sharpened.crop((0, resample_padding, image_width, resample_padding + total_text_height))
 
-            img = sharpened.crop((0, resample_padding, image_width, resample_padding + total_text_height))
-        
+            img = Image.new("RGBA", mask.size, self.background_color)
+            img.paste(Image.new("RGBA", mask.size, self.font_color), (0, 0), mask)
+
         self.rendered_text_img = img
 
         self.horizontal_text_scroll_thread: TextArea.HorizontalTextScrollThread = None
@@ -753,7 +756,6 @@ class IconTextLine(BaseComponent):
     icon_color: str = GUIConstants.BODY_FONT_COLOR
     label_text: str = None
     label_font_size: int = None
-    label_font_color: str = None
     value_text: str = ""
     font_name: str = None
     font_size: int = None
@@ -795,7 +797,7 @@ class IconTextLine(BaseComponent):
                 canvas=self.canvas,
                 text=self.label_text,
                 font_size=self.label_font_size if self.label_font_size else GUIConstants.get_body_font_size() - 2,
-                font_color=self.label_font_color if self.label_font_color else GUIConstants.LABEL_FONT_COLOR,
+                font_color=GUIConstants.LABEL_FONT_COLOR,
                 edge_padding=0,
                 is_text_centered=self.is_text_centered if not self.icon_name else False,
                 auto_line_break=False,
