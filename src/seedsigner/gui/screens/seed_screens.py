@@ -1613,31 +1613,47 @@ class CardanoExportAccountKeyDetailsScreen(WarningEdgesMixin, ButtonListScreen):
 
         super().__post_init__()
 
+        value_font_size = GUIConstants.get_body_font_size() + 5
+
         self.fingerprint_line = IconTextLine(
             icon_name=SeedSignerIconConstants.FINGERPRINT,
             icon_color=GUIConstants.INFO_COLOR,
             # TRANSLATOR_NOTE: Short for "BIP-32 Master Fingerprint"
             label_text=_("Fingerprint"),
+            label_font_size=GUIConstants.get_body_font_size(),
             value_text=self.fingerprint,
+            font_name=GUIConstants.FIXED_WIDTH_FONT_NAME,
+            font_size=value_font_size,
             screen_x=GUIConstants.COMPONENT_PADDING,
             screen_y=self.top_nav.height + GUIConstants.COMPONENT_PADDING,
         )
         self.components.append(self.fingerprint_line)
+
+        available_width = self.canvas_width - 2*GUIConstants.COMPONENT_PADDING - GUIConstants.ICON_FONT_SIZE - int(GUIConstants.COMPONENT_PADDING/2)
+        derivation_font_size = value_font_size
+        while derivation_font_size > GUIConstants.BODY_FONT_MIN_SIZE:
+            font = Fonts.get_font(GUIConstants.FIXED_WIDTH_FONT_NAME, derivation_font_size)
+            if font.getlength(self.derivation_path) <= available_width:
+                break
+            derivation_font_size -= 1
 
         self.derivation_line = IconTextLine(
             icon_name=SeedSignerIconConstants.DERIVATION,
             icon_color=GUIConstants.INFO_COLOR,
             # TRANSLATOR_NOTE: Short for "Derivation Path"
             label_text=_("Derivation"),
+            label_font_size=GUIConstants.get_body_font_size(),
             value_text=self.derivation_path,
+            font_name=GUIConstants.FIXED_WIDTH_FONT_NAME,
+            font_size=derivation_font_size,
             screen_x=GUIConstants.COMPONENT_PADDING,
-            screen_y=self.components[-1].screen_y + self.components[-1].height + int(1.5*GUIConstants.COMPONENT_PADDING),
+            screen_y=self.components[-1].screen_y + self.components[-1].height + GUIConstants.COMPONENT_PADDING,
         )
         self.components.append(self.derivation_line)
 
         xpub_display = FormattedAddress(
             address=self.xpub,
             max_lines=2,
-            screen_y=self.components[-1].screen_y + self.components[-1].height + int(1.5*GUIConstants.COMPONENT_PADDING),
+            screen_y=self.components[-1].screen_y + self.components[-1].height + GUIConstants.COMPONENT_PADDING,
         )
         self.components.append(xpub_display)
