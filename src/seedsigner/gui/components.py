@@ -485,9 +485,7 @@ class TextArea(BaseComponent):
             image_width = self.width - self.edge_padding
         
         if self.supersampling_factor > 1:
-            start = time.time()
             supersampled_font = Fonts.get_font(self.font_name, int(self.supersampling_factor * self.font_size))
-            print(f"Supersampled font load time: {time.time() - start:.04}")
         else:
             supersampled_font = font
 
