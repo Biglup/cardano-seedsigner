@@ -61,6 +61,12 @@ python examples/sign_message_e2e.py --simulator --credential all \
 export BLOCKFROST_PROJECT_ID=preprod...
 python examples/sign_tx_e2e.py --to addr_test1... --lovelace 2000000 \
     --evidence-dir ./evidence            # add --broadcast to submit, drop --simulator for hardware
+
+# Sign with EVERY key purpose and type in one run, fully offline:
+# 1852' payment/change/stake/DRep/CC-cold/CC-hot, 1854' payment/stake, 1855' policy.
+# One tx sign request lists all keys as extra_signers (one signing-key screen per
+# key on the device), then a CIP-8 request per derivable key.
+python examples/sign_all_keys_demo.py --simulator   # --skip-cip8 for the tx step only
 ```
 
 Each `*_e2e` script writes the request and result CBOR to `--evidence-dir` as
@@ -73,6 +79,7 @@ examples/
   request_account_key.py     STEP 1 demo
   sign_message_e2e.py        CIP-8 end-to-end (+ verify)
   sign_tx_e2e.py             transaction end-to-end (+ broadcast)
+  sign_all_keys_demo.py      sign with every purpose/role (tx + CIP-8, offline)
   test_companion.py          offline e2e tests (pytest)
   companion/
     device.py                SimulatedDevice / HardwareDevice (exchange API)

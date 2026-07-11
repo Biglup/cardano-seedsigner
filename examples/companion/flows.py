@@ -14,15 +14,19 @@ from .wallet import WatchOnlyWallet
 
 def request_account(device, account_index: int = 0,
                     network: NetworkId = NetworkId.TESTNET,
-                    origin: str = "Companion") -> tuple:
+                    origin: str = "Companion",
+                    key_purpose: int = 1852) -> tuple:
     """STEP 1 — ask the device to export an account xpub + master fingerprint,
     and build a watch-only wallet from it.
 
-    Returns ``(wallet, CardanoAccountResponse, request_cbor)``.
+    ``key_purpose`` selects the derivation purpose: 1852 (ordinary) or 1854
+    (CIP-1854 multisig). Returns ``(wallet, CardanoAccountResponse,
+    request_cbor)``.
     """
     request = CardanoAccountRequest(
         request_id=str(uuid.uuid4()),
         account_indices=[account_index],
+        key_purpose=key_purpose,
         origin=origin,
     )
     request_cbor = request.to_cbor()
@@ -38,6 +42,7 @@ def request_account(device, account_index: int = 0,
         master_fingerprint=response.master_fingerprint,
         account_index=account_index,
         network=network,
+        purpose=key_purpose,
     )
     return wallet, response, request_cbor
 

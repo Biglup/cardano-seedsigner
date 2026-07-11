@@ -27,11 +27,13 @@ ROLE_DREP = 3
 
 class WatchOnlyWallet:
     def __init__(self, account_xpub: bytes, master_fingerprint: bytes,
-                 account_index: int = 0, network: NetworkId = NetworkId.TESTNET):
+                 account_index: int = 0, network: NetworkId = NetworkId.TESTNET,
+                 purpose: int = PURPOSE_CIP1852):
         self.account_xpub = Bip32PublicKey.from_bytes(account_xpub)
         self.master_fingerprint = master_fingerprint
         self.account_index = account_index
         self.network = network
+        self.purpose = purpose
 
         self._payment = self.account_xpub.derive([ROLE_PAYMENT, 0])
         self._stake = self.account_xpub.derive([ROLE_STAKE, 0])
@@ -43,7 +45,7 @@ class WatchOnlyWallet:
 
     def _full_path(self, role: int, index: int = 0):
         return [
-            PURPOSE_CIP1852 | HARDENED,
+            self.purpose | HARDENED,
             COIN_TYPE_ADA | HARDENED,
             self.account_index | HARDENED,
             role,
