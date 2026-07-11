@@ -19,6 +19,7 @@ from seedsigner.models.cardano_account import (
     account_path,
     build_account_response,
     derive_account_keys,
+    format_derivation_path,
     PURPOSE_CIP1852,
     HARDENED_OFFSET,
 )
@@ -99,6 +100,12 @@ def test_account_path():
         0 | HARDENED_OFFSET,
     ]
     assert account_path(3)[2] == (3 | HARDENED_OFFSET)
+
+
+def test_format_derivation_path():
+    assert format_derivation_path(account_path(0)) == "m/1852'/1815'/0'"
+    assert format_derivation_path(account_path(7)) == "m/1852'/1815'/7'"
+    assert format_derivation_path([1852 | HARDENED_OFFSET, 1815 | HARDENED_OFFSET, 0 | HARDENED_OFFSET, 2, 0]) == "m/1852'/1815'/0'/2/0"
 
 
 def test_derive_account_keys_reproduces_known_address():

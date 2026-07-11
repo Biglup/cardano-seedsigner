@@ -1119,40 +1119,14 @@ class CardanoExportAccountKeyView(View):
     def __init__(self, seed_num: int):
         super().__init__()
         self.seed_num = seed_num
-        self.seed = self.controller.get_seed(seed_num)
 
 
     def run(self):
-        # If multi-accounts enabled, ask which account; otherwise default to 0
-        multi = self.settings.get_value(SettingsConstants.SETTING__MULTI_ACCOUNTS) == SettingsConstants.OPTION__ENABLED
-        if multi:
-            return Destination(
-                CardanoExportAccountKeySelectView,
-                view_args=dict(seed_num=self.seed_num),
-                skip_current_view=True,
-            )
-
-        # Show a warning before exposing the account key
-        destination = Destination(
-            CardanoExportAccountKeyQRView,
-            view_args={"seed_num": self.seed_num, "account_indices": [0]},
+        return Destination(
+            CardanoExportAccountKeySelectView,
+            view_args=dict(seed_num=self.seed_num),
             skip_current_view=True,
         )
-
-        if self.settings.get_value(SettingsConstants.SETTING__PRIVACY_WARNINGS) == SettingsConstants.OPTION__DISABLED:
-            return destination
-
-        selected_menu_num = self.run_screen(
-            WarningScreen,
-            status_headline=_("Privacy Leak!"),
-            text=_("Account key can be used to view all past and future transactions."),
-        )
-
-        if selected_menu_num == 0:
-            return destination
-
-        elif selected_menu_num == RET_CODE__BACK_BUTTON:
-            return Destination(BackStackView)
 
 
 
@@ -1194,7 +1168,7 @@ class CardanoExportAccountKeySelectView(View):
 
         # Show privacy warning
         destination = Destination(
-            CardanoExportAccountKeyQRView,
+            CardanoExportAccountKeyDetailsView,
             view_args={"seed_num": self.seed_num, "account_indices": [account_index]},
             skip_current_view=True,
         )
@@ -1334,7 +1308,7 @@ class CardanoExportAccountKeyConsentView(View):
             return Destination(MainMenuView, clear_history=True)
 
         destination = Destination(
-            CardanoExportAccountKeyQRView,
+            CardanoExportAccountKeyDetailsView,
             view_args=dict(seed_num=self.seed_num, account_indices=account_indices, request_id=request_id),
             skip_current_view=True,
         )
@@ -1354,6 +1328,67 @@ class CardanoExportAccountKeyConsentView(View):
 
         elif selected_menu_num == RET_CODE__BACK_BUTTON:
             return Destination(BackStackView)
+
+
+
+class CardanoExportAccountKeyDetailsView(View):
+    """Show the fingerprint, derivation path and xpub for confirmation before the QR.
+
+    Host requests may cover multiple accounts; each one gets its own details
+    screen (``key_index`` walks ``account_indices``) before the QR is shown.
+    """
+
+    def __init__(self, seed_num: int, account_indices: list = None, request_id: str = "", key_index: int = 0):
+        super().__init__()
+        self.seed_num = seed_num
+        self.account_indices = account_indices if account_indices is not None else [0]
+        self.request_id = request_id
+        self.key_index = key_index
+        self.seed = self.controller.get_seed(seed_num)
+
+
+    def run(self):
+        from cometa import Bech32
+        from seedsigner.gui.screens.screen import LoadingScreenThread
+        from seedsigner.models.cardano_account import derive_account_keys, format_derivation_path
+
+        account_index = self.account_indices[self.key_index]
+
+        loading_screen = LoadingScreenThread(text=_("Generating xpub..."))
+        loading_screen.start()
+        try:
+            account_key = derive_account_keys(self.seed, [account_index])[0]
+            fingerprint = self.seed.get_fingerprint()
+            derivation_path = format_derivation_path(account_key.path)
+            xpub = Bech32.encode("acct_xvk", account_key.xpub)
+        finally:
+            loading_screen.stop()
+
+        selected_menu_num = self.run_screen(
+            seed_screens.CardanoExportAccountKeyDetailsScreen,
+            fingerprint=fingerprint,
+            derivation_path=derivation_path,
+            xpub=xpub,
+        )
+
+        if selected_menu_num == RET_CODE__BACK_BUTTON:
+            return Destination(BackStackView)
+
+        if self.key_index + 1 < len(self.account_indices):
+            return Destination(
+                CardanoExportAccountKeyDetailsView,
+                view_args=dict(
+                    seed_num=self.seed_num,
+                    account_indices=self.account_indices,
+                    request_id=self.request_id,
+                    key_index=self.key_index + 1,
+                ),
+            )
+
+        return Destination(
+            CardanoExportAccountKeyQRView,
+            view_args=dict(seed_num=self.seed_num, account_indices=self.account_indices, request_id=self.request_id),
+        )
 
 
 

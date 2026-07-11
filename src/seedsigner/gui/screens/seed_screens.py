@@ -1597,3 +1597,73 @@ class SeedSignMessageConfirmAddressScreen(ButtonListScreen):
             screen_y=derivation_path_display.screen_y + derivation_path_display.height + 2*GUIConstants.COMPONENT_PADDING,
         )
         self.components.append(address_display)
+
+
+
+@dataclass
+class CardanoExportAccountKeyDetailsScreen(WarningEdgesMixin, ButtonListScreen):
+    is_bottom_list: bool = True
+    fingerprint: str = None
+    derivation_path: str = None
+    xpub: str = None
+
+    def __post_init__(self):
+        self.button_data = [ButtonOption("Export Xpub")]
+        self.title = _("Xpub Details")
+
+        super().__post_init__()
+
+        value_font_size = GUIConstants.get_body_font_size() + 5
+
+        self.fingerprint_line = IconTextLine(
+            icon_name=SeedSignerIconConstants.FINGERPRINT,
+            icon_color=GUIConstants.INFO_COLOR,
+            # TRANSLATOR_NOTE: Short for "BIP-32 Master Fingerprint"
+            label_text=_("Fingerprint"),
+            label_font_size=GUIConstants.get_body_font_size(),
+            value_text=self.fingerprint,
+            font_name=GUIConstants.FIXED_WIDTH_FONT_NAME,
+            font_size=value_font_size,
+            screen_x=GUIConstants.COMPONENT_PADDING,
+            screen_y=self.top_nav.height + GUIConstants.COMPONENT_PADDING,
+        )
+        self.components.append(self.fingerprint_line)
+
+        available_width = self.canvas_width - 2*GUIConstants.COMPONENT_PADDING - GUIConstants.ICON_FONT_SIZE - int(GUIConstants.COMPONENT_PADDING/2)
+        derivation_font_size = value_font_size
+        while derivation_font_size > GUIConstants.BODY_FONT_MIN_SIZE:
+            font = Fonts.get_font(GUIConstants.FIXED_WIDTH_FONT_NAME, derivation_font_size)
+            if font.getlength(self.derivation_path) <= available_width:
+                break
+            derivation_font_size -= 1
+
+        self.derivation_line = IconTextLine(
+            icon_name=SeedSignerIconConstants.DERIVATION,
+            icon_color=GUIConstants.INFO_COLOR,
+            # TRANSLATOR_NOTE: Short for "Derivation Path"
+            label_text=_("Derivation"),
+            label_font_size=GUIConstants.get_body_font_size(),
+            value_text=self.derivation_path,
+            font_name=GUIConstants.FIXED_WIDTH_FONT_NAME,
+            font_size=derivation_font_size,
+            screen_x=GUIConstants.COMPONENT_PADDING,
+            screen_y=self.components[-1].screen_y + self.components[-1].height + GUIConstants.COMPONENT_PADDING,
+        )
+        self.components.append(self.derivation_line)
+
+        left, top, right, bottom = Fonts.get_font(GUIConstants.FIXED_WIDTH_FONT_NAME, value_font_size).getbbox("X")
+        char_width = right - left
+        num_chars = int((self.canvas_width - GUIConstants.ICON_FONT_SIZE - 2*GUIConstants.COMPONENT_PADDING) / char_width) - 3  # ellipsis
+
+        self.xpub_line = IconTextLine(
+            icon_name=FontAwesomeIconConstants.X,
+            icon_color=GUIConstants.INFO_COLOR,
+            label_text=_("Xpub"),
+            label_font_size=GUIConstants.get_body_font_size(),
+            value_text=f"{self.xpub[:num_chars]}...",
+            font_name=GUIConstants.FIXED_WIDTH_FONT_NAME,
+            font_size=value_font_size,
+            screen_x=GUIConstants.COMPONENT_PADDING,
+            screen_y=self.components[-1].screen_y + self.components[-1].height + GUIConstants.COMPONENT_PADDING,
+        )
+        self.components.append(self.xpub_line)
