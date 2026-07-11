@@ -61,7 +61,7 @@ class BaseSequentialSectionView(View):
         )
 
     def _handle_navigation(self, result, total_pages):
-        from .sign_view import CardanoTxSignView
+        from .signing_keys_view import CardanoTxSigningKeysView
         from .sequential_review_view import CardanoTxSequentialReviewView
 
         is_last_page = self.global_index >= total_pages - 1
@@ -81,7 +81,7 @@ class BaseSequentialSectionView(View):
 
         if result == RET_CODE__RIGHT_BUTTON:
             if is_last_page:
-                return Destination(CardanoTxSignView, view_args=dict(parsed_tx=self.parsed_tx))
+                return Destination(CardanoTxSigningKeysView, view_args=dict(parsed_tx=self.parsed_tx))
             return Destination(
                 CardanoTxSequentialReviewView,
                 view_args=dict(parsed_tx=self.parsed_tx, global_index=self.global_index + 1),

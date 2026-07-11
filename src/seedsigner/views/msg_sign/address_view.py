@@ -8,8 +8,7 @@ from seedsigner.gui.screens.tx_review import (
 from seedsigner.models.cardano_tx import CardanoMessageSignRequest
 from seedsigner.views.view import View, Destination, BackStackView
 
-# Total pages in the message signing flow (address, payload)
-_TOTAL_PAGES = 2
+_TOTAL_PAGES = 3
 
 
 class CardanoMsgAddressView(View):
