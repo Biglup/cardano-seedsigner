@@ -49,6 +49,7 @@ class TestCardanoAccountExportFlows(FlowTest):
             FlowStep(scan_views.ScanView, before_run=inject_account_request([0])),
             FlowStep(seed_views.CardanoExportSelectSeedView, is_redirect=True),
             FlowStep(seed_views.CardanoExportAccountKeyConsentView, is_redirect=True),
+            FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
             FlowStep(seed_views.CardanoExportAccountKeyQRView),
         ])
 
@@ -62,6 +63,8 @@ class TestCardanoAccountExportFlows(FlowTest):
             FlowStep(scan_views.ScanView, before_run=inject_account_request([0, 1])),
             FlowStep(seed_views.CardanoExportSelectSeedView, is_redirect=True),
             FlowStep(seed_views.CardanoExportAccountKeyConsentView, is_redirect=True),
+            FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
+            FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
             FlowStep(seed_views.CardanoExportAccountKeyQRView),
         ])
 
@@ -76,3 +79,33 @@ class TestCardanoAccountExportFlows(FlowTest):
             FlowStep(seed_views.CardanoExportAccountKeyConsentView, screen_return_value=0),
             FlowStep(MainMenuView),
         ])
+
+    def test_export_xpub_menu_flow(self):
+        Settings.get_instance().set_value(SettingsConstants.SETTING__PRIVACY_WARNINGS, SettingsConstants.OPTION__DISABLED)
+        self._load_seed()
+
+        self.run_sequence(
+            initial_destination_view_args=dict(seed_num=0),
+            sequence=[
+                FlowStep(seed_views.SeedOptionsView, button_data_selection=seed_views.SeedOptionsView.EXPORT_ACCOUNT_KEY),
+                FlowStep(seed_views.CardanoExportAccountKeyView, is_redirect=True),
+                FlowStep(seed_views.CardanoExportAccountKeySelectView, screen_return_value=0),
+                FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
+                FlowStep(seed_views.CardanoExportAccountKeyQRView),
+            ],
+        )
+
+    def test_export_xpub_menu_flow_nondefault_account(self):
+        Settings.get_instance().set_value(SettingsConstants.SETTING__PRIVACY_WARNINGS, SettingsConstants.OPTION__DISABLED)
+        self._load_seed()
+
+        self.run_sequence(
+            initial_destination_view_args=dict(seed_num=0),
+            sequence=[
+                FlowStep(seed_views.SeedOptionsView, button_data_selection=seed_views.SeedOptionsView.EXPORT_ACCOUNT_KEY),
+                FlowStep(seed_views.CardanoExportAccountKeyView, is_redirect=True),
+                FlowStep(seed_views.CardanoExportAccountKeySelectView, screen_return_value=3),
+                FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
+                FlowStep(seed_views.CardanoExportAccountKeyQRView),
+            ],
+        )

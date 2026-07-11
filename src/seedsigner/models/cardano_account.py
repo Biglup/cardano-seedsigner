@@ -227,6 +227,17 @@ def account_path(account_index: int, key_purpose: int = PURPOSE_CIP1852) -> list
     ]
 
 
+def format_derivation_path(path: list[int]) -> str:
+    """Render a derivation path list as text, e.g. ``m/1852'/1815'/0'``."""
+    components = []
+    for component in path:
+        if component & HARDENED_OFFSET:
+            components.append(f"{component ^ HARDENED_OFFSET}'")
+        else:
+            components.append(str(component))
+    return "m/" + "/".join(components)
+
+
 def derive_account_keys(seed, account_indices: list[int],
                         key_purpose: int = PURPOSE_CIP1852) -> list[AccountKey]:
     """Derive the account extended public key for each requested account.
