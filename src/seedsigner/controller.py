@@ -68,7 +68,13 @@ class BackgroundImportThread(BaseThread):
         Controller.get_instance()._storage = SeedStorage()
 
         time_import('numpy')  # used by PiVideoStream; by far the slowest import (2.29s)
-        time_import('seedsigner.hardware.pivideostream') 
+        time_import('seedsigner.hardware.pivideostream')
+
+        time_import('cometa')  # loads the libcardano-c native lib via cffi; very slow on Pi Zero
+        time_import('seedsigner.models.cardano_tx')
+        time_import('seedsigner.views.tx_review.overview_view')
+        time_import('seedsigner.views.tx_review.sequential_review_view')
+        time_import('seedsigner.views.msg_sign.overview_view')
 
         # Get MainMenuView ready to respond quickly
         time_import('seedsigner.views.scan_views')
