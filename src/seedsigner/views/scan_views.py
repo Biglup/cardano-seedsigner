@@ -105,7 +105,17 @@ class ScanView(View):
 
             elif self.decoder.is_cardano_account_request:
                 from seedsigner.views.seed_views import CardanoExportSelectSeedView
-                self.controller.cardano_account_request = self.decoder.get_cardano_account_request()
+                try:
+                    self.controller.cardano_account_request = self.decoder.get_cardano_account_request()
+                except Exception as e:
+                    logger.info(repr(e), exc_info=True)
+                    return Destination(ErrorView, view_args=dict(
+                        title="Error",
+                        status_headline=_("Invalid Request"),
+                        text=_("Could not read the account key request.") + "\n" + _error_detail(e),
+                        button_text="Back",
+                        next_destination=Destination(BackStackView, skip_current_view=True),
+                    ))
                 return Destination(CardanoExportSelectSeedView, skip_current_view=True)
 
             elif self.decoder.is_cardano_tx_sign_request:

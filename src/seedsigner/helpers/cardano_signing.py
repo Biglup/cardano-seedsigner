@@ -45,9 +45,14 @@ def _dedupe_paths(paths: list[list[int]]) -> list[list[int]]:
 
 
 def matching_signing_paths(request: CardanoSignRequest, seed) -> list[list[int]]:
-    """The derivation paths in `request` that belong to `seed` (by xfp), deduped."""
+    """The derivation paths in `request` that belong to `seed` (by xfp), deduped.
+
+    Script-locked inputs carry no path (their witnesses arrive via
+    ``extra_signers``) and are skipped.
+    """
     fingerprint = _seed_fingerprint(seed)
-    candidates = [si.path for si in request.inputs if si.xfp == fingerprint]
+    candidates = [si.path for si in request.inputs
+                  if si.path is not None and si.xfp == fingerprint]
     candidates += [es.path for es in request.extra_signers if es.xfp == fingerprint]
     return _dedupe_paths(candidates)
 

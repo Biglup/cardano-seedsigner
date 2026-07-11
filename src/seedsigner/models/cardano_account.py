@@ -44,8 +44,18 @@ from cometa import CborReader, CborWriter
 
 
 PURPOSE_CIP1852 = 1852
+PURPOSE_CIP1854 = 1854
 COIN_TYPE_ADA = 1815
 HARDENED_OFFSET = 0x80000000
+
+SUPPORTED_KEY_PURPOSES = (PURPOSE_CIP1852, PURPOSE_CIP1854)
+
+
+def account_xpub_hrp(key_purpose: int) -> str:
+    """The CIP-5 bech32 prefix for an account extended public key: shared
+    (multisig) accounts use ``acct_shared_xvk``, ordinary ones ``acct_xvk``."""
+    return "acct_shared_xvk" if key_purpose == PURPOSE_CIP1854 else "acct_xvk"
+
 
 DEFAULT_DEVICE_LABEL = "Cardano SeedSigner"
 
@@ -107,6 +117,8 @@ class CardanoAccountRequest:
             raise ValueError("cardano-account-req missing request_id (key 1)")
         if not account_indices:
             raise ValueError("cardano-account-req missing/empty account_indices (key 3)")
+        if key_purpose not in SUPPORTED_KEY_PURPOSES:
+            raise ValueError(f"cardano-account-req unsupported key_purpose: {key_purpose}")
 
         return cls(
             request_id=request_id,
@@ -219,7 +231,7 @@ class CardanoAccountResponse:
 
 
 def account_path(account_index: int, key_purpose: int = PURPOSE_CIP1852) -> list[int]:
-    """CIP-1852 account derivation path: m/purpose'/1815'/account'."""
+    """Account derivation path for the given purpose: m/purpose'/1815'/account'."""
     return [
         key_purpose | HARDENED_OFFSET,
         COIN_TYPE_ADA | HARDENED_OFFSET,
