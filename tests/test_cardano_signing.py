@@ -310,3 +310,60 @@ def test_passphrase_seed_signs_with_distinct_key(seed):
     # the passphrase key differs from the no-passphrase key for the same path
     plain_vkey = root_key_from_seed(seed).derive(PATH_0).get_public_key().to_ed25519_key().to_bytes()
     assert ws[0].vkey != plain_vkey
+
+
+PATH_MULTISIG = [1854 + H, 1815 + H, 0 + H, 0, 0]
+
+
+def test_extra_signers_only_produces_partial_witness_set(seed):
+    request = CardanoSignRequest(
+        request_id="ms-1", origin=None, sign_data=BODY_CBOR,
+        inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0)],
+        change_outputs=[], network=NetworkId.MAINNET,
+        extra_signers=[
+            ExtraSigner(xfp=_seed_fingerprint(seed), path=PATH_MULTISIG),
+            ExtraSigner(xfp=OTHER_XFP, path=PATH_0),
+        ],
+    )
+    response = build_tx_sign_response(seed, request)
+    witnesses = _decode_witnesses(response.vkey_witness_set)
+    assert len(witnesses) == 1
+
+    expected_key = root_key_from_seed(seed).derive(PATH_MULTISIG)
+    assert witnesses[0].vkey == expected_key.get_public_key().to_ed25519_key().to_bytes()
+    pub = Ed25519PublicKey.from_bytes(witnesses[0].vkey)
+    sig = Ed25519Signature.from_bytes(witnesses[0].signature)
+    assert pub.verify(sig, _tx_hash(BODY_CBOR))
+
+
+def test_script_locked_input_skipped_in_matching_paths(seed):
+    request = CardanoSignRequest(
+        request_id="ms-2", origin=None, sign_data=BODY_CBOR,
+        inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0)],
+        change_outputs=[], network=NetworkId.MAINNET,
+        extra_signers=[ExtraSigner(xfp=_seed_fingerprint(seed), path=PATH_MULTISIG)],
+    )
+    assert matching_signing_paths(request, seed) == [PATH_MULTISIG]
+
+
+
+def test_cip8_sign_with_multisig_key(seed):
+    key = root_key_from_seed(seed).derive(PATH_MULTISIG)
+    key_hash = key.get_public_key().to_ed25519_key().to_hash().to_bytes()
+
+    request = CardanoMessageSignRequest(
+        request_id="cip8-ms", origin=None, message_payload=b"multisig hello",
+        required_signing_path=SigningPath(index=0, path=PATH_MULTISIG),
+        address_bytes=key_hash, xfp=_seed_fingerprint(seed),
+    )
+    response = build_cip8_sign_response(seed, request)
+
+    r = CborReader.from_bytes(response.cose_sign1)
+    assert r.read_array_len() == 4
+    protected = r.read_bytes()
+    pr = CborReader.from_bytes(protected)
+    assert pr.read_map_len() == 2
+    assert pr.read_int() == 1
+    assert pr.read_int() == -8
+    assert pr.read_str() == "address"
+    assert pr.read_bytes() == key_hash

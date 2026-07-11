@@ -140,3 +140,43 @@ def test_build_account_response_carries_btc_fingerprint():
     assert len(resp.master_fingerprint) == 4
     assert [k.account_index for k in resp.keys] == [0, 2]
     assert CardanoAccountResponse.from_cbor(resp.to_cbor()) == resp
+
+
+def test_request_roundtrip_1854_purpose():
+    from seedsigner.models.cardano_account import PURPOSE_CIP1854
+
+    req = CardanoAccountRequest(request_id="ms-req", account_indices=[0],
+                                key_purpose=PURPOSE_CIP1854)
+    decoded = CardanoAccountRequest.from_cbor(req.to_cbor())
+    assert decoded.key_purpose == PURPOSE_CIP1854
+
+
+def test_build_account_response_1854_derives_distinct_key():
+    from seedsigner.models.cardano_account import PURPOSE_CIP1854
+
+    seed = Seed(mnemonic=ABANDON_MNEMONIC)
+    ordinary = build_account_response(seed, "r", [0], PURPOSE_CIP1852)
+    shared = build_account_response(seed, "r", [0], PURPOSE_CIP1854)
+
+    assert shared.keys[0].path == [
+        PURPOSE_CIP1854 | HARDENED_OFFSET,
+        1815 | HARDENED_OFFSET,
+        0 | HARDENED_OFFSET,
+    ]
+    assert shared.keys[0].xpub != ordinary.keys[0].xpub
+    assert shared.master_fingerprint == ordinary.master_fingerprint
+
+
+def test_account_xpub_hrp_by_purpose():
+    from seedsigner.models.cardano_account import PURPOSE_CIP1854, account_xpub_hrp
+
+    assert account_xpub_hrp(PURPOSE_CIP1852) == "acct_xvk"
+    assert account_xpub_hrp(PURPOSE_CIP1854) == "acct_shared_xvk"
+
+
+def test_request_unsupported_key_purpose_raises():
+    for bad_purpose in (44, 1855, 2**40):
+        req = CardanoAccountRequest(request_id="bad", account_indices=[0],
+                                    key_purpose=bad_purpose)
+        with pytest.raises(ValueError):
+            CardanoAccountRequest.from_cbor(req.to_cbor())

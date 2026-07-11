@@ -88,7 +88,7 @@ class TestCardanoAccountExportFlows(FlowTest):
             initial_destination_view_args=dict(seed_num=0),
             sequence=[
                 FlowStep(seed_views.SeedOptionsView, button_data_selection=seed_views.SeedOptionsView.EXPORT_ACCOUNT_KEY),
-                FlowStep(seed_views.CardanoExportAccountKeyView, is_redirect=True),
+                FlowStep(seed_views.CardanoExportAccountKeyView, button_data_selection=seed_views.CardanoExportAccountKeyView.SINGLE_SIG),
                 FlowStep(seed_views.CardanoExportAccountKeySelectView, screen_return_value=0),
                 FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
                 FlowStep(seed_views.CardanoExportAccountKeyQRView),
@@ -103,8 +103,59 @@ class TestCardanoAccountExportFlows(FlowTest):
             initial_destination_view_args=dict(seed_num=0),
             sequence=[
                 FlowStep(seed_views.SeedOptionsView, button_data_selection=seed_views.SeedOptionsView.EXPORT_ACCOUNT_KEY),
-                FlowStep(seed_views.CardanoExportAccountKeyView, is_redirect=True),
+                FlowStep(seed_views.CardanoExportAccountKeyView, button_data_selection=seed_views.CardanoExportAccountKeyView.SINGLE_SIG),
                 FlowStep(seed_views.CardanoExportAccountKeySelectView, screen_return_value=3),
+                FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
+                FlowStep(seed_views.CardanoExportAccountKeyQRView),
+            ],
+        )
+
+
+def inject_account_request_1854(account_indices):
+    def _inject(view: scan_views.ScanView):
+        from seedsigner.helpers.ur2.ur_encoder import UREncoder
+        from seedsigner.helpers.ur2.ur import UR
+        from seedsigner.models.cardano_account import CardanoAccountRequest, PURPOSE_CIP1854
+        from seedsigner.models.decode_qr import DecodeQRStatus
+
+        request = CardanoAccountRequest(request_id="t54", account_indices=account_indices,
+                                        key_purpose=PURPOSE_CIP1854)
+        encoder = UREncoder(ur=UR("cardano-account-req", bytearray(request.to_cbor())), max_fragment_len=200)
+        status = None
+        while status != DecodeQRStatus.COMPLETE:
+            status = view.decoder.add_data(encoder.next_part().upper())
+    return _inject
+
+
+class TestCardano1854AccountExportFlows(FlowTest):
+
+    def _load_seed(self):
+        self.controller.storage.set_pending_seed(Seed(mnemonic=ABANDON_MNEMONIC))
+        self.controller.storage.finalize_pending_seed()
+
+    def test_export_1854_request_flow_reaches_qr(self):
+        Settings.get_instance().set_value(SettingsConstants.SETTING__PRIVACY_WARNINGS, SettingsConstants.OPTION__DISABLED)
+        self._load_seed()
+
+        self.run_sequence([
+            FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
+            FlowStep(scan_views.ScanView, before_run=inject_account_request_1854([0])),
+            FlowStep(seed_views.CardanoExportSelectSeedView, is_redirect=True),
+            FlowStep(seed_views.CardanoExportAccountKeyConsentView, is_redirect=True),
+            FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
+            FlowStep(seed_views.CardanoExportAccountKeyQRView),
+        ])
+
+    def test_export_1854_menu_flow(self):
+        Settings.get_instance().set_value(SettingsConstants.SETTING__PRIVACY_WARNINGS, SettingsConstants.OPTION__DISABLED)
+        self._load_seed()
+
+        self.run_sequence(
+            initial_destination_view_args=dict(seed_num=0),
+            sequence=[
+                FlowStep(seed_views.SeedOptionsView, button_data_selection=seed_views.SeedOptionsView.EXPORT_ACCOUNT_KEY),
+                FlowStep(seed_views.CardanoExportAccountKeyView, button_data_selection=seed_views.CardanoExportAccountKeyView.MULTI_SIG),
+                FlowStep(seed_views.CardanoExportAccountKeySelectView, screen_return_value=0),
                 FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
                 FlowStep(seed_views.CardanoExportAccountKeyQRView),
             ],

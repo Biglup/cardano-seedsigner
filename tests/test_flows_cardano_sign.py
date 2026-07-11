@@ -326,3 +326,130 @@ class TestCardanoSignFlows(FlowTest):
         assert decoded.cose_sign1 == response.cose_sign1
         assert decoded.cose_key == response.cose_key
         assert len(decoded.cose_sign1) > 0 and len(decoded.cose_key) > 0
+
+    PATH_MULTISIG = [1854 + H, 1815 + H, 0 + H, 0, 0]
+
+    def test_signing_keys_step_gates_the_sign_confirmation(self):
+        from seedsigner.gui.screens.tx_review import RET_CODE__RIGHT_BUTTON
+        from seedsigner.models.cardano_tx import CardanoSignRequest, SigningInput, ExtraSigner
+        from seedsigner.views.tx_review.sequential_review_view import CardanoTxSequentialReviewView
+        from seedsigner.views.tx_review.signing_keys_view import CardanoTxSigningKeysView
+
+        self._load_seed()
+        seed = self.controller.storage.seeds[0]
+        xfp = bytes.fromhex(seed.get_fingerprint())
+        stake_path = [1852 + H, 1815 + H, 0 + H, 2, 0]
+        request = CardanoSignRequest(
+            request_id="gate-1", origin=None, sign_data=BODY_CBOR,
+            inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=xfp, path=PATH)],
+            change_outputs=[], network=NetworkId.MAINNET,
+            extra_signers=[ExtraSigner(xfp=xfp, path=stake_path)],
+        )
+        self.controller.cardano_seed = seed
+        self.controller.cardano_tx_sign_request = request
+        parsed_tx = self._parsed_tx_for(request)
+        last_page = len(parsed_tx.build_review_pages()) - 1
+
+        self.run_sequence(
+            [
+                FlowStep(CardanoTxSequentialReviewView, screen_return_value=RET_CODE__RIGHT_BUTTON),
+                FlowStep(CardanoTxSigningKeysView, screen_return_value=RET_CODE__RIGHT_BUTTON),
+                FlowStep(CardanoTxSigningKeysView, screen_return_value=RET_CODE__RIGHT_BUTTON),
+                FlowStep(CardanoTxSignView, screen_return_value=1),
+                FlowStep(CardanoTxSignedQRView),
+            ],
+            initial_destination_view_args=dict(parsed_tx=parsed_tx, global_index=last_page),
+        )
+
+    def test_signing_keys_step_no_match_falls_through_to_wrong_seed(self):
+        from seedsigner.views.tx_review.signing_keys_view import CardanoTxSigningKeysView
+
+        self._load_seed()
+        seed = self.controller.storage.seeds[0]
+        request = self._tx_request_with_xfp(bytes.fromhex("deadbeef"))
+        self.controller.cardano_seed = seed
+        self.controller.cardano_tx_sign_request = request
+
+        self.run_sequence(
+            [
+                FlowStep(CardanoTxSigningKeysView, is_redirect=True),
+                FlowStep(CardanoTxSignView, screen_return_value=0),
+                FlowStep(_MainMenuView),
+            ],
+            initial_destination_view_args=dict(parsed_tx=self._parsed_tx_for(request)),
+        )
+
+    def test_msg_signing_key_step_gates_the_sign_confirmation(self):
+        from seedsigner.gui.screens.tx_review import RET_CODE__RIGHT_BUTTON
+        from seedsigner.views.msg_sign.payload_view import CardanoMsgPayloadView
+        from seedsigner.views.msg_sign.signing_key_view import CardanoMsgSigningKeyView
+
+        self._load_seed()
+        seed = self.controller.storage.seeds[0]
+        request = self._cip8_request_for(seed, bytes.fromhex(seed.get_fingerprint()))
+        self.controller.cardano_seed = seed
+        self.controller.cardano_cip8_sign_request = request
+
+        self.run_sequence(
+            [
+                FlowStep(CardanoMsgPayloadView, screen_return_value=RET_CODE__RIGHT_BUTTON),
+                FlowStep(CardanoMsgSigningKeyView, screen_return_value=RET_CODE__RIGHT_BUTTON),
+                FlowStep(CardanoMsgSignView, screen_return_value=1),
+                FlowStep(CardanoMsgSignedQRView),
+            ],
+            initial_destination_view_args=dict(msg_request=request),
+        )
+
+    def test_cip8_multisig_key_signs_via_key_inspection(self):
+        from cometa import CborReader
+        from seedsigner.gui.screens.tx_review import RET_CODE__RIGHT_BUTTON
+        from seedsigner.helpers.cardano_utils import root_key_from_seed
+        from seedsigner.models.cardano_tx import CardanoMessageSignRequest, SigningPath
+        from seedsigner.views.msg_sign.signing_key_view import CardanoMsgSigningKeyView
+
+        self._load_seed()
+        seed = self.controller.storage.seeds[0]
+        key = root_key_from_seed(seed).derive(self.PATH_MULTISIG)
+        key_hash = key.get_public_key().to_ed25519_key().to_hash().to_bytes()
+        request = CardanoMessageSignRequest(
+            request_id="cip8-ms-flow", origin=None, message_payload=b"ms",
+            required_signing_path=SigningPath(index=0, path=self.PATH_MULTISIG),
+            address_bytes=key_hash, xfp=bytes.fromhex(seed.get_fingerprint()),
+        )
+        self.controller.cardano_seed = seed
+        self.controller.cardano_cip8_sign_request = request
+
+        self.run_sequence(
+            [
+                FlowStep(CardanoMsgSigningKeyView, screen_return_value=RET_CODE__RIGHT_BUTTON),
+                FlowStep(CardanoMsgSignView, screen_return_value=1),
+                FlowStep(CardanoMsgSignedQRView),
+            ],
+            initial_destination_view_args=dict(msg_request=request),
+        )
+
+    def test_extra_signers_only_multisig_tx_signs(self):
+        from seedsigner.gui.screens.tx_review import RET_CODE__RIGHT_BUTTON
+        from seedsigner.models.cardano_tx import CardanoSignRequest, SigningInput, ExtraSigner
+        from seedsigner.views.tx_review.signing_keys_view import CardanoTxSigningKeysView
+
+        self._load_seed()
+        seed = self.controller.storage.seeds[0]
+        request = CardanoSignRequest(
+            request_id="ms-flow", origin=None, sign_data=BODY_CBOR,
+            inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0)],
+            change_outputs=[], network=NetworkId.MAINNET,
+            extra_signers=[ExtraSigner(xfp=bytes.fromhex(seed.get_fingerprint()),
+                                       path=self.PATH_MULTISIG)],
+        )
+        self.controller.cardano_seed = seed
+        self.controller.cardano_tx_sign_request = request
+
+        self.run_sequence(
+            [
+                FlowStep(CardanoTxSigningKeysView, screen_return_value=RET_CODE__RIGHT_BUTTON),
+                FlowStep(CardanoTxSignView, screen_return_value=1),
+                FlowStep(CardanoTxSignedQRView),
+            ],
+            initial_destination_view_args=dict(parsed_tx=self._parsed_tx_for(request)),
+        )
