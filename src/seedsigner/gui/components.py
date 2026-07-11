@@ -753,6 +753,7 @@ class IconTextLine(BaseComponent):
     icon_color: str = GUIConstants.BODY_FONT_COLOR
     label_text: str = None
     label_font_size: int = None
+    label_font_color: str = None
     value_text: str = ""
     font_name: str = None
     font_size: int = None
@@ -794,7 +795,7 @@ class IconTextLine(BaseComponent):
                 canvas=self.canvas,
                 text=self.label_text,
                 font_size=self.label_font_size if self.label_font_size else GUIConstants.get_body_font_size() - 2,
-                font_color=GUIConstants.LABEL_FONT_COLOR,
+                font_color=self.label_font_color if self.label_font_color else GUIConstants.LABEL_FONT_COLOR,
                 edge_padding=0,
                 is_text_centered=self.is_text_centered if not self.icon_name else False,
                 auto_line_break=False,
