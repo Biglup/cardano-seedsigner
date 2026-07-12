@@ -152,6 +152,42 @@ def test_malformed_request_surfaces_value_error():
         decoder.get_cardano_tx_sign_request()
 
 
+def test_stray_frames_mid_scan_are_ignored():
+    """Frames of a different QR type arriving mid animated scan (a stray
+    settings QR, invalid UTF-8 bytes, seed-entropy-sized garbage) must return a
+    non-fatal status instead of raising, and must leave the in-progress
+    fountain decode intact."""
+    request = _tx_request()
+    encoder = CardanoTxSigRequestQrEncoder(
+        request=request, qr_density=SettingsConstants.DENSITY__LOW)
+    decoder = DecodeQR()
+
+    assert decoder.add_data(encoder.next_part()) == DecodeQRStatus.PART_COMPLETE
+    assert decoder.qr_type == QRType.CARDANO_TX_SIG_REQUEST
+    assert not decoder.is_complete
+
+    stray_frames = [
+        b"settings::v1 name=Stray",
+        b"\xff\xfe\x80\x9c\x00 not utf-8",
+        b"\xff" * 32,
+    ]
+    for stray in stray_frames:
+        assert decoder.add_data(stray) == DecodeQRStatus.FALSE
+
+    assert decoder.qr_type == QRType.CARDANO_TX_SIG_REQUEST
+    assert not decoder.is_complete
+
+    status = None
+    for _ in range(encoder.seq_len() * 4 + 10):
+        status = decoder.add_data(encoder.next_part())
+        if status == DecodeQRStatus.COMPLETE:
+            break
+    assert status == DecodeQRStatus.COMPLETE
+
+    assert decoder.is_complete
+    assert decoder.get_cardano_tx_sign_request() == request
+
+
 def test_getter_on_incomplete_ur_raises_value_error():
     """A getter called before the UR fully reassembles (or after a failed
     reassembly, where result_message() is an error rather than a UR) must raise

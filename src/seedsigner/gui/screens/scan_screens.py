@@ -233,34 +233,35 @@ class ScanScreen(BaseScreen):
 
         num_frames = 0
         start_time = time.time()
-        while True:
-            frame = self.camera.read_video_stream()
-            if frame is not None:
-                status = self.decoder.add_image(frame)
+        try:
+            while True:
+                frame = self.camera.read_video_stream()
+                if frame is not None:
+                    status = self.decoder.add_image(frame)
 
-                num_frames += 1
-                decoder_fps = f"{num_frames / (time.time() - start_time):0.2f}"
-                self.threads[0].decoder_fps = decoder_fps
+                    num_frames += 1
+                    decoder_fps = f"{num_frames / (time.time() - start_time):0.2f}"
+                    self.threads[0].decoder_fps = decoder_fps
 
-                if status in (DecodeQRStatus.COMPLETE, DecodeQRStatus.INVALID):
-                    self.camera.stop_video_stream_mode()
-                    break
+                    if status in (DecodeQRStatus.COMPLETE, DecodeQRStatus.INVALID):
+                        break
 
-                # Notify the live preview thread how our most recent decode went
-                if status == DecodeQRStatus.FALSE:
-                    # Did not find anything to decode in the current frame
-                    self.frames_decode_status.set_value(self.FRAME__MISS)
+                    # Notify the live preview thread how our most recent decode went
+                    if status == DecodeQRStatus.FALSE:
+                        # Did not find anything to decode in the current frame
+                        self.frames_decode_status.set_value(self.FRAME__MISS)
 
-                else:
-                    if status == DecodeQRStatus.PART_COMPLETE:
-                        # We received a valid frame that added new data
-                        self.frames_decode_status.set_value(self.FRAME__ADDED_PART)
+                    else:
+                        if status == DecodeQRStatus.PART_COMPLETE:
+                            # We received a valid frame that added new data
+                            self.frames_decode_status.set_value(self.FRAME__ADDED_PART)
 
-                    elif status == DecodeQRStatus.PART_EXISTING:
-                        # We received a valid frame, but we've already seen in
-                        self.frames_decode_status.set_value(self.FRAME__REPEATED_PART)
-                
-                if self.hw_inputs.check_for_low(HardwareButtonsConstants.KEY_RIGHT) or self.hw_inputs.check_for_low(HardwareButtonsConstants.KEY_LEFT):
-                    self.camera.stop_video_stream_mode()
-                    return False
+                        elif status == DecodeQRStatus.PART_EXISTING:
+                            # We received a valid frame, but we've already seen in
+                            self.frames_decode_status.set_value(self.FRAME__REPEATED_PART)
+
+                    if self.hw_inputs.check_for_low(HardwareButtonsConstants.KEY_RIGHT) or self.hw_inputs.check_for_low(HardwareButtonsConstants.KEY_LEFT):
+                        return False
+        finally:
+            self.camera.stop_video_stream_mode()
 
