@@ -22,9 +22,12 @@ class CardanoMsgOverviewView(View):
         from seedsigner.helpers.cardano_utils import verify_message_signing_address
         from .payload_view import _is_printable_ascii
 
+        seed = self.controller.cardano_seed
+        if seed is None:
+            return Destination(MainMenuView, clear_history=True)
+
         # Verify the signing path matches the address
         if self.msg_request.address_bytes is not None:
-            seed = self.controller.cardano_seed or self.controller.storage.seeds[-1]
             if not verify_message_signing_address(self.msg_request, seed):
                 self._show_rejection(
                     DireWarningScreen, GUIConstants, TextArea,

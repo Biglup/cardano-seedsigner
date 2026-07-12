@@ -1517,9 +1517,17 @@ class CardanoMsgSelectSeedView(CardanoSelectSeedView):
         from seedsigner.views.msg_sign.overview_view import CardanoMsgOverviewView
 
         seed = self.controller.get_seed(seed_num)
-        self.controller.cardano_seed = seed
         request = self.controller.cardano_cip8_sign_request
 
+        try:
+            if request is None or request.message_payload is None \
+                    or request.required_signing_path is None:
+                raise ValueError("incomplete cardano-cip8-sig-req")
+        except Exception as e:
+            logger.info(repr(e), exc_info=True)
+            return self._invalid_request_destination(_("Could not read the message to sign."))
+
+        self.controller.cardano_seed = seed
         return Destination(
             CardanoMsgOverviewView,
             view_args=dict(msg_request=request),

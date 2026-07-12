@@ -519,6 +519,62 @@ class TestCardanoSignFlows(FlowTest):
             initial_destination_view_args=dict(parsed_tx=parsed_tx, global_index=last_page),
         )
 
+    def test_msg_overview_without_seed_exits_to_main_menu(self):
+        seed = Seed(mnemonic=ABANDON_MNEMONIC)
+        request = self._cip8_request_for(seed, bytes.fromhex(seed.get_fingerprint()))
+        assert self.controller.cardano_seed is None
+        assert len(self.controller.storage.seeds) == 0
+
+        self.run_sequence(
+            [
+                FlowStep(CardanoMsgOverviewView, is_redirect=True),
+                FlowStep(_MainMenuView),
+            ],
+            initial_destination_view_args=dict(msg_request=request),
+        )
+
+    def test_msg_select_seed_without_request_routes_to_error(self):
+        from seedsigner.views.view import ErrorView
+
+        self._load_seed()
+
+        def clear_request(view):
+            self.controller.cardano_cip8_sign_request = None
+
+        self.run_sequence([
+            FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
+            FlowStep(scan_views.ScanView, before_run=inject_cip8_request()),
+            FlowStep(seed_views.CardanoMsgSelectSeedView, before_run=clear_request,
+                     is_redirect=True),
+            FlowStep(ErrorView),
+        ])
+        assert self.controller.cardano_seed is None
+
+    def test_msg_payload_deeply_nested_json_renders_as_text(self):
+        from seedsigner.gui.screens.tx_review import RET_CODE__RIGHT_BUTTON
+        from seedsigner.models.cardano_tx import CardanoMessageSignRequest, SigningPath
+        from seedsigner.views.msg_sign.payload_view import CardanoMsgPayloadView
+        from seedsigner.views.msg_sign.signing_key_view import CardanoMsgSigningKeyView
+
+        self._load_seed()
+        seed = self.controller.storage.seeds[0]
+        request = CardanoMessageSignRequest(
+            request_id="deep-json", origin=None,
+            message_payload=b"[" * 3000,
+            required_signing_path=SigningPath(index=0, path=PATH),
+            address_bytes=None, xfp=bytes.fromhex(seed.get_fingerprint()),
+        )
+        self.controller.cardano_seed = seed
+        self.controller.cardano_cip8_sign_request = request
+
+        self.run_sequence(
+            [
+                FlowStep(CardanoMsgPayloadView, screen_return_value=RET_CODE__RIGHT_BUTTON),
+                FlowStep(CardanoMsgSigningKeyView),
+            ],
+            initial_destination_view_args=dict(msg_request=request),
+        )
+
     def test_extra_signers_only_multisig_tx_signs(self):
         from seedsigner.gui.screens.tx_review import RET_CODE__RIGHT_BUTTON
         from seedsigner.models.cardano_tx import CardanoSignRequest, SigningInput, ExtraSigner

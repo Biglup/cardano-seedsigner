@@ -53,7 +53,7 @@ class CardanoMsgPayloadView(View):
                         content.append(("spacer_small", ""))
                         for line in pretty.split("\n"):
                             content.append(("mono_text", line))
-                    except (json.JSONDecodeError, ValueError):
+                    except (json.JSONDecodeError, ValueError, RecursionError):
                         # Plain ASCII text
                         content.append(("label", f"Plain Text ({size} bytes):"))
                         content.append(("spacer_small", ""))
