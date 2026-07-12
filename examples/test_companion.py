@@ -1,7 +1,7 @@
 """Offline end-to-end tests for the host companion.
 
 These run the real on-device codecs + signing core through the in-process
-``SimulatedDevice`` — no hardware, no webcam, no network — proving the full
+``SimulatedDevice`` (no hardware, no webcam, no network), proving the full
 request -> sign -> response -> verify loop and that the companion's watch-only
 derivation matches the device's signing keys.
 """
@@ -53,6 +53,8 @@ def _credential_params(wallet, credential):
 
 @pytest.mark.parametrize("credential", ["payment", "stake", "drep"])
 def test_cip8_message_signing_verifies(device, credential):
+    """The COSE signature verifies and the device signed with the key that
+    owns the host-derived credential."""
     wallet, _, _ = request_account(device, account_index=0, network=NetworkId.TESTNET)
     path, address_bytes, expected_hash = _credential_params(wallet, credential)
     payload = b"Hello, Cardano!"
@@ -68,7 +70,6 @@ def test_cip8_message_signing_verifies(device, credential):
 
     assert verify_cose_sign1(response.cose_sign1, response.cose_key)
     assert signed_payload(response.cose_sign1) == payload
-    # the device signed with the key that owns the host-derived credential
     assert cose_key_hash_hex(response.cose_key) == expected_hash
     assert response.request_id == request.request_id
 
@@ -94,9 +95,9 @@ def test_cip8_self_consistent_signature_from_other_key_is_caught_by_pinning(devi
 
 
 def test_cip8_wrong_address_is_rejected_by_device(device):
-    # Bind the message to a base address but ask the device to sign with the
-    # STAKE path: the device must refuse (its address<->key guard), so the
-    # companion can never obtain a mis-bound signature.
+    """Bind the message to a base address but ask the device to sign with the
+    stake path: the device must refuse via its address-to-key guard, so the
+    companion can never obtain a mis-bound signature."""
     wallet, _, _ = request_account(device, account_index=0, network=NetworkId.TESTNET)
     H = 0x80000000
     stake_path = [1852 + H, 1815 + H, 0 + H, 2, 0]
@@ -112,6 +113,8 @@ def test_cip8_wrong_address_is_rejected_by_device(device):
 
 
 def test_tx_signing_through_simulator(device):
+    """The returned witness verifies over the tx-body hash and its key is the
+    wallet's own payment key."""
     from cometa import (CborReader, TransactionBody, VkeyWitnessSet,
                         Ed25519PublicKey, Ed25519Signature)
     from seedsigner.models.cardano_tx import CardanoSignRequest, SigningInput
@@ -138,7 +141,6 @@ def test_tx_signing_through_simulator(device):
     tx_hash = TransactionBody.from_cbor(CborReader.from_bytes(body)).hash.to_bytes()
     pub = Ed25519PublicKey.from_bytes(ws[0].vkey)
     assert pub.verify(Ed25519Signature.from_bytes(ws[0].signature), tx_hash)
-    # the witness key is the wallet's own payment key
     assert pub.to_hash().to_hex() == wallet.payment_key_hash_hex()
 
 

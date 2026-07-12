@@ -1,8 +1,8 @@
 """
 Tests for CIP-8 signing-credential display classification.
 
-The device must accurately label what the user is signing with — a payment
-address, a stake (reward) address, or a DRep ID — using the derivation-path
+The device must accurately label what the user is signing with (a payment
+address, a stake (reward) address, or a DRep ID) using the derivation-path
 role as the primary signal so a DRep is never mislabelled as a payment address
 (the type-6 enterprise wrapper ambiguity).
 """
@@ -76,8 +76,8 @@ def test_drep_bare_hash_labelled_drep_cip129():
 
 
 def test_drep_enterprise_wrapper_not_mislabelled():
-    # A type-6 enterprise address holding the DRep key hash must still be shown
-    # as a DRep ID when the signing role is 3 — not as a payment address.
+    """A type-6 enterprise address holding the DRep key hash must still be
+    shown as a DRep ID when the signing role is 3, not as a payment address."""
     seed = _seed()
     wrapped = EnterpriseAddress.from_credentials(
         NetworkId.TESTNET, _cred(seed, PATH_DREP)).to_bytes()
@@ -88,7 +88,8 @@ def test_drep_enterprise_wrapper_not_mislabelled():
 
 
 def test_enterprise_payment_address_not_drep():
-    # Same byte shape (type-6 enterprise) but a payment role -> payment address.
+    """The same byte shape (type-6 enterprise) with a payment role classifies
+    as a payment address."""
     seed = _seed()
     addr = EnterpriseAddress.from_credentials(
         NetworkId.TESTNET, _cred(seed, PATH_PAYMENT)).to_bytes()
@@ -98,7 +99,8 @@ def test_enterprise_payment_address_not_drep():
 
 
 def test_drep_fallback_without_path():
-    # No signing path: a bare 28-byte hash still classifies as a DRep ID.
+    """With no signing path, a bare 28-byte hash still classifies as a DRep
+    ID."""
     seed = _seed()
     key_hash = _key_hash_bytes(seed, PATH_DREP)
     label, value = describe_signing_credential(key_hash, None)
@@ -107,7 +109,8 @@ def test_drep_fallback_without_path():
 
 
 def test_classify_kinds_match_overview_short_labels():
-    # The overview short label and the Sign-With page must agree on the kind.
+    """The overview short label and the Sign-With page must agree on the
+    credential kind."""
     seed = _seed()
     base = BaseAddress.from_credentials(
         NetworkId.TESTNET, _cred(seed, PATH_PAYMENT), _cred(seed, PATH_STAKE)).to_bytes()

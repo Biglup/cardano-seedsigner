@@ -47,8 +47,7 @@ PATH_0 = [1852 + H, 1815 + H, 0 + H, 0, 0]
 PATH_STAKE = [1852 + H, 1815 + H, 0 + H, 2, 0]
 OTHER_XFP = bytes.fromhex("deadbeef")
 
-# minimal valid tx body: {0:[input], 1:[output], 2:fee}
-BODY_CBOR = bytes.fromhex(
+MINIMAL_TX_BODY_CBOR = bytes.fromhex(
     "a3"
     "00" "81" "82" "5820" + "00" * 32 + "00"
     "01" "81" "82" "581d61" + "11" * 28 + "1a000f4240"
@@ -70,9 +69,11 @@ def _tx_hash(body_cbor: bytes) -> bytes:
 
 
 def test_tx_witness_verifies(seed):
+    """The witness verifies against its own vkey over the tx hash, and that
+    vkey is exactly the key derived from PATH_0."""
     fp = _seed_fingerprint(seed)
     req = CardanoSignRequest(
-        request_id="r1", origin=None, sign_data=BODY_CBOR,
+        request_id="r1", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=fp, path=PATH_0)],
         change_outputs=[], network=NetworkId.TESTNET,
     )
@@ -82,32 +83,32 @@ def test_tx_witness_verifies(seed):
     ws = _decode_witnesses(resp.vkey_witness_set)
     assert len(ws) == 1
 
-    # the witness verifies against its own vkey over the tx hash
     w = ws[0]
     pub = Ed25519PublicKey.from_bytes(w.vkey)
     sig = Ed25519Signature.from_bytes(w.signature)
-    assert pub.verify(sig, _tx_hash(BODY_CBOR))
+    assert pub.verify(sig, _tx_hash(MINIMAL_TX_BODY_CBOR))
 
-    # and that vkey is exactly the key derived from PATH_0
     expected_vkey = root_key_from_seed(seed).derive(PATH_0).get_public_key().to_ed25519_key().to_bytes()
     assert w.vkey == expected_vkey
 
 
 def test_partial_witness_skips_mismatched_xfp(seed):
+    """The OTHER_XFP extra signer belongs to a different seed, so only the
+    matching input signer produces a witness."""
     fp = _seed_fingerprint(seed)
     req = CardanoSignRequest(
-        request_id="r2", origin=None, sign_data=BODY_CBOR,
+        request_id="r2", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=fp, path=PATH_0)],
         change_outputs=[], network=NetworkId.TESTNET,
         extra_signers=[ExtraSigner(xfp=OTHER_XFP, path=PATH_STAKE)],
     )
     ws = _decode_witnesses(build_tx_sign_response(seed, req).vkey_witness_set)
-    assert len(ws) == 1  # the OTHER_XFP extra signer belongs to a different seed
+    assert len(ws) == 1
 
 
 def test_no_matching_signer_yields_empty_witness_set(seed):
     req = CardanoSignRequest(
-        request_id="r3", origin=None, sign_data=BODY_CBOR,
+        request_id="r3", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=OTHER_XFP, path=PATH_0)],
         change_outputs=[], network=NetworkId.TESTNET,
     )
@@ -119,7 +120,7 @@ def test_no_matching_signer_yields_empty_witness_set(seed):
 def test_duplicate_paths_collapse_to_one_witness(seed):
     fp = _seed_fingerprint(seed)
     req = CardanoSignRequest(
-        request_id="r4", origin=None, sign_data=BODY_CBOR,
+        request_id="r4", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[
             SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=fp, path=PATH_0),
             SigningInput(tx_hash=b"\x11" * 32, index=1, xfp=fp, path=PATH_0),
@@ -134,7 +135,7 @@ def test_duplicate_paths_collapse_to_one_witness(seed):
 def test_two_distinct_signers_two_witnesses(seed):
     fp = _seed_fingerprint(seed)
     req = CardanoSignRequest(
-        request_id="r5", origin=None, sign_data=BODY_CBOR,
+        request_id="r5", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=fp, path=PATH_0)],
         change_outputs=[], network=NetworkId.TESTNET,
         extra_signers=[ExtraSigner(xfp=fp, path=PATH_STAKE)],
@@ -152,8 +153,10 @@ def _enterprise_addr_bytes(seed, path):
 
 
 def test_cip8_payment_uses_ledger_2field_format(seed):
-    # All CIP-8 signing uses the Ledger/Keystone 2-field protected header
-    # {1: alg, "address": address_bytes} with NO kid — including payment.
+    """All CIP-8 signing uses the Ledger/Keystone 2-field protected header
+    {1: alg, "address": address_bytes} with no kid, including payment.
+    The COSE_Key kid is the address and the signature verifies over the
+    Sig_structure."""
     import cbor2
     fp = _seed_fingerprint(seed)
     addr_bytes = _enterprise_addr_bytes(seed, PATH_0)
@@ -168,11 +171,10 @@ def test_cip8_payment_uses_ledger_2field_format(seed):
 
     cose_sign1 = cbor2.loads(resp.cose_sign1)
     protected = cbor2.loads(cose_sign1[0])
-    assert protected == {1: -8, "address": addr_bytes}      # 2-field, no kid
+    assert protected == {1: -8, "address": addr_bytes}
     assert cose_sign1[1] == {"hashed": False}
-    assert cbor2.loads(resp.cose_key)[2] == addr_bytes      # COSE_Key kid = address
+    assert cbor2.loads(resp.cose_key)[2] == addr_bytes
 
-    # signature verifies over the Sig_structure
     sig_structure = cbor2.dumps(["Signature1", cose_sign1[0], b"", msg])
     pub = cbor2.loads(resp.cose_key)[-2]
     assert Ed25519PublicKey.from_bytes(pub).verify(
@@ -221,9 +223,10 @@ def test_cip8_sign_with_stake_key(seed):
 
 
 def test_cip8_sign_with_drep_key(seed):
-    # DRep binds to a bare 28-byte key hash. The COSE must use the CIP-95 /
-    # Ledger wire format: 2-field protected header {1: alg, "address": hash},
-    # NO kid (label 4), and the signature must verify.
+    """DRep binds to a bare 28-byte key hash. The COSE must use the CIP-95 /
+    Ledger wire format: 2-field protected header {1: alg, "address": hash},
+    no kid (label 4), COSE_Key kid equal to the key hash, and the signature
+    must verify over the Sig_structure."""
     import cbor2
     fp = _seed_fingerprint(seed)
     drep_hash = _drep_hash_bytes(seed)
@@ -236,14 +239,13 @@ def test_cip8_sign_with_drep_key(seed):
 
     cose_sign1 = cbor2.loads(resp.cose_sign1)
     protected = cbor2.loads(cose_sign1[0])
-    assert protected == {1: -8, "address": drep_hash}   # 2-field, "address", no kid
+    assert protected == {1: -8, "address": drep_hash}
     assert cose_sign1[1] == {"hashed": False}
     assert cose_sign1[2] == b"vote"
 
-    # signature verifies over the Sig_structure
     sig_structure = cbor2.dumps(["Signature1", cose_sign1[0], b"", b"vote"])
     pub = cbor2.loads(resp.cose_key)[-2]
-    assert cbor2.loads(resp.cose_key)[2] == drep_hash   # COSE_Key kid = key hash
+    assert cbor2.loads(resp.cose_key)[2] == drep_hash
     assert Ed25519PublicKey.from_bytes(pub).to_hash().to_bytes() == drep_hash
     assert Ed25519PublicKey.from_bytes(pub).verify(
         Ed25519Signature.from_bytes(cose_sign1[3]), sig_structure)
@@ -261,8 +263,8 @@ def test_cip8_requires_address(seed):
 
 
 def test_cip8_rejects_address_key_mismatch(seed):
-    # Address bound to PATH_0's key, but the signing path is PATH_STAKE — the
-    # signature would not correspond to the reviewed address. Must be rejected.
+    """Address bound to PATH_0's key, but the signing path is PATH_STAKE; the
+    signature would not correspond to the reviewed address. Must be rejected."""
     fp = _seed_fingerprint(seed)
     req = CardanoMessageSignRequest(
         request_id="m4", origin=None, message_payload=b"hi",
@@ -274,15 +276,15 @@ def test_cip8_rejects_address_key_mismatch(seed):
 
 
 def test_signed_hash_equals_blake2b_of_sign_data(seed):
-    # Fidelity: the device signs blake2b-256 of the exact bytes it received.
+    """The device signs blake2b-256 of the exact bytes it received."""
     fp = _seed_fingerprint(seed)
     req = CardanoSignRequest(
-        request_id="r6", origin=None, sign_data=BODY_CBOR,
+        request_id="r6", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=fp, path=PATH_0)],
         change_outputs=[], network=NetworkId.TESTNET,
     )
-    expected = hashlib.blake2b(BODY_CBOR, digest_size=32).digest()
-    assert _tx_hash(BODY_CBOR) == expected
+    expected = hashlib.blake2b(MINIMAL_TX_BODY_CBOR, digest_size=32).digest()
+    assert _tx_hash(MINIMAL_TX_BODY_CBOR) == expected
 
     ws = _decode_witnesses(build_tx_sign_response(seed, req).vkey_witness_set)
     pub = Ed25519PublicKey.from_bytes(ws[0].vkey)
@@ -291,13 +293,15 @@ def test_signed_hash_equals_blake2b_of_sign_data(seed):
 
 
 def test_passphrase_seed_signs_with_distinct_key(seed):
-    # A passphrase changes both the Cardano signing key and the BTC fingerprint.
+    """A passphrase changes both the Cardano signing key and the BTC
+    fingerprint, so the passphrase key differs from the no-passphrase key for
+    the same path."""
     pp_seed = Seed(mnemonic=("abandon " * 11 + "about").split(), passphrase="pass123")
     assert _seed_fingerprint(pp_seed) != _seed_fingerprint(seed)
 
     fp = _seed_fingerprint(pp_seed)
     req = CardanoSignRequest(
-        request_id="r7", origin=None, sign_data=BODY_CBOR,
+        request_id="r7", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=fp, path=PATH_0)],
         change_outputs=[], network=NetworkId.TESTNET,
     )
@@ -305,9 +309,8 @@ def test_passphrase_seed_signs_with_distinct_key(seed):
     assert len(ws) == 1
     pub = Ed25519PublicKey.from_bytes(ws[0].vkey)
     sig = Ed25519Signature.from_bytes(ws[0].signature)
-    assert pub.verify(sig, _tx_hash(BODY_CBOR))
+    assert pub.verify(sig, _tx_hash(MINIMAL_TX_BODY_CBOR))
 
-    # the passphrase key differs from the no-passphrase key for the same path
     plain_vkey = root_key_from_seed(seed).derive(PATH_0).get_public_key().to_ed25519_key().to_bytes()
     assert ws[0].vkey != plain_vkey
 
@@ -317,7 +320,7 @@ PATH_MULTISIG = [1854 + H, 1815 + H, 0 + H, 0, 0]
 
 def test_extra_signers_only_produces_partial_witness_set(seed):
     request = CardanoSignRequest(
-        request_id="ms-1", origin=None, sign_data=BODY_CBOR,
+        request_id="ms-1", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0)],
         change_outputs=[], network=NetworkId.MAINNET,
         extra_signers=[
@@ -333,12 +336,12 @@ def test_extra_signers_only_produces_partial_witness_set(seed):
     assert witnesses[0].vkey == expected_key.get_public_key().to_ed25519_key().to_bytes()
     pub = Ed25519PublicKey.from_bytes(witnesses[0].vkey)
     sig = Ed25519Signature.from_bytes(witnesses[0].signature)
-    assert pub.verify(sig, _tx_hash(BODY_CBOR))
+    assert pub.verify(sig, _tx_hash(MINIMAL_TX_BODY_CBOR))
 
 
 def test_script_locked_input_skipped_in_matching_paths(seed):
     request = CardanoSignRequest(
-        request_id="ms-2", origin=None, sign_data=BODY_CBOR,
+        request_id="ms-2", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0)],
         change_outputs=[], network=NetworkId.MAINNET,
         extra_signers=[ExtraSigner(xfp=_seed_fingerprint(seed), path=PATH_MULTISIG)],

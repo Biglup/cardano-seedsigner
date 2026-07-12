@@ -116,8 +116,9 @@ class TestCardanoSignFlows(FlowTest):
         ])
 
     def test_tx_sign_zero_seed_resumes_after_load(self):
-        # No seed loaded: select-seed offers Scan/Type, sets resume flow; after a
-        # seed is finalized, SeedFinalizeView resumes the tx-sign select-seed view.
+        """With no seed loaded, select-seed offers Scan/Type and sets the
+        resume flow; after a seed is finalized, SeedFinalizeView resumes the
+        tx-sign select-seed view."""
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
             FlowStep(scan_views.ScanView, before_run=inject_tx_request()),

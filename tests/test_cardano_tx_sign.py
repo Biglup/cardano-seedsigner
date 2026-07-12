@@ -253,8 +253,8 @@ def test_tx_request_malformed_collateral_return_path_raises():
 
 
 def test_tx_request_unknown_key_is_skipped():
-    # Forward-compat: an unknown top-level key (99) with a nested container value
-    # must be skipped without corrupting subsequent reads.
+    """An unknown top-level key (99) with a nested container value must be
+    skipped without corrupting subsequent reads."""
     w = CborWriter()
     w.write_start_map(5)
     w.write_int(99)
@@ -275,6 +275,7 @@ def test_tx_request_unknown_key_is_skipped():
 
 
 def test_signing_input_bad_xfp_length_raises():
+    """A 2-byte xfp where 4 bytes are required must raise ValueError."""
     from cometa import CborReader
     from seedsigner.models.cardano_tx import SigningInput
     w = CborWriter()
@@ -284,7 +285,7 @@ def test_signing_input_bad_xfp_length_raises():
     w.write_int(2)
     w.write_int(0)
     w.write_int(3)
-    w.write_bytes(b"\x00\x01")          # 2 bytes, not 4
+    w.write_bytes(b"\x00\x01")
     w.write_int(4)
     w.write_start_array(1)
     w.write_int(0)
@@ -293,12 +294,13 @@ def test_signing_input_bad_xfp_length_raises():
 
 
 def test_bad_tx_hash_length_raises():
+    """An 8-byte tx hash where 32 bytes are required must raise ValueError."""
     from cometa import CborReader
     from seedsigner.models.cardano_tx import SigningInput
     w = CborWriter()
     w.write_start_map(4)
     w.write_int(1)
-    w.write_bytes(b"\x00" * 8)          # 8 bytes, not 32
+    w.write_bytes(b"\x00" * 8)
     w.write_int(2)
     w.write_int(0)
     w.write_int(3)
@@ -311,6 +313,8 @@ def test_bad_tx_hash_length_raises():
 
 
 def test_oversized_path_raises():
+    """A 50-component derivation path exceeds MAX_PATH_COMPONENTS and must
+    raise ValueError."""
     from cometa import CborReader
     from seedsigner.models.cardano_tx import ExtraSigner
     w = CborWriter()
@@ -318,7 +322,7 @@ def test_oversized_path_raises():
     w.write_int(1)
     w.write_bytes(XFP)
     w.write_int(2)
-    w.write_start_array(50)            # > MAX_PATH_COMPONENTS
+    w.write_start_array(50)
     for _ in range(50):
         w.write_int(0)
     with pytest.raises(ValueError):
@@ -326,12 +330,12 @@ def test_oversized_path_raises():
 
 
 def test_malformed_cbor_raises_valueerror_not_cometa_error():
-    # Wrong type for request_id (int where tstr expected) must surface as ValueError
-    # so the scan handler can fail gracefully.
+    """A wrong type for request_id (int where tstr is expected) must surface
+    as ValueError so the scan handler can fail gracefully."""
     w = CborWriter()
     w.write_start_map(2)
     w.write_int(1)
-    w.write_int(12345)                 # not a string
+    w.write_int(12345)
     w.write_int(3)
     w.write_bytes(b"\xa0")
     with pytest.raises(ValueError):
