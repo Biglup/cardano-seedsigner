@@ -140,6 +140,64 @@ class Line:
         return ("spacer_small", "")
 
 
+def wrap_highlighted_line(display, chars_per_line, skip_boundary_space=True):
+    """Wrap a space-annotated hex/bech32 string into fixed-width lines.
+
+    ``display`` already carries single spaces at the highlight boundaries.
+    Each line takes up to ``chars_per_line`` characters. When
+    ``skip_boundary_space`` is set, a space that falls at the start of a
+    wrapped line is dropped so it does not indent the line. Returns a list
+    of ``(global_position, chunk)`` pairs, where ``global_position`` is the
+    chunk's start index in ``display`` used later for head/tail accent
+    lookup.
+    """
+    lines = []
+    pos = 0
+    while pos < len(display):
+        if skip_boundary_space and display[pos] == " ":
+            pos += 1
+        chunk = display[pos:pos + chars_per_line]
+        lines.append((pos, chunk))
+        pos += len(chunk)
+    return lines
+
+
+def draw_highlighted_line(draw, text, gpos, display_len, head_n, tail_n, y,
+                          center_x, char_w, normal_font, accent_font,
+                          normal_color, accent_color):
+    """Paint one wrapped line with accent-coloured head and tail characters.
+
+    A character at global index ``gp`` is accented when ``gp < head_n`` or
+    ``gp >= display_len - tail_n``; ``head_n`` and ``tail_n`` already
+    include the extra character covering the separator space. Accent runs
+    use ``accent_font``/``accent_color`` and the middle uses
+    ``normal_font``/``normal_color``. The line is centered on ``center_x``
+    with a fixed ``char_w`` advance per character.
+    """
+    line_w = char_w * len(text)
+    x_cursor = int(center_x - line_w // 2)
+
+    segments = []
+    seg_start = 0
+    cur_accent = None
+    for ci in range(len(text)):
+        gp = gpos + ci
+        is_accent = gp < head_n or gp >= display_len - tail_n
+        if cur_accent is None:
+            cur_accent = is_accent
+        if is_accent != cur_accent:
+            segments.append((text[seg_start:ci], cur_accent))
+            seg_start = ci
+            cur_accent = is_accent
+    segments.append((text[seg_start:], cur_accent))
+
+    for seg_text, is_accent in segments:
+        font = accent_font if is_accent else normal_font
+        color = accent_color if is_accent else normal_color
+        draw.text((x_cursor, y), seg_text, font=font, fill=color, anchor="lt")
+        x_cursor += int(char_w * len(seg_text))
+
+
 def format_ada(lovelace: int) -> str:
     """Format a lovelace amount as an exact ADA string using integer arithmetic."""
     sign = "-" if lovelace < 0 else ""

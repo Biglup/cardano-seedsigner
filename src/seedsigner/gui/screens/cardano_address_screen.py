@@ -12,6 +12,7 @@ from seedsigner.gui.components import (
 )
 
 from .screen import ButtonListScreen, ButtonOption
+from .tx_review.utils import wrap_highlighted_line, draw_highlighted_line
 
 
 @dataclass
@@ -67,16 +68,9 @@ class CardanoAddressDetailScreen(ButtonListScreen):
         self._chars_per_line = max(10, int(usable_width / char_w))
         self._char_w = char_w
 
-        self._addr_lines = []
-        self._addr_line_gpos = []
-        pos = 0
-        while pos < len(self._addr_display):
-            if self._addr_display[pos] == " ":
-                pos += 1
-            chunk = self._addr_display[pos:pos + self._chars_per_line]
-            self._addr_line_gpos.append(pos)
-            self._addr_lines.append(chunk)
-            pos += len(chunk)
+        wrapped = wrap_highlighted_line(self._addr_display, self._chars_per_line)
+        self._addr_line_gpos = [gp for gp, _ in wrapped]
+        self._addr_lines = [chunk for _, chunk in wrapped]
 
         line_height = 24
         total_text_height = len(self._addr_lines) * line_height
@@ -102,33 +96,9 @@ class CardanoAddressDetailScreen(ButtonListScreen):
 
         for line_idx, text in enumerate(self._addr_lines):
             gpos = self._addr_line_gpos[line_idx]
-            line_w = self._char_w * len(text)
-            x_cursor = int(center_x - line_w // 2)
-
-            segments = []
-            seg_start = 0
-            cur_accent = None
-            for ci in range(len(text)):
-                gp = gpos + ci
-                is_accent = gp < head_n or gp >= display_len - tail_n
-                if cur_accent is None:
-                    cur_accent = is_accent
-                if is_accent != cur_accent:
-                    segments.append((text[seg_start:ci], cur_accent))
-                    seg_start = ci
-                    cur_accent = is_accent
-            segments.append((text[seg_start:], cur_accent))
-
-            for seg_text, is_accent in segments:
-                font = addr_accent_font if is_accent else addr_font
-                color = GUIConstants.ACCENT_TEXT_COLOR if is_accent else GUIConstants.LABEL_FONT_COLOR
-                self.renderer.draw.text(
-                    (x_cursor, y),
-                    seg_text,
-                    font=font,
-                    fill=color,
-                    anchor="lt",
-                )
-                x_cursor += int(self._char_w * len(seg_text))
-
+            draw_highlighted_line(
+                self.renderer.draw, text, gpos, display_len, head_n, tail_n, y,
+                center_x, self._char_w, addr_font, addr_accent_font,
+                GUIConstants.LABEL_FONT_COLOR, GUIConstants.ACCENT_TEXT_COLOR,
+            )
             y += line_height

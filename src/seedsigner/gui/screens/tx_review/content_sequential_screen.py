@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from seedsigner.gui.components import GUIConstants, Fonts, SeedSignerIconConstants
 
 from .sequential_base_screen import CardanoSequentialBaseScreen
-from .utils import CONTENT_LINE_TYPES
+from .utils import CONTENT_LINE_TYPES, wrap_highlighted_line, draw_highlighted_line
 
 _FOREIGN_COLOR = "#CF6679"
 
@@ -141,15 +141,10 @@ class CardanoContentSequentialScreen(CardanoSequentialBaseScreen):
                     tail_n = self.highlight_n + 1
                 first_idx = len([t for t, _ in self._lines if t == "hash_line"])
 
-                pos = 0
-                line_gpos = []
-                while pos < len(display):
-                    if display[pos] == " ":
-                        pos += 1
-                    chunk = display[pos:pos + self._chars_per_line]
-                    line_gpos.append(pos)
+                wrapped = wrap_highlighted_line(display, self._chars_per_line)
+                line_gpos = [gp for gp, _ in wrapped]
+                for _, chunk in wrapped:
                     self._lines.append(("hash_line", chunk))
-                    pos += len(chunk)
 
                 self._hash_segments.append((first_idx, line_gpos, display_len, head_n, tail_n))
             else:
@@ -332,33 +327,11 @@ class CardanoContentSequentialScreen(CardanoSequentialBaseScreen):
             tail_n = self.highlight_n
 
         char_w = hash_font.getlength("A")
-        line_w = char_w * len(text)
-        x_cursor = int(center_x - line_w // 2)
-
-        segments = []
-        seg_start = 0
-        for ci in range(len(text)):
-            gp = gpos + ci
-            is_accent = gp < head_n or gp >= display_len - tail_n
-            if ci == 0:
-                cur_accent = is_accent
-            if is_accent != cur_accent:
-                segments.append((text[seg_start:ci], cur_accent))
-                seg_start = ci
-                cur_accent = is_accent
-        segments.append((text[seg_start:], cur_accent))
-
-        for seg_text, is_accent in segments:
-            font = hash_accent_font if is_accent else hash_font
-            color = GUIConstants.ACCENT_TEXT_COLOR if is_accent else GUIConstants.LABEL_FONT_COLOR
-            self.renderer.draw.text(
-                (x_cursor, y),
-                seg_text,
-                font=font,
-                fill=color,
-                anchor="lt",
-            )
-            x_cursor += int(char_w * len(seg_text))
+        draw_highlighted_line(
+            self.renderer.draw, text, gpos, display_len, head_n, tail_n, y,
+            center_x, char_w, hash_font, hash_accent_font,
+            GUIConstants.LABEL_FONT_COLOR, GUIConstants.ACCENT_TEXT_COLOR,
+        )
 
     def _draw_hero_fields(self, line_type, text, y, h, hash_line_idx, ctx):
         """Vertically centered stack of labelled hero values."""
