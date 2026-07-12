@@ -27,11 +27,13 @@ def build_signing_key_content(seed, path) -> list:
     )
     from seedsigner.models.cardano_account import format_derivation_path
 
+    from seedsigner.gui.screens.tx_review import Line
+
     purpose = path_purpose(path)
     purpose_tag = {PURPOSE_CIP1854: "(Multisig)", PURPOSE_MINTING: "(Minting)"}.get(purpose)
 
     return [
-        ("hero_fields", [
+        Line.hero_fields([
             ("Fingerprint", None, seed.get_fingerprint()),
             ("Derivation", purpose_tag, format_derivation_path(path)),
         ]),
@@ -48,7 +50,7 @@ class CardanoTxSigningKeysView(View):
         self.key_index = key_index
 
     def run(self):
-        from seedsigner.gui.screens.tx_review import CardanoCertificateSequentialScreen
+        from seedsigner.gui.screens.tx_review import CardanoContentSequentialScreen
         from seedsigner.helpers.cardano_signing import matching_signing_paths
         from .sign_view import CardanoTxSignView
 
@@ -65,7 +67,7 @@ class CardanoTxSigningKeysView(View):
         content = build_signing_key_content(seed, paths[self.key_index])
 
         result = self.run_screen(
-            CardanoCertificateSequentialScreen,
+            CardanoContentSequentialScreen,
             title=f"Signing Key {self.key_index + 1}/{total}" if total > 1 else "Signing Key",
             page_num=self.key_index + 1,
             total_pages=total,

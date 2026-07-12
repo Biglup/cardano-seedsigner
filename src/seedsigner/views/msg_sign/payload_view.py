@@ -36,14 +36,14 @@ class CardanoMsgPayloadView(View):
         self.msg_request = msg_request
 
     def run(self):
-        from seedsigner.gui.screens.tx_review import CardanoCertificateSequentialScreen
+        from seedsigner.gui.screens.tx_review import CardanoContentSequentialScreen, Line
 
         payload = self.msg_request.message_payload
         content = []
         size = len(payload)
 
         if size == 0:
-            content.append(("label", "Empty Message"))
+            content.append(Line.label("Empty Message"))
         else:
             try:
                 text = payload.decode("utf-8")
@@ -51,26 +51,26 @@ class CardanoMsgPayloadView(View):
                     try:
                         parsed = json.loads(text)
                         pretty = json.dumps(parsed, indent=2)
-                        content.append(("label", f"JSON ({size} bytes):"))
-                        content.append(("spacer_small", ""))
+                        content.append(Line.label(f"JSON ({size} bytes):"))
+                        content.append(Line.spacer_small())
                         for line in pretty.split("\n"):
-                            content.append(("mono_text", line))
+                            content.append(Line.mono_text(line))
                     except (json.JSONDecodeError, ValueError, RecursionError):
-                        content.append(("label", f"Plain Text ({size} bytes):"))
-                        content.append(("spacer_small", ""))
+                        content.append(Line.label(f"Plain Text ({size} bytes):"))
+                        content.append(Line.spacer_small())
                         for line in text.split("\n"):
-                            content.append(("value_highlight", line))
+                            content.append(Line.value_highlight(line))
                 else:
-                    content.append(("label", f"Raw Binary ({size} bytes):"))
-                    content.append(("spacer_small", ""))
+                    content.append(Line.label(f"Raw Binary ({size} bytes):"))
+                    content.append(Line.spacer_small())
                     self._add_hex_display(content, payload)
             except UnicodeDecodeError:
-                content.append(("label", f"Raw Binary ({size} bytes):"))
-                content.append(("spacer_small", ""))
+                content.append(Line.label(f"Raw Binary ({size} bytes):"))
+                content.append(Line.spacer_small())
                 self._add_hex_display(content, payload)
 
         result = self.run_screen(
-            CardanoCertificateSequentialScreen,
+            CardanoContentSequentialScreen,
             title="Payload",
             page_num=2,
             total_pages=_TOTAL_PAGES,
@@ -83,8 +83,9 @@ class CardanoMsgPayloadView(View):
 
     def _add_hex_display(self, content, data: bytes):
         """Add hex data as left-aligned monospace lines."""
+        from seedsigner.gui.screens.tx_review import Line
         hex_str = data.hex()
-        content.append(("mono_text", hex_str))
+        content.append(Line.mono_text(hex_str))
 
     def _handle_navigation(self, result):
         from .address_view import CardanoMsgAddressView

@@ -24,7 +24,7 @@ class CardanoMsgSigningKeyView(View):
         self.msg_request = msg_request
 
     def run(self):
-        from seedsigner.gui.screens.tx_review import CardanoCertificateSequentialScreen
+        from seedsigner.gui.screens.tx_review import CardanoContentSequentialScreen
         from seedsigner.views.tx_review.signing_keys_view import build_signing_key_content
 
         seed = self.controller.cardano_seed
@@ -37,7 +37,7 @@ class CardanoMsgSigningKeyView(View):
         )
 
         result = self.run_screen(
-            CardanoCertificateSequentialScreen,
+            CardanoContentSequentialScreen,
             title="Signing Key",
             page_num=3,
             total_pages=_TOTAL_PAGES,

@@ -2,7 +2,7 @@
 
 from cometa import Bech32
 
-from seedsigner.gui.screens.tx_review import format_ada
+from seedsigner.gui.screens.tx_review import format_ada, Line
 from seedsigner.helpers.cardano_utils import format_percent
 
 from .base import BaseSequentialSectionView
@@ -41,17 +41,17 @@ def _format_hex_display(hex_str, highlight_n=8):
 
 def _add_anchor(lines, anchor):
     """Add anchor URL and hash entries to content lines."""
-    lines.append(("spacer", ""))
-    lines.append(("label", "Anchor URL:"))
-    lines.append(("spacer_small", ""))
-    lines.append(("value_highlight", str(anchor.url)))
+    lines.append(Line.spacer())
+    lines.append(Line.label("Anchor URL:"))
+    lines.append(Line.spacer_small())
+    lines.append(Line.value_highlight(str(anchor.url)))
     anchor_hash = anchor.hash_hex
     if anchor_hash:
-        lines.append(("spacer", ""))
-        lines.append(("label", "Anchor Hash:"))
-        lines.append(("spacer_small", ""))
+        lines.append(Line.spacer())
+        lines.append(Line.label("Anchor Hash:"))
+        lines.append(Line.spacer_small())
         fmt = _format_hex_display(anchor_hash)
-        lines.append(("hash_display", fmt, 8, 8))
+        lines.append(Line.hash(fmt, 8, 8))
 
 
 def _format_bech32(bech32_str):
@@ -78,7 +78,7 @@ class CertificateReviewView(BaseSequentialSectionView):
     section_title = "Certificate"
 
     def render(self, page, title, has_left, has_right, total_pages):
-        from seedsigner.gui.screens.tx_review import CardanoCertificateSequentialScreen
+        from seedsigner.gui.screens.tx_review import CardanoContentSequentialScreen
 
         cert = page.data
         try:
@@ -87,7 +87,7 @@ class CertificateReviewView(BaseSequentialSectionView):
             return self.reject_undisplayable("certificate")
 
         return self.run_screen(
-            CardanoCertificateSequentialScreen,
+            CardanoContentSequentialScreen,
             title=title,
             page_num=self.global_index + 1,
             total_pages=total_pages,
@@ -101,9 +101,9 @@ class CertificateReviewView(BaseSequentialSectionView):
         friendly_name = _CERT_TYPE_NAMES.get(ct.name, ct.name)
         lines = []
 
-        lines.append(("label", "Type:"))
-        lines.append(("spacer_small", ""))
-        lines.append(("value_highlight", friendly_name))
+        lines.append(Line.label("Type:"))
+        lines.append(Line.spacer_small())
+        lines.append(Line.value_highlight(friendly_name))
 
         if ct.name == "STAKE_REGISTRATION":
             self._add_stake_credential(lines, cert.to_stake_registration().credential)
@@ -123,45 +123,45 @@ class CertificateReviewView(BaseSequentialSectionView):
             self._add_amount_field(lines, "Pledge:", p.pledge)
             self._add_amount_field(lines, "Cost:", p.cost)
             margin_str = format_percent(p.margin)
-            lines.append(("spacer", ""))
-            lines.append(("label", "Margin:"))
-            lines.append(("spacer_small", ""))
-            lines.append(("value_highlight", margin_str))
+            lines.append(Line.spacer())
+            lines.append(Line.label("Margin:"))
+            lines.append(Line.spacer_small())
+            lines.append(Line.value_highlight(margin_str))
             self._add_bech32_hash(lines, "VRF Key:", p.vrf_vk_hash, "vrf_vk")
             self._add_bech32_display(lines, "Reward Account:", str(p.reward_account))
             if len(p.owners) > 0:
-                lines.append(("spacer", ""))
-                lines.append(("label", f"Owners ({len(p.owners)}):"))
+                lines.append(Line.spacer())
+                lines.append(Line.label(f"Owners ({len(p.owners)}):"))
                 for owner in p.owners:
                     bech32_str = Bech32.encode("stake_vkh", owner.to_bytes())
                     fmt, hn, tn = _format_bech32(bech32_str)
-                    lines.append(("spacer", ""))
-                    lines.append(("hash_display", fmt, hn, tn))
+                    lines.append(Line.spacer())
+                    lines.append(Line.hash(fmt, hn, tn))
             if len(p.relays) > 0:
-                lines.append(("spacer", ""))
-                lines.append(("label", f"Relays ({len(p.relays)}):"))
+                lines.append(Line.spacer())
+                lines.append(Line.label(f"Relays ({len(p.relays)}):"))
                 for relay in p.relays:
-                    lines.append(("spacer", ""))
+                    lines.append(Line.spacer())
                     self._add_relay(lines, relay)
             if p.metadata:
-                lines.append(("spacer", ""))
-                lines.append(("label", "Metadata URL:"))
-                lines.append(("spacer_small", ""))
-                lines.append(("value_highlight", str(p.metadata.url)))
-                lines.append(("spacer", ""))
-                lines.append(("label", "Metadata Hash:"))
-                lines.append(("spacer_small", ""))
+                lines.append(Line.spacer())
+                lines.append(Line.label("Metadata URL:"))
+                lines.append(Line.spacer_small())
+                lines.append(Line.value_highlight(str(p.metadata.url)))
+                lines.append(Line.spacer())
+                lines.append(Line.label("Metadata Hash:"))
+                lines.append(Line.spacer_small())
                 meta_hash = p.metadata.hash.to_hex()
                 fmt = _format_hex_display(meta_hash)
-                lines.append(("hash_display", fmt, 8, 8))
+                lines.append(Line.hash(fmt, 8, 8))
 
         elif ct.name == "POOL_RETIREMENT":
             pr = cert.to_pool_retirement()
             self._add_pool(lines, pr.pool_key_hash)
-            lines.append(("spacer", ""))
-            lines.append(("label", "Epoch:"))
-            lines.append(("spacer_small", ""))
-            lines.append(("value_highlight", str(pr.epoch)))
+            lines.append(Line.spacer())
+            lines.append(Line.label("Epoch:"))
+            lines.append(Line.spacer_small())
+            lines.append(Line.value_highlight(str(pr.epoch)))
 
         elif ct.name == "REGISTRATION":
             r = cert.to_registration()
@@ -233,18 +233,18 @@ class CertificateReviewView(BaseSequentialSectionView):
                 _add_anchor(lines, ud.anchor)
 
         else:
-            lines.append(("spacer", ""))
-            lines.append(("value_text", f"Type value: {ct.value}"))
+            lines.append(Line.spacer())
+            lines.append(Line.value_text(f"Type value: {ct.value}"))
 
         return lines
 
     def _add_bech32_display(self, lines, label, bech32_str):
         """Add a bech32 identifier with label and prefix-aware highlighting."""
         fmt, hn, tn = _format_bech32(bech32_str)
-        lines.append(("spacer", ""))
-        lines.append(("label", label))
-        lines.append(("spacer_small", ""))
-        lines.append(("hash_display", fmt, hn, tn))
+        lines.append(Line.spacer())
+        lines.append(Line.label(label))
+        lines.append(Line.spacer_small())
+        lines.append(Line.hash(fmt, hn, tn))
 
     def _add_credential_display(self, lines, base_label, bech32_str, credential):
         """Display a credential with its ownership badge.
@@ -260,11 +260,11 @@ class CertificateReviewView(BaseSequentialSectionView):
         if not credential.is_key_hash:
             return
 
-        lines.append(("spacer_small", ""))
+        lines.append(Line.spacer_small())
         if credential.hash_bytes in self.parsed_tx.owned_key_hashes:
-            lines.append(("verified", "Own Key"))
+            lines.append(Line.verified("Own Key"))
         else:
-            lines.append(("foreign", "Unknown Key"))
+            lines.append(Line.foreign("Unknown Key"))
 
     def _add_stake_credential(self, lines, credential):
         prefix = "stake_vkh" if credential.is_key_hash else "script"
@@ -291,15 +291,15 @@ class CertificateReviewView(BaseSequentialSectionView):
         self._add_credential_display(lines, label.rstrip(":"), bech32_str, credential)
 
     def _add_amount_field(self, lines, label, lovelace):
-        lines.append(("spacer", ""))
-        lines.append(("label", label))
-        lines.append(("spacer_small", ""))
-        lines.append(("value_large", format_ada(lovelace)))
+        lines.append(Line.spacer())
+        lines.append(Line.label(label))
+        lines.append(Line.spacer_small())
+        lines.append(Line.value_large(format_ada(lovelace)))
 
     def _add_relay(self, lines, relay):
         from cometa import RelayType
         rt = relay.relay_type
-        lines.append(("spacer_small", ""))
+        lines.append(Line.spacer_small())
         if rt == RelayType.SINGLE_HOST_ADDRESS:
             r = relay.to_single_host_addr()
             addr = ""
@@ -309,28 +309,28 @@ class CertificateReviewView(BaseSequentialSectionView):
                 addr = r.ipv6.to_string()
             if r.port is not None:
                 addr = f"{addr}:{r.port}" if addr else f"port {r.port}"
-            lines.append(("value_highlight", addr or "(no address)"))
+            lines.append(Line.value_highlight(addr or "(no address)"))
         elif rt == RelayType.SINGLE_HOST_NAME:
             r = relay.to_single_host_name()
             text = r.dns
             if r.port is not None:
                 text += f":{r.port}"
-            lines.append(("value_highlight", text))
+            lines.append(Line.value_highlight(text))
         elif rt == RelayType.MULTI_HOST_NAME:
             r = relay.to_multi_host_name()
-            lines.append(("value_highlight", r.dns))
+            lines.append(Line.value_highlight(r.dns))
 
     def _add_drep(self, lines, drep):
         from cometa import DRepType
-        lines.append(("spacer", ""))
-        lines.append(("label", "DRep:"))
-        lines.append(("spacer_small", ""))
+        lines.append(Line.spacer())
+        lines.append(Line.label("DRep:"))
+        lines.append(Line.spacer_small())
         dt = drep.drep_type
         if dt == DRepType.ABSTAIN:
-            lines.append(("value_highlight", "Abstain"))
+            lines.append(Line.value_highlight("Abstain"))
         elif dt == DRepType.NO_CONFIDENCE:
-            lines.append(("value_highlight", "No Confidence"))
+            lines.append(Line.value_highlight("No Confidence"))
         else:
             drep_str = str(drep)
             fmt, hn, tn = _format_bech32(drep_str)
-            lines.append(("hash_display", fmt, hn, tn))
+            lines.append(Line.hash(fmt, hn, tn))
