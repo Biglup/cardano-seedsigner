@@ -9,7 +9,7 @@ import math
 from .cbor_lite import CBORDecoder, CBOREncoder
 from .fountain_utils import choose_fragments
 from .utils import split, crc32_int, xor_into, data_to_hex
-from .constants import MAX_UINT32, MAX_UINT64
+from .constants import MAX_UINT32, MAX_UINT64, MAX_SEQUENCE_LENGTH
 
 class InvalidHeader(Exception):
     pass
@@ -36,7 +36,7 @@ class Part:
                 raise InvalidHeader()
             
             (seq_len, _) = decoder.decodeUnsigned()
-            if seq_len > MAX_UINT64:
+            if seq_len > MAX_SEQUENCE_LENGTH:
                 raise InvalidHeader()
             
             (message_len, _) = decoder.decodeUnsigned()

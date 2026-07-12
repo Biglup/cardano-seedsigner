@@ -5,6 +5,7 @@
 # Licensed under the "BSD-2-Clause Plus Patent License"
 #
 import time
+from .constants import MAX_SEQUENCE_LENGTH
 from .fountain_utils import choose_fragments, contains, is_strict_subset, set_difference
 from .utils import join_lists, join_bytes, crc32_int, xor_with, take_first
 
@@ -268,6 +269,19 @@ class FountainDecoder:
             self.mixed_parts[p2.indexes] = p2
 
     def validate_part(self, p):
+        """
+        Checks a part's header before any allocation sized by its seq_len: a
+        valid seq_len is the fragment count ceil(message_len / fragment_len)
+        and never exceeds MAX_SEQUENCE_LENGTH.
+        """
+        fragment_len = len(p.data)
+        if p.seq_len < 1 or p.seq_len > MAX_SEQUENCE_LENGTH:
+            return False
+        if fragment_len < 1:
+            return False
+        if p.seq_len != (p.message_len + fragment_len - 1) // fragment_len:
+            return False
+
         # If this is the first part we've seen
         if self.expected_part_indexes == None:
             # Record the things that all the other parts we see will have to match to be valid.

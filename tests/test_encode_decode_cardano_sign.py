@@ -188,6 +188,83 @@ def test_stray_frames_mid_scan_are_ignored():
     assert decoder.get_cardano_tx_sign_request() == request
 
 
+def _hostile_ur_frame(seq_len, message_len, fragment_len=50):
+    """Builds a multi-part UR frame whose header declares the given seq_len and
+    message_len without honoring the fountain encoding invariants."""
+    from seedsigner.helpers.ur2.fountain_encoder import Part
+    from seedsigner.helpers.ur2.ur_encoder import UREncoder
+
+    part = Part(1, seq_len, message_len, 12345, b"\x00" * fragment_len)
+    return UREncoder.encode_part("cardano-tx-sig-req", part).upper()
+
+
+def test_hostile_seq_len_part_rejected_without_allocation():
+    """A first part declaring an enormous seq_len must be rejected promptly,
+    before any allocation sized by seq_len, leaving the fountain decoder
+    uninitialized and still able to accept a legitimate transfer."""
+    import time
+    from seedsigner.helpers.ur2.fountain_decoder import FountainDecoder
+    from seedsigner.helpers.ur2.fountain_encoder import Part
+
+    decoder = FountainDecoder()
+    hostile = Part(1, 2**32, 100, 12345, b"\x00" * 50)
+    start = time.time()
+    assert decoder.receive_part(hostile) is False
+    assert time.time() - start < 2.0
+    assert decoder.expected_part_indexes is None
+
+
+def test_inconsistent_seq_len_part_rejected():
+    """A part whose seq_len contradicts ceil(message_len / fragment_len) must
+    be rejected even when it is below the absolute sequence-length bound."""
+    from seedsigner.helpers.ur2.fountain_decoder import FountainDecoder
+    from seedsigner.helpers.ur2.fountain_encoder import Part
+
+    decoder = FountainDecoder()
+    hostile = Part(1, 5000, 100, 12345, b"\x00" * 50)
+    assert decoder.receive_part(hostile) is False
+    assert decoder.expected_part_indexes is None
+
+
+def test_hostile_seq_len_header_rejected_at_cbor_parse():
+    """Part.from_cbor must refuse a header whose seq_len exceeds the
+    sequence-length bound."""
+    from seedsigner.helpers.ur2.constants import MAX_SEQUENCE_LENGTH
+    from seedsigner.helpers.ur2.fountain_encoder import InvalidHeader, Part
+
+    hostile = Part(1, MAX_SEQUENCE_LENGTH + 1, 100, 12345, b"\x00" * 50)
+    with pytest.raises(InvalidHeader):
+        Part.from_cbor(hostile.cbor())
+
+
+def test_roundtrip_survives_hostile_seq_len_frames():
+    """Hostile frames, whether they arrive first or mid animated scan, must
+    return a non-fatal status and leave the decoder able to complete a
+    legitimate multi-fragment transfer."""
+    request = _tx_request()
+    encoder = CardanoTxSigRequestQrEncoder(
+        request=request, qr_density=SettingsConstants.DENSITY__LOW)
+    decoder = DecodeQR()
+
+    assert decoder.add_data(_hostile_ur_frame(2**32, 100)) == DecodeQRStatus.PART_EXISTING
+    assert not decoder.is_complete
+
+    assert decoder.add_data(encoder.next_part()) == DecodeQRStatus.PART_COMPLETE
+    assert decoder.qr_type == QRType.CARDANO_TX_SIG_REQUEST
+
+    assert decoder.add_data(_hostile_ur_frame(2**32, 100)) == DecodeQRStatus.PART_EXISTING
+    assert decoder.add_data(_hostile_ur_frame(5000, 100)) == DecodeQRStatus.PART_EXISTING
+    assert not decoder.is_complete
+
+    status = None
+    for _ in range(encoder.seq_len() * 4 + 10):
+        status = decoder.add_data(encoder.next_part())
+        if status == DecodeQRStatus.COMPLETE:
+            break
+    assert status == DecodeQRStatus.COMPLETE
+    assert decoder.get_cardano_tx_sign_request() == request
+
+
 def test_getter_on_incomplete_ur_raises_value_error():
     """A getter called before the UR fully reassembles (or after a failed
     reassembly, where result_message() is an error rather than a UR) must raise
