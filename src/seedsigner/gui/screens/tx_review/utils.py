@@ -11,11 +11,14 @@ RET_CODE__RIGHT_BUTTON = -3
 
 
 def format_ada(lovelace: int) -> str:
-    """Format lovelace amount as ADA string."""
-    ada = lovelace / 1_000_000
-    # Show up to 6 decimal places, strip trailing zeros
-    formatted = f"{ada:,.6f}".rstrip('0').rstrip('.')
-    return f"{formatted} ADA"
+    """Format a lovelace amount as an exact ADA string using integer arithmetic."""
+    sign = "-" if lovelace < 0 else ""
+    whole, fraction = divmod(abs(lovelace), 1_000_000)
+    formatted = f"{whole:,}"
+    decimals = f"{fraction:06d}".rstrip('0')
+    if decimals:
+        formatted = f"{formatted}.{decimals}"
+    return f"{sign}{formatted} ADA"
 
 
 def truncate_address(address: str, max_chars: int = 20) -> str:
