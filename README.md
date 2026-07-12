@@ -63,39 +63,32 @@ Running a prepared image means trusting whoever built it. The releases are signe
 
 ## Verify the signature
 
-Every release includes `SHA256SUMS` (the image hashes), `SHA256SUMS.asc` (a signature over it), and a detached `.img.asc` for each image. The public key is deliberately not part of the release, since a key downloaded from the same place as the images would prove nothing if that place were compromised. Get the key from Keybase instead and check its fingerprint out of band.
+A release contains the images, a detached `.img.asc` signature for each, and `SHA256SUMS` with its signature `SHA256SUMS.asc`. The signing key is not in the release: you fetch it from Keybase, where it is tied to a verified identity, and confirm its fingerprint there. That fingerprint check is what everything else rests on.
 
-1. Fetch the signing key from Keybase:
+1. Fetch the key from Keybase:
 
    ```
    gpg --fetch-keys https://keybase.io/angelcastillob/pgp_keys.asc
    ```
 
-2. Confirm the key fingerprint matches the one published at https://keybase.io/angelcastillob. This step is what the whole check rests on, so compare it against Keybase (which ties the key to a verified identity), not against anything downloaded with the release:
+2. Confirm its fingerprint against the one shown at https://keybase.io/angelcastillob:
 
    ```
-   gpg --fingerprint
+   gpg --fingerprint "Cardano SeedSigner Release Signing"
    ```
 
    It should read `D8DA 9735 E65D 412F E8ED  2038 48A1 F6D6 07ED E9F9`.
 
-3. Check the signature over the checksums file:
+3. Verify the signature over the checksums, then check your image against them:
 
    ```
    gpg --verify SHA256SUMS.asc SHA256SUMS
+   sha256sum --ignore-missing --check SHA256SUMS      # use: shasum -a 256 ... on macOS
    ```
 
-   You are looking for `Good signature`.
+   The first command should print `Good signature`, the second `OK` for your image.
 
-4. Check the image against the checksums:
-
-   ```
-   sha256sum --ignore-missing --check SHA256SUMS
-   ```
-
-   Your image should print `OK`.
-
-Each image also carries its own detached signature if you would rather verify it directly:
+To check an image directly against its own signature instead:
 
 ```
 gpg --verify cardano_seedsigner_os.<version>.<board>.img.asc cardano_seedsigner_os.<version>.<board>.img
