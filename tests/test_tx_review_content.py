@@ -4,7 +4,9 @@ Content-level tests for the mint and proposal review sections.
 A zero-quantity mint entry must render as a neutral "0" with no +/- sign and
 no mint/burn coloring, and coefficient parameters (pool_pledge_influence a0,
 ref_script_cost_per_byte) must render as plain decimals while genuinely
-rate-like parameters keep their percentage rendering.
+rate-like parameters keep their percentage rendering. Every parameter a
+protocol param update can change must appear in the Changes list, including
+execution_costs (both price rationals) and cost_models (a presence digest).
 """
 
 from unittest.mock import MagicMock, patch
@@ -47,6 +49,22 @@ BODY_CBOR_WITH_PARAM_CHANGE = bytes.fromhex(
     "0a" "d81e" "82" "03" "0a"
     "0b" "d81e" "82" "01" "05"
     "1821" "d81e" "82" "0f" "01"
+    "f6"
+    "82" "69" + b"https://a".hex() + "5820" + "bb" * 32
+)
+
+BODY_CBOR_WITH_PLUTUS_PARAM_CHANGE = bytes.fromhex(
+    "a4"
+    "00" "81" "82" "5820" + "00" * 32 + "00"
+    "01" "81" "82" "581d61" + "11" * 28 + "1a000f4240"
+    "02" "1a0002bf20"
+    "14" "81" "84"
+    "1a000f4240"
+    "581d" "e1" + "aa" * 28 +
+    "84" "00" "f6"
+    "a2"
+    "12" "a1" "00" "8102"
+    "13" "82" "d81e82" "190241" "192710" "d81e82" "1902d1" "1a00989680"
     "f6"
     "82" "69" + b"https://a".hex() + "5820" + "bb" * 32
 )
@@ -142,3 +160,34 @@ def test_rate_parameters_still_render_as_percentages():
     content = _run_section_view(ProposalReviewView, parsed, "proposal")["content"]
     assert ("value_highlight", "Expansion Rate: 30%") in content
     assert ("value_highlight", "Treasury Growth Rate: 20%") in content
+
+
+def test_execution_costs_render_both_price_rationals():
+    from seedsigner.views.tx_review.proposal_view import ProposalReviewView
+
+    parsed = _parsed_tx(BODY_CBOR_WITH_PLUTUS_PARAM_CHANGE)
+    content = _run_section_view(ProposalReviewView, parsed, "proposal")["content"]
+    assert ("value_highlight", "Mem Price: 0.0577") in content
+    assert ("value_highlight", "Step Price: 7.21e-05") in content
+
+
+def test_cost_models_render_presence_digest():
+    from seedsigner.views.tx_review.proposal_view import ProposalReviewView
+
+    parsed = _parsed_tx(BODY_CBOR_WITH_PLUTUS_PARAM_CHANGE)
+    content = _run_section_view(ProposalReviewView, parsed, "proposal")["content"]
+    assert ("value_highlight", "Cost Models: Plutus V1") in content
+
+
+def test_param_fields_cover_every_protocol_param_update_accessor():
+    from cometa import ProtocolParamUpdate
+
+    from seedsigner.views.tx_review.proposal_view import _PARAM_FIELDS
+
+    accessors = {
+        name for name in dir(ProtocolParamUpdate)
+        if isinstance(getattr(ProtocolParamUpdate, name), property)
+    }
+    explicitly_rendered = {"pool_voting_thresholds", "drep_voting_thresholds"}
+    covered = {name for name, _ in _PARAM_FIELDS} | explicitly_rendered
+    assert accessors <= covered, f"unrendered parameters: {accessors - covered}"

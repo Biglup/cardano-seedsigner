@@ -1,6 +1,6 @@
 """Governance proposal section review view."""
 
-from cometa import Bech32, GovernanceActionType
+from cometa import Bech32, GovernanceActionType, PlutusLanguageVersion
 
 from seedsigner.gui.screens.tx_review import format_ada
 
@@ -39,6 +39,8 @@ _PARAM_FIELDS = [
     ("min_pool_cost", "Min Pool Cost"),
     # Plutus / script
     ("ada_per_utxo_byte", "ADA Per UTXO Byte"),
+    ("cost_models", "Cost Models"),
+    ("execution_costs", "Execution Costs"),
     ("max_tx_ex_units", "Max TX Ex Units"),
     ("max_block_ex_units", "Max Block Ex Units"),
     ("max_collateral_inputs", "Max Collateral Inputs"),
@@ -51,6 +53,10 @@ _PARAM_FIELDS = [
     ("governance_action_deposit", "Gov Action Deposit"),
     ("drep_deposit", "DRep Deposit"),
     ("drep_inactivity_period", "DRep Inactivity Period"),
+    # Deprecated pre-Conway
+    ("d", "Decentralization"),
+    ("extra_entropy", "Extra Entropy"),
+    ("protocol_version", "Protocol Version"),
 ]
 
 # Lovelace fields that should be formatted as ADA
@@ -141,6 +147,15 @@ class ProposalReviewView(BaseSequentialSectionView):
         lines.append(("hash_display", fmt, hn, tn))
 
     def _add_parameter_change(self, lines, action):
+        """Render a parameter change action listing every changed parameter.
+
+        _PARAM_FIELDS plus the voting threshold sections cover every
+        accessor cometa's ProtocolParamUpdate exposes, so no change the
+        library can surface is silently omitted. cometa provides no way
+        to enumerate update keys it does not expose through accessors; a
+        key unknown to cometa can only be caught by its CBOR parser
+        failing, which render() turns into a rejection.
+        """
         self._add_gov_action_id(lines, action.governance_action_id)
 
         if action.policy_hash:
@@ -160,12 +175,31 @@ class ProposalReviewView(BaseSequentialSectionView):
             val = getattr(ppu, field_name, None)
             if val is None:
                 continue
-            lines.append(("spacer_small", ""))
-            val_str = self._format_param_value(field_name, val)
-            lines.append(("value_highlight", f"{friendly_name}: {val_str}"))
+            for line in self._format_param_lines(field_name, friendly_name, val):
+                lines.append(("spacer_small", ""))
+                lines.append(("value_highlight", line))
 
         # Voting thresholds
         self._add_voting_thresholds(lines, ppu)
+
+    def _format_param_lines(self, field_name, friendly_name, val):
+        """Format a changed parameter as one or more display lines.
+
+        execution_costs expands into one coefficient line per price
+        rational. cost_models is too large to show in full on screen, so
+        it renders as a digest naming the Plutus languages whose cost
+        model the proposal updates.
+        """
+        if field_name == "execution_costs":
+            mem = f"{float(val.memory_prices):g}"
+            steps = f"{float(val.steps_prices):g}"
+            return [f"Mem Price: {mem}", f"Step Price: {steps}"]
+        if field_name == "cost_models":
+            langs = [f"Plutus {v.name}" for v in PlutusLanguageVersion if val.has(v)]
+            detail = ", ".join(langs) if langs else "updated"
+            return [f"{friendly_name}: {detail}"]
+        val_str = self._format_param_value(field_name, val)
+        return [f"{friendly_name}: {val_str}"]
 
     def _format_param_value(self, field_name, val):
         """Format a protocol parameter value for display.
@@ -185,6 +219,10 @@ class ProposalReviewView(BaseSequentialSectionView):
             return f"{pct:.2f}%"
         if hasattr(val, "memory") and hasattr(val, "cpu_steps"):
             return f"mem:{val.memory:,} cpu:{val.cpu_steps:,}"
+        if hasattr(val, "major") and hasattr(val, "minor"):
+            return f"{val.major}.{val.minor}"
+        if hasattr(val, "to_hex"):
+            return val.to_hex()
         return str(val)
 
     def _add_voting_thresholds(self, lines, ppu):
