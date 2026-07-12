@@ -4,6 +4,7 @@ from .base import BaseSequentialSectionView
 
 
 class ScriptDataHashReviewView(BaseSequentialSectionView):
+    """Review page for the script data hash (Conway CDDL body key 11)."""
     section_title = "Script Data Hash"
 
     def render(self, page, title, has_left, has_right, total_pages):

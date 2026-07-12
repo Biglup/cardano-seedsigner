@@ -106,6 +106,7 @@ class CardanoTxSignedQRView(View):
         )
 
     def run(self):
+        """Display the witness-set QR, clear the pending request, and exit to the menu."""
         from seedsigner.gui.screens.screen import QRDisplayScreen
 
         self.run_screen(QRDisplayScreen, qr_encoder=self.qr_encoder)

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from seedsigner.gui.components import GUIConstants, Fonts, SeedSignerIconConstants
 
 from .sequential_base_screen import CardanoSequentialBaseScreen
+from .utils import wrap_highlighted_line, draw_highlighted_line
 
 
 @dataclass
@@ -57,14 +58,7 @@ class CardanoAuxDataHashScreen(CardanoSequentialBaseScreen):
         self._head_n = hn_head + 1
         self._tail_n = hn_tail + 1
 
-        self._hash_lines = []
-        pos = 0
-        while pos < len(display):
-            if display[pos] == " ":
-                pos += 1
-            chunk = display[pos:pos + chars_per_line]
-            self._hash_lines.append((pos, chunk))
-            pos += len(chunk)
+        self._hash_lines = wrap_highlighted_line(display, chars_per_line)
 
         super().__post_init__()
 
@@ -79,34 +73,12 @@ class CardanoAuxDataHashScreen(CardanoSequentialBaseScreen):
         char_w = self._hash_font.getlength("A")
 
         for gpos, text in self._hash_lines:
-            line_w = char_w * len(text)
-            x_cursor = int(center_x - line_w // 2)
-
-            segments = []
-            seg_start = 0
-            for ci in range(len(text)):
-                gp = gpos + ci
-                is_accent = gp < self._head_n or gp >= self._display_len - self._tail_n
-                if ci == 0:
-                    cur_accent = is_accent
-                if is_accent != cur_accent:
-                    segments.append((text[seg_start:ci], cur_accent))
-                    seg_start = ci
-                    cur_accent = is_accent
-            segments.append((text[seg_start:], cur_accent))
-
-            for seg_text, is_accent in segments:
-                font = self._hash_accent_font if is_accent else self._hash_font
-                color = GUIConstants.ACCENT_TEXT_COLOR if is_accent else GUIConstants.LABEL_FONT_COLOR
-                self.renderer.draw.text(
-                    (x_cursor, y),
-                    seg_text,
-                    font=font,
-                    fill=color,
-                    anchor="lt",
-                )
-                x_cursor += int(char_w * len(seg_text))
-
+            draw_highlighted_line(
+                self.renderer.draw, text, gpos, self._display_len,
+                self._head_n, self._tail_n, y, center_x, char_w,
+                self._hash_font, self._hash_accent_font,
+                GUIConstants.LABEL_FONT_COLOR, GUIConstants.ACCENT_TEXT_COLOR,
+            )
             y += line_h
 
         if self.badge_text:

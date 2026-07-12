@@ -34,6 +34,7 @@ from seedsigner.helpers.cardano_utils import (
     verify_collateral_return,
     verify_message_signing_address,
     derive_owned_key_hashes,
+    account_stake_path,
 )
 
 
@@ -362,6 +363,11 @@ def test_owned_key_hashes_accept_unspecified_change_xfp(seed):
 
 def test_owned_key_hashes_empty_without_declared_paths(seed):
     assert derive_owned_key_hashes(_request(), seed) == set()
+
+
+def test_account_stake_path_uses_role_2_index_0():
+    assert account_stake_path(PATH_PAYMENT) == [1852 + H, 1815 + H, H, 2, 0]
+    assert account_stake_path(PATH_CHANGE) == PATH_STAKE
 
 
 def test_parsed_tx_defaults_are_safe(seed):

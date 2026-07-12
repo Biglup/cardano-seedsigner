@@ -1,10 +1,11 @@
 import math
 
 from dataclasses import dataclass
-from typing import List
+from typing import ClassVar, List
 from seedsigner.helpers.ur2.ur_encoder import UREncoder
 from seedsigner.helpers.ur2.ur import UR
 from seedsigner.helpers.qr import QR
+from seedsigner.models.qr_type import QRType
 from seedsigner.models.seed import Seed
 from seedsigner.models.settings import SettingsConstants
 
@@ -237,62 +238,49 @@ class BaseFountainQrEncoder(BaseQrEncoder):
 
 
 @dataclass
-class CardanoAccountQrEncoder(BaseFountainQrEncoder):
-    """Animated UR encoder that wraps a CardanoAccountResponse as a
-    cardano-account UR and fountain-encodes it for animated display."""
-    response: "CardanoAccountResponse" = None
+class CardanoUrQrEncoder(BaseFountainQrEncoder):
+    """Animated UR fountain encoder for any Cardano sign message.
+
+    Wraps a request or response dataclass as its ``ur_type`` UR and
+    fountain-encodes the untagged CBOR body for animated display. Subclasses
+    bind ``ur_type`` to a QRType value, so a new Cardano UR type is one small
+    subclass. Callers pass whichever of ``request``/``response`` applies."""
+    ur_type: ClassVar[str] = None
+    request: object = None
+    response: object = None
 
     def __post_init__(self):
         super().__post_init__()
-        qr_ur_bytes = UR("cardano-account", bytearray(self.response.to_cbor()))
+        payload = self.request if self.request is not None else self.response
+        qr_ur_bytes = UR(self.ur_type, bytearray(payload.to_cbor()))
         self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
 
 
 @dataclass
-class CardanoTxSigResponseQrEncoder(BaseFountainQrEncoder):
-    """Animated UR encoder for a CardanoTxSignResponse (vkey witness set),
-    transmitted back to the host as a cardano-tx-sig-res UR."""
-    response: "CardanoTxSignResponse" = None
-
-    def __post_init__(self):
-        super().__post_init__()
-        qr_ur_bytes = UR("cardano-tx-sig-res", bytearray(self.response.to_cbor()))
-        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
+class CardanoAccountQrEncoder(CardanoUrQrEncoder):
+    """Encodes a CardanoAccountResponse as a cardano-account UR."""
+    ur_type: ClassVar[str] = QRType.CARDANO_ACCOUNT
 
 
 @dataclass
-class CardanoCip8SigResponseQrEncoder(BaseFountainQrEncoder):
-    """Animated UR encoder for a CardanoCip8SignResponse (COSE_Sign1 + COSE_Key),
-    transmitted back to the host as a cardano-cip8-sig-res UR."""
-    response: "CardanoCip8SignResponse" = None
-
-    def __post_init__(self):
-        super().__post_init__()
-        qr_ur_bytes = UR("cardano-cip8-sig-res", bytearray(self.response.to_cbor()))
-        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
+class CardanoTxSigResponseQrEncoder(CardanoUrQrEncoder):
+    """Encodes a CardanoTxSignResponse as a cardano-tx-sig-res UR."""
+    ur_type: ClassVar[str] = QRType.CARDANO_TX_SIG_RESPONSE
 
 
 @dataclass
-class CardanoTxSigRequestQrEncoder(BaseFountainQrEncoder):
-    """Animated UR encoder for a CardanoSignRequest as a cardano-tx-sig-req UR.
-
-    Used by the host companion (and tests) to transmit a transaction to the
-    device for signing; the device decodes it via DecodeQR."""
-    request: "CardanoSignRequest" = None
-
-    def __post_init__(self):
-        super().__post_init__()
-        qr_ur_bytes = UR("cardano-tx-sig-req", bytearray(self.request.to_cbor()))
-        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
+class CardanoCip8SigResponseQrEncoder(CardanoUrQrEncoder):
+    """Encodes a CardanoCip8SignResponse as a cardano-cip8-sig-res UR."""
+    ur_type: ClassVar[str] = QRType.CARDANO_CIP8_SIG_RESPONSE
 
 
 @dataclass
-class CardanoCip8SigRequestQrEncoder(BaseFountainQrEncoder):
-    """Animated UR encoder for a CardanoMessageSignRequest as a
-    cardano-cip8-sig-req UR (host companion / tests)."""
-    request: "CardanoMessageSignRequest" = None
+class CardanoTxSigRequestQrEncoder(CardanoUrQrEncoder):
+    """Encodes a CardanoSignRequest as a cardano-tx-sig-req UR."""
+    ur_type: ClassVar[str] = QRType.CARDANO_TX_SIG_REQUEST
 
-    def __post_init__(self):
-        super().__post_init__()
-        qr_ur_bytes = UR("cardano-cip8-sig-req", bytearray(self.request.to_cbor()))
-        self.ur2_encode = UREncoder(ur=qr_ur_bytes, max_fragment_len=self.qr_max_fragment_size)
+
+@dataclass
+class CardanoCip8SigRequestQrEncoder(CardanoUrQrEncoder):
+    """Encodes a CardanoMessageSignRequest as a cardano-cip8-sig-req UR."""
+    ur_type: ClassVar[str] = QRType.CARDANO_CIP8_SIG_REQUEST

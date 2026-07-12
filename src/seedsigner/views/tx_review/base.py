@@ -90,6 +90,8 @@ class BaseSequentialSectionView(View):
         return Destination(MainMenuView, clear_history=True)
 
     def _handle_navigation(self, result, total_pages):
+        """Route the screen result to the previous/next page, to the signing-keys
+        step once past the last page, or back."""
         from .signing_keys_view import CardanoTxSigningKeysView
         from .sequential_review_view import CardanoTxSequentialReviewView
 
@@ -98,7 +100,7 @@ class BaseSequentialSectionView(View):
 
         is_last_page = self.global_index >= total_pages - 1
 
-        if result == RET_CODE__BACK_BUTTON or result == -1:
+        if result == RET_CODE__BACK_BUTTON:
             return Destination(BackStackView)
 
         if result == RET_CODE__LEFT_BUTTON:

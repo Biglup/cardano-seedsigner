@@ -20,7 +20,7 @@ class CardanoMsgAddressView(View):
         self.msg_request = msg_request
 
     def run(self):
-        from seedsigner.gui.screens.tx_review import CardanoCertificateSequentialScreen
+        from seedsigner.gui.screens.tx_review import CardanoContentSequentialScreen, Line
         from seedsigner.views.tx_review.certificate_view import _format_bech32
 
         content = []
@@ -30,17 +30,17 @@ class CardanoMsgAddressView(View):
             signing_path = self.msg_request.required_signing_path.path
             label, bech32_str = describe_signing_credential(
                 self.msg_request.address_bytes, signing_path)
-            content.append(("label", label))
-            content.append(("spacer_small", ""))
+            content.append(Line.label(label))
+            content.append(Line.spacer_small())
             fmt, hn, tn = _format_bech32(bech32_str)
-            content.append(("hash_display", fmt, hn, tn))
+            content.append(Line.hash(fmt, hn, tn))
         else:
-            content.append(("label", "Address:"))
-            content.append(("spacer_small", ""))
-            content.append(("value_highlight", "(not provided)"))
+            content.append(Line.label("Address:"))
+            content.append(Line.spacer_small())
+            content.append(Line.value_highlight("(not provided)"))
 
         result = self.run_screen(
-            CardanoCertificateSequentialScreen,
+            CardanoContentSequentialScreen,
             title="Sign With",
             page_num=1,
             total_pages=_TOTAL_PAGES,
@@ -52,9 +52,10 @@ class CardanoMsgAddressView(View):
         return self._handle_navigation(result)
 
     def _handle_navigation(self, result):
+        """Route the screen result forward to the payload page, or back."""
         from .payload_view import CardanoMsgPayloadView
 
-        if result == RET_CODE__BACK_BUTTON or result == -1:
+        if result == RET_CODE__BACK_BUTTON:
             return Destination(BackStackView)
 
         if result == RET_CODE__LEFT_BUTTON:

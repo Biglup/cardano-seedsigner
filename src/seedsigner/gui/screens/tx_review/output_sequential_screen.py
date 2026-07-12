@@ -8,7 +8,7 @@ from gettext import gettext as _
 from seedsigner.gui.components import GUIConstants, Fonts, SeedSignerIconConstants
 
 from .sequential_base_screen import CardanoSequentialBaseScreen
-from .utils import format_ada
+from .utils import format_ada, wrap_highlighted_line, draw_highlighted_line
 
 
 @dataclass
@@ -118,15 +118,10 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
             self._addr_display = f"{addr[:head_n]} {addr[head_n:-tail_n]} {addr[-tail_n:]}"
         else:
             self._addr_display = addr
-        self._addr_line_gpos = []
-        pos = 0
-        while pos < len(self._addr_display):
-            if self._addr_display[pos] == " ":
-                pos += 1
-            chunk = self._addr_display[pos:pos + self._chars_per_line]
-            self._addr_line_gpos.append(pos)
+        addr_wrapped = wrap_highlighted_line(self._addr_display, self._chars_per_line)
+        self._addr_line_gpos = [gp for gp, chunk in addr_wrapped]
+        for gp, chunk in addr_wrapped:
             self._lines.append(("addr_line", chunk))
-            pos += len(chunk)
 
         if self.is_change:
             self._lines.append(("spacer_small", ""))
@@ -151,8 +146,8 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
                 else:
                     fp_display = fingerprint
                 token_start = len(self._lines)
-                for i in range(0, len(fp_display), self._chars_per_line):
-                    self._lines.append(("token_id_line", fp_display[i:i + self._chars_per_line]))
+                for gp, chunk in wrap_highlighted_line(fp_display, self._chars_per_line, skip_boundary_space=False):
+                    self._lines.append(("token_id_line", chunk))
                 token_end = len(self._lines)
                 self._token_ranges.append((token_start, token_end, len(fp_display), head_n, tail_n))
                 self._lines.append(("spacer_small", ""))
@@ -185,8 +180,8 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
                     self._datum_head_n = highlight
                     self._datum_tail_n = highlight
                 self._datum_display = display
-                for i in range(0, len(display), self._chars_per_line):
-                    self._lines.append(("datum_hex_line", display[i:i + self._chars_per_line]))
+                for gp, chunk in wrap_highlighted_line(display, self._chars_per_line, skip_boundary_space=False):
+                    self._lines.append(("datum_hex_line", chunk))
 
         if self.script_ref_lang:
             self._lines.append(("spacer", ""))
@@ -318,33 +313,11 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
                     display_len = len(self._addr_display)
                     gpos = self._addr_line_gpos[addr_line_idx]
                     char_w = addr_font.getlength("A")
-                    line_w = char_w * len(text)
-                    x_cursor = int(center_x - line_w // 2)
-
-                    segments = []
-                    seg_start = 0
-                    for ci in range(len(text)):
-                        gp = gpos + ci
-                        is_accent = gp < head_n or gp >= display_len - tail_n
-                        if ci == 0:
-                            cur_accent = is_accent
-                        if is_accent != cur_accent:
-                            segments.append((text[seg_start:ci], cur_accent))
-                            seg_start = ci
-                            cur_accent = is_accent
-                    segments.append((text[seg_start:], cur_accent))
-
-                    for seg_text, is_accent in segments:
-                        font = addr_accent_font if is_accent else addr_font
-                        color = GUIConstants.ACCENT_TEXT_COLOR if is_accent else GUIConstants.LABEL_FONT_COLOR
-                        self.renderer.draw.text(
-                            (x_cursor, y),
-                            seg_text,
-                            font=font,
-                            fill=color,
-                            anchor="lt",
-                        )
-                        x_cursor += int(char_w * len(seg_text))
+                    draw_highlighted_line(
+                        self.renderer.draw, text, gpos, display_len, head_n,
+                        tail_n, y, center_x, char_w, addr_font, addr_accent_font,
+                        GUIConstants.LABEL_FONT_COLOR, GUIConstants.ACCENT_TEXT_COLOR,
+                    )
                 elif line_type == "token_id_line":
                     if token_range_idx < len(self._token_ranges):
                         _, _, display_len, tok_head_n, tok_tail_n = self._token_ranges[token_range_idx]
@@ -355,33 +328,12 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
                     head_accent = tok_head_n + 1
                     tail_accent = tok_tail_n + 1
                     char_w = addr_font.getlength("A")
-                    line_w = char_w * len(text)
-                    x_cursor = int(center_x - line_w // 2)
-
-                    segments = []
-                    seg_start = 0
-                    for ci in range(len(text)):
-                        gp = token_char_offset + ci
-                        is_accent = gp < head_accent or gp >= display_len - tail_accent
-                        if ci == 0:
-                            cur_accent = is_accent
-                        if is_accent != cur_accent:
-                            segments.append((text[seg_start:ci], cur_accent))
-                            seg_start = ci
-                            cur_accent = is_accent
-                    segments.append((text[seg_start:], cur_accent))
-
-                    for seg_text, is_accent in segments:
-                        font = addr_accent_font if is_accent else addr_font
-                        color = GUIConstants.ACCENT_TEXT_COLOR if is_accent else GUIConstants.LABEL_FONT_COLOR
-                        self.renderer.draw.text(
-                            (x_cursor, y),
-                            seg_text,
-                            font=font,
-                            fill=color,
-                            anchor="lt",
-                        )
-                        x_cursor += int(char_w * len(seg_text))
+                    draw_highlighted_line(
+                        self.renderer.draw, text, token_char_offset, display_len,
+                        head_accent, tail_accent, y, center_x, char_w, addr_font,
+                        addr_accent_font, GUIConstants.LABEL_FONT_COLOR,
+                        GUIConstants.ACCENT_TEXT_COLOR,
+                    )
                 elif line_type == "token_amount":
                     self.renderer.draw.text(
                         (center_x, y),
@@ -412,33 +364,12 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
                     tail_n = getattr(self, '_datum_tail_n', 12)
                     display_len = len(datum_display)
                     char_w = addr_font.getlength("A")
-                    line_w = char_w * len(text)
-                    x_cursor = int(center_x - line_w // 2)
-
-                    segments = []
-                    seg_start = 0
-                    for ci in range(len(text)):
-                        gp = datum_char_offset + ci
-                        is_accent = gp < head_n or gp >= display_len - tail_n
-                        if ci == 0:
-                            cur_accent = is_accent
-                        if is_accent != cur_accent:
-                            segments.append((text[seg_start:ci], cur_accent))
-                            seg_start = ci
-                            cur_accent = is_accent
-                    segments.append((text[seg_start:], cur_accent))
-
-                    for seg_text, is_accent in segments:
-                        font = addr_accent_font if is_accent else addr_font
-                        color = GUIConstants.ACCENT_TEXT_COLOR if is_accent else GUIConstants.LABEL_FONT_COLOR
-                        self.renderer.draw.text(
-                            (x_cursor, y),
-                            seg_text,
-                            font=font,
-                            fill=color,
-                            anchor="lt",
-                        )
-                        x_cursor += int(char_w * len(seg_text))
+                    draw_highlighted_line(
+                        self.renderer.draw, text, datum_char_offset, display_len,
+                        head_n, tail_n, y, center_x, char_w, addr_font,
+                        addr_accent_font, GUIConstants.LABEL_FONT_COLOR,
+                        GUIConstants.ACCENT_TEXT_COLOR,
+                    )
                 elif line_type == "value_highlight":
                     self.renderer.draw.text(
                         (center_x, y),

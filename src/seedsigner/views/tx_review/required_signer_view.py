@@ -7,6 +7,11 @@ from .certificate_view import _format_bech32
 
 
 class RequiredSignerReviewView(BaseSequentialSectionView):
+    """Review page for a required signer key hash (Conway CDDL body key 14).
+
+    Badges the signer as an Own Key when its hash is among the key hashes
+    derived on-device from the request's declared paths.
+    """
     section_title = "Required Signer"
 
     def render(self, page, title, has_left, has_right, total_pages):

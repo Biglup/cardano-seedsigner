@@ -1,7 +1,7 @@
 """Signing-key inspection step for CIP-8 message signing.
 
-A CIP-8 request signs a single path, so this shows one key page — the seed
-fingerprint and the full derivation path, centered — gating the final sign
+A CIP-8 request signs a single path, so this shows one key page (the seed
+fingerprint and the full derivation path, centered), gating the final sign
 confirmation exactly like the transaction flow's signing-keys step.
 """
 
@@ -24,7 +24,7 @@ class CardanoMsgSigningKeyView(View):
         self.msg_request = msg_request
 
     def run(self):
-        from seedsigner.gui.screens.tx_review import CardanoCertificateSequentialScreen
+        from seedsigner.gui.screens.tx_review import CardanoContentSequentialScreen
         from seedsigner.views.tx_review.signing_keys_view import build_signing_key_content
 
         seed = self.controller.cardano_seed
@@ -37,7 +37,7 @@ class CardanoMsgSigningKeyView(View):
         )
 
         result = self.run_screen(
-            CardanoCertificateSequentialScreen,
+            CardanoContentSequentialScreen,
             title="Signing Key",
             page_num=3,
             total_pages=_TOTAL_PAGES,
@@ -48,9 +48,10 @@ class CardanoMsgSigningKeyView(View):
         return self._handle_navigation(result)
 
     def _handle_navigation(self, result):
+        """Route the screen result on to the final sign confirmation, or back."""
         from .sign_view import CardanoMsgSignView
 
-        if result == RET_CODE__BACK_BUTTON or result == -1:
+        if result == RET_CODE__BACK_BUTTON:
             return Destination(BackStackView)
 
         if result == RET_CODE__LEFT_BUTTON:

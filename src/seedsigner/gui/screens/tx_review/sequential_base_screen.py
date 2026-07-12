@@ -12,7 +12,7 @@ from seedsigner.gui.components import GUIConstants, Fonts
 from seedsigner.hardware.buttons import HardwareButtonsConstants
 from seedsigner.models.threads import BaseThread
 
-from ..screen import BaseScreen
+from ..screen import BaseScreen, RET_CODE__BACK_BUTTON
 from .utils import RET_CODE__LEFT_BUTTON, RET_CODE__RIGHT_BUTTON
 
 
@@ -237,8 +237,9 @@ class CardanoSequentialBaseScreen(BaseScreen):
         """Input loop.
 
         Returns RET_CODE__LEFT_BUTTON or RET_CODE__RIGHT_BUTTON for chevron
-        navigation, and -1 when KEY1 (Back) is pressed. Up/down scroll the
-        content and briefly highlight the pressed scroll chevron.
+        navigation, and RET_CODE__BACK_BUTTON when KEY1 (Back) is pressed.
+        Up/down scroll the content and briefly highlight the pressed scroll
+        chevron.
         """
         while True:
             with self.renderer.lock:
@@ -281,4 +282,4 @@ class CardanoSequentialBaseScreen(BaseScreen):
                 time.sleep(0.15)
                 self._active_scroll = None
             elif user_input == HardwareButtonsConstants.KEY1:
-                return -1
+                return RET_CODE__BACK_BUTTON

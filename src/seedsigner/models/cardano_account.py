@@ -1,5 +1,5 @@
 """
-Cardano Account Public Key Export — request/response models and CBOR codec.
+Cardano Account Public Key Export: request/response models and CBOR codec.
 
 A host wallet requests one or more CIP-1852 account extended public keys over an
 animated QR (UR type ``cardano-account-req``); the device replies with the
@@ -9,7 +9,7 @@ account xpub(s) plus the seed's master fingerprint over an animated QR (UR type
 The response mirrors the shape of Blockchain Commons ``crypto-multi-accounts``:
 a single shared master fingerprint and a list of per-account key entries. The
 master fingerprint is the **Bitcoin secp256k1 BIP-32** fingerprint
-(``Seed.get_fingerprint()``) — chosen for parity with existing SeedSigners.
+(``Seed.get_fingerprint()``), chosen for parity with existing SeedSigners.
 The client cannot compute it itself (it only ever sees the Ed25519 Cardano
 xpub), so this export is how the client first learns it and can then stamp it
 on future signing requests.
@@ -42,11 +42,13 @@ from typing import Optional
 
 from cometa import CborReader, CborWriter
 
+from seedsigner.helpers.cardano_utils import (
+    HARDENED_OFFSET,
+    PURPOSE_CIP1852,
+    PURPOSE_CIP1854,
+    COIN_TYPE_ADA,
+)
 
-PURPOSE_CIP1852 = 1852
-PURPOSE_CIP1854 = 1854
-COIN_TYPE_ADA = 1815
-HARDENED_OFFSET = 0x80000000
 
 SUPPORTED_KEY_PURPOSES = (PURPOSE_CIP1852, PURPOSE_CIP1854)
 
@@ -72,6 +74,7 @@ class CardanoAccountRequest:
     origin: Optional[str] = None
 
     def to_cbor(self) -> bytes:
+        """Encode the request as the key-numbered CBOR map in the module CDDL."""
         w = CborWriter()
         num_entries = 3 + (1 if self.origin is not None else 0)
         w.write_start_map(num_entries)
@@ -90,6 +93,7 @@ class CardanoAccountRequest:
 
     @classmethod
     def from_cbor(cls, data: bytes) -> "CardanoAccountRequest":
+        """Decode and validate the request: non-empty in-range indices, supported purpose."""
         r = CborReader.from_bytes(data)
         request_id = None
         account_indices = None
@@ -152,6 +156,7 @@ class CardanoAccountResponse:
     device_label: str = DEFAULT_DEVICE_LABEL
 
     def to_cbor(self) -> bytes:
+        """Encode the response (request_id, fingerprint, account keys, label) as CBOR."""
         w = CborWriter()
         w.write_start_map(4)
         w.write_int(1)
@@ -176,6 +181,7 @@ class CardanoAccountResponse:
 
     @classmethod
     def from_cbor(cls, data: bytes) -> "CardanoAccountResponse":
+        """Decode the response, requiring the master fingerprint (key 2)."""
         r = CborReader.from_bytes(data)
         request_id = ""
         master_fingerprint = None
@@ -212,6 +218,7 @@ class CardanoAccountResponse:
 
     @staticmethod
     def _read_account_key(r: CborReader) -> AccountKey:
+        """Read one AccountKey (index, xpub, path) from the reader."""
         account_index = None
         xpub = None
         path = None

@@ -2,8 +2,10 @@
 
 from gettext import gettext as _
 
+from seedsigner.gui.components import GUIConstants
 from seedsigner.gui.screens import RET_CODE__BACK_BUTTON
 from seedsigner.gui.screens.screen import ButtonOption
+from seedsigner.helpers.cardano_utils import sanitize_origin
 from seedsigner.models.cardano_tx import CardanoParsedTx
 
 from seedsigner.views.view import View, Destination, BackStackView, MainMenuView
@@ -22,49 +24,30 @@ class CardanoTxOverviewView(View):
         """Show the overview, or reject the transaction on a network mismatch.
 
         A mismatch between the sign request's network and the transaction
-        body's network id rejects the transaction outright: the warning
-        screen is built first, then the colored detail TextAreas are
-        appended below its last component (the headline) before displaying.
+        body's network id rejects the transaction outright, showing the
+        targeted vs. specified networks as colored detail lines under the
+        warning headline.
         """
         if self.parsed_tx.network_mismatch_error:
-            from seedsigner.gui.components import GUIConstants, TextArea
-            from seedsigner.gui.screens.screen import DireWarningScreen
+            from seedsigner.gui.screens.tx_review import RejectionDetailScreen
 
-            self.screen = DireWarningScreen(
+            self.run_screen(
+                RejectionDetailScreen,
                 title=_("Network Mismatch"),
                 status_headline=_("TX Rejected"),
+                extra_lines=[
+                    (_("Sign request targets:"), GUIConstants.BODY_FONT_COLOR),
+                    (self.parsed_tx.sign_request.network.name, GUIConstants.ACCENT_COLOR),
+                    (_("but tx body specifies:"), GUIConstants.BODY_FONT_COLOR),
+                    (self.parsed_tx.body.network_id.name, GUIConstants.ACCENT_COLOR),
+                ],
             )
-
-            last = self.screen.components[-1]
-            cur_y = last.screen_y + last.height + GUIConstants.COMPONENT_PADDING
-
-            lines = [
-                (_("Sign request targets:"), GUIConstants.BODY_FONT_COLOR),
-                (self.parsed_tx.sign_request.network.name, GUIConstants.ACCENT_COLOR),
-                (_("but tx body specifies:"), GUIConstants.BODY_FONT_COLOR),
-                (self.parsed_tx.body.network_id.name, GUIConstants.ACCENT_COLOR),
-            ]
-
-            for text, color in lines:
-                ta = TextArea(
-                    text=text,
-                    font_size=GUIConstants.get_body_font_size(),
-                    font_color=color,
-                    screen_x=0,
-                    screen_y=cur_y,
-                    is_text_centered=True,
-                    auto_line_break=False,
-                )
-                self.screen.components.append(ta)
-                cur_y += ta.height + 2
-
-            self.screen.display()
             return Destination(MainMenuView, clear_history=True)
 
-        from seedsigner.gui.screens.tx_review.utils import format_ada
+        from seedsigner.gui.screens.tx_review import CardanoOverviewScreen, format_ada
         from .sequential_review_view import CardanoTxSequentialReviewView
 
-        if self.parsed_tx.has_unverified_outputs and not self.parsed_tx.unverified_warning_acknowledged:
+        if self.parsed_tx.has_unverified_outputs and not self.controller.cardano_unverified_warning_acknowledged:
             from seedsigner.gui.screens.screen import WarningScreen
 
             if self.parsed_tx.has_failed_change_claims:
@@ -82,18 +65,27 @@ class CardanoTxOverviewView(View):
             )
             if selected_menu_num == RET_CODE__BACK_BUTTON:
                 return Destination(BackStackView)
-            self.parsed_tx.unverified_warning_acknowledged = True
+            self.controller.cardano_unverified_warning_acknowledged = True
 
-        origin = _sanitize_origin(self.parsed_tx.sign_request.origin)
+        origin = sanitize_origin(self.parsed_tx.sign_request.origin)
+
+        rows = []
+        if origin:
+            rows.append(("Origin:", origin))
+        if self.parsed_tx.has_unverified_outputs:
+            rows.append(("Outputs:", str(len(self.parsed_tx.outputs))))
+        else:
+            rows.append(("Sending:", format_ada(self.parsed_tx.sending_amount)))
+        rows += [
+            ("Fee:", format_ada(self.parsed_tx.fee)),
+            ("Network:", self.parsed_tx.network.name.capitalize()),
+        ]
 
         selected_menu_num = self.run_screen(
-            _TxOverviewScreen,
-            sending=format_ada(self.parsed_tx.sending_amount),
-            fee=format_ada(self.parsed_tx.fee),
-            network=self.parsed_tx.network.name.capitalize(),
-            origin=origin,
-            unverified_outputs=self.parsed_tx.has_unverified_outputs,
-            num_outputs=len(self.parsed_tx.outputs),
+            CardanoOverviewScreen,
+            title=_("Sign Transaction"),
+            button_data=[self.REVIEW],
+            rows=rows,
         )
 
         if selected_menu_num == RET_CODE__BACK_BUTTON:
@@ -103,96 +95,3 @@ class CardanoTxOverviewView(View):
             CardanoTxSequentialReviewView,
             view_args=dict(parsed_tx=self.parsed_tx, global_index=0)
         )
-
-
-def _sanitize_origin(origin):
-    """Strip non-printable chars and cap at 20 characters."""
-    if not origin:
-        return origin
-    cleaned = "".join(c for c in origin if c.isprintable())
-    if len(cleaned) > 20:
-        cleaned = cleaned[:20] + "..."
-    return cleaned or None
-
-
-from dataclasses import dataclass
-
-from seedsigner.gui.screens import ButtonListScreen
-from seedsigner.gui.components import GUIConstants, TextArea
-
-
-@dataclass
-class _TxOverviewScreen(ButtonListScreen):
-    """TX overview with left-aligned label/value rows.
-
-    When no output could be verified as this wallet's change, the single
-    "Sending" figure is a net the device cannot prove, so it is replaced by
-    the output count (per-output amounts follow in the sequential review and
-    on the sign confirmation).
-
-    Row advance heights are fixed, measured from a "y" glyph so every row
-    reserves descender space regardless of its actual text.
-    """
-    sending: str = ""
-    fee: str = ""
-    network: str = ""
-    origin: str = None
-    unverified_outputs: bool = False
-    num_outputs: int = 0
-
-    def __post_init__(self):
-        self.title = _("Sign Transaction")
-        self.is_bottom_list = True
-        self.button_data = [CardanoTxOverviewView.REVIEW]
-
-        super().__post_init__()
-
-        rows = []
-        if self.origin:
-            rows.append(("Origin:", self.origin))
-        if self.unverified_outputs:
-            rows.append(("Outputs:", str(self.num_outputs)))
-        else:
-            rows.append(("Sending:", self.sending))
-        rows += [
-            ("Fee:", self.fee),
-            ("Network:", self.network),
-        ]
-
-        row_spacing = 6
-        cur_y = 50
-
-        label_h = TextArea(text="y", font_size=GUIConstants.get_body_font_size() - 2,
-                           auto_line_break=False).height
-        value_h = TextArea(text="y", font_size=GUIConstants.get_body_font_size(),
-                           auto_line_break=False).height
-
-        for label, value in rows:
-            cur_y = self._add_row(cur_y, label, value, row_spacing,
-                                  label_h, value_h)
-
-    def _add_row(self, cur_y, label, value, spacing, label_h, value_h):
-        label_area = TextArea(
-            text=label,
-            font_size=GUIConstants.get_body_font_size() - 2,
-            font_color=GUIConstants.BODY_FONT_COLOR,
-            screen_x=GUIConstants.EDGE_PADDING,
-            screen_y=cur_y,
-            is_text_centered=False,
-            auto_line_break=False,
-        )
-        self.components.append(label_area)
-        cur_y += label_h + 4
-
-        value_area = TextArea(
-            text=value,
-            font_size=GUIConstants.get_body_font_size(),
-            font_color=GUIConstants.ACCENT_TEXT_COLOR,
-            screen_x=0,
-            screen_y=cur_y,
-            is_text_centered=True,
-            auto_line_break=False,
-        )
-        self.components.append(value_area)
-        cur_y += value_h + spacing
-        return cur_y

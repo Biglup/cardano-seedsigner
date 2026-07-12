@@ -6,6 +6,7 @@ from .base import BaseSequentialSectionView
 
 
 class DonationReviewView(BaseSequentialSectionView):
+    """Review page for a treasury donation (Conway CDDL body key 22), in ADA."""
     section_title = "Donation"
 
     def render(self, page, title, has_left, has_right, total_pages):

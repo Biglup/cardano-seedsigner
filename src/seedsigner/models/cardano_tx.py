@@ -26,9 +26,39 @@ one component (an empty path names no key and could not be signed with), and
 """
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Optional
 
 from cometa import CborReader, CborWriter, NetworkId
+
+
+class ReviewSection(str, Enum):
+    """Names the sequential-review sections a transaction can produce.
+
+    ``build_review_pages`` tags each ``ReviewPage`` with one of these values
+    and ``sequential_review_view._SECTION_VIEW_MAP`` maps each to its section
+    view. Being a ``str`` Enum, members compare and hash equal to their bare
+    string, so existing string-keyed lookups keep working.
+    """
+    OUTPUT = "output"
+    FEE = "fee"
+    VALIDITY_START = "validity_start"
+    TTL = "ttl"
+    CERTIFICATE = "certificate"
+    WITHDRAWAL = "withdrawal"
+    AUX_DATA_HASH = "aux_data_hash"
+    MINT = "mint"
+    SCRIPT_DATA_HASH = "script_data_hash"
+    COLLATERAL = "collateral"
+    REQUIRED_SIGNER = "required_signer"
+    NETWORK_ID = "network_id"
+    COLLATERAL_RETURN = "collateral_return"
+    TOTAL_COLLATERAL = "total_collateral"
+    REFERENCE_INPUT = "reference_input"
+    VOTING = "voting"
+    PROPOSAL = "proposal"
+    TREASURY = "treasury"
+    DONATION = "donation"
 
 
 XFP_LEN = 4
@@ -38,12 +68,14 @@ MAX_PATH_COMPONENT = 0xFFFFFFFF
 
 
 def _write_path(w: "CborWriter", path: list[int]) -> None:
+    """Write a derivation path as a CBOR array of unsigned integers."""
     w.write_start_array(len(path))
     for component in path:
         w.write_int(component)
 
 
 def _read_path(r: "CborReader") -> list[int]:
+    """Read a derivation path, rejecting an empty, over-long, or out-of-range one."""
     count = r.read_array_len()
     if count == 0:
         raise ValueError("derivation path is empty")
@@ -58,12 +90,12 @@ def _read_path(r: "CborReader") -> list[int]:
 
 
 def _check_xfp(xfp: bytes, *, allow_empty: bool) -> bytes:
+    """Validate a master fingerprint as 4 bytes, or empty when allowed."""
     if xfp == b"" and allow_empty:
         return xfp
     if len(xfp) != XFP_LEN:
         raise ValueError(f"xfp must be {XFP_LEN} bytes, got {len(xfp)}")
     return xfp
-
 
 
 @dataclass
@@ -90,6 +122,7 @@ class SigningInput:
     path: Optional[list[int]] = None
 
     def to_cbor(self, w: "CborWriter") -> None:
+        """Write this input to the shared writer, omitting an absent xfp/path."""
         _check_xfp(self.xfp, allow_empty=(self.path is None))
         num_entries = (
             2
@@ -110,6 +143,7 @@ class SigningInput:
 
     @classmethod
     def from_cbor(cls, r: "CborReader") -> "SigningInput":
+        """Read one input from the reader, validating the tx_hash length and xfp."""
         tx_hash = index = path = None
         xfp = b""
         for _ in range(r.read_map_len()):
@@ -155,6 +189,7 @@ class ChangeOutput:
     xfp: bytes = b""
 
     def to_cbor(self, w: "CborWriter") -> None:
+        """Write this change output (index, xfp, path) to the shared writer."""
         w.write_start_map(3)
         w.write_int(1)
         w.write_int(self.index)
@@ -165,6 +200,7 @@ class ChangeOutput:
 
     @classmethod
     def from_cbor(cls, r: "CborReader") -> "ChangeOutput":
+        """Read one change output from the reader, validating the xfp."""
         index = path = None
         xfp = b""
         for _ in range(r.read_map_len()):
@@ -196,6 +232,7 @@ class ExtraSigner:
     path: list[int]
 
     def to_cbor(self, w: "CborWriter") -> None:
+        """Write this signer (xfp, path) to the shared writer."""
         w.write_start_map(2)
         w.write_int(1)
         w.write_bytes(self.xfp)
@@ -204,6 +241,7 @@ class ExtraSigner:
 
     @classmethod
     def from_cbor(cls, r: "CborReader") -> "ExtraSigner":
+        """Read one signer from the reader, requiring a 4-byte xfp."""
         xfp = path = None
         for _ in range(r.read_map_len()):
             key = r.read_uint()
@@ -258,6 +296,7 @@ class CardanoSignRequest:
     collateral_return_path: Optional[ExtraSigner] = None
 
     def to_cbor(self) -> bytes:
+        """Encode the request as the key-numbered CBOR map in the class CDDL."""
         w = CborWriter()
         num_entries = (
             6
@@ -293,6 +332,7 @@ class CardanoSignRequest:
 
     @classmethod
     def from_cbor(cls, data: bytes) -> "CardanoSignRequest":
+        """Decode from CBOR, normalising any parser failure to ValueError."""
         try:
             return cls._from_cbor(data)
         except ValueError:
@@ -302,6 +342,11 @@ class CardanoSignRequest:
 
     @classmethod
     def _from_cbor(cls, data: bytes) -> "CardanoSignRequest":
+        """Parse and validate the request map, rejecting one that names no signer.
+
+        A request all of whose inputs are script-locked (no signing path) and
+        with no extra_signers could not be signed by any key, so it is refused.
+        """
         r = CborReader.from_bytes(data)
         request_id = sign_data = network = None
         origin = None
@@ -380,6 +425,7 @@ class CardanoTxSignResponse:
     vkey_witness_set: bytes
 
     def to_cbor(self) -> bytes:
+        """Encode the response (request_id, vkey_witness_set) as a CBOR map."""
         w = CborWriter()
         w.write_start_map(2)
         w.write_int(1)
@@ -390,6 +436,7 @@ class CardanoTxSignResponse:
 
     @classmethod
     def from_cbor(cls, data: bytes) -> "CardanoTxSignResponse":
+        """Decode from CBOR, normalising any parser failure to ValueError."""
         try:
             return cls._from_cbor(data)
         except ValueError:
@@ -399,6 +446,7 @@ class CardanoTxSignResponse:
 
     @classmethod
     def _from_cbor(cls, data: bytes) -> "CardanoTxSignResponse":
+        """Parse and validate the response map, requiring request_id and witnesses."""
         r = CborReader.from_bytes(data)
         request_id = None
         vkey_witness_set = None
@@ -422,10 +470,14 @@ class CardanoParsedTx:
     """Holds the parsed cometa TransactionBody + verified change indices.
 
     Views access cometa objects directly; there are no wrapper dataclasses.
-    Beyond the primary sections, properties expose the remaining transaction
-    body fields (CBOR keys 3, 7, 8, 11, 14-17, 21-22) such as ttl,
-    auxiliary_data_hash, script_data_hash, required_signers, collateral
-    return and treasury/donation values.
+    Pure body fields are reached through ``__getattr__``, which delegates any
+    unknown attribute to the wrapped ``TransactionBody`` (so ``self.outputs``
+    is ``self.body.outputs``). Explicit properties remain only where they add
+    logic (``sending_amount``, ``has_*`` predicates) or rename a cometa field
+    (``ttl`` for ``invalid_after``, ``auxiliary_data_hash`` for
+    ``aux_data_hash``, ``validity_interval_start`` for ``invalid_before``,
+    ``network_id_field`` for ``network_id``, ``proposals`` for
+    ``proposal_procedures``).
 
     Construction raises ValueError when the body carries the pre-Conway
     protocol parameter update field (key 6). Conway-era Cardano replaced
@@ -453,54 +505,57 @@ class CardanoParsedTx:
         self.verified_change_indices = verified_change_indices
         self.collateral_return_verified = False
         self.owned_key_hashes: set = set()
-        self.unverified_warning_acknowledged = False
         self.network_mismatch_error = (
             self.body.network_id is not None
             and self.body.network_id != sign_request.network
         )
 
-    @property
-    def outputs(self):
-        return self.body.outputs
+    @classmethod
+    def for_seed(cls, sign_request: CardanoSignRequest, seed) -> "CardanoParsedTx":
+        """Parse `sign_request` and run every ownership verification for `seed`.
 
-    @property
-    def fee(self):
-        return self.body.fee
+        Returns a fully initialised instance: change outputs, the collateral
+        return and owned credential hashes are all resolved against the seed,
+        so no field needs to be set after construction. Propagates the same
+        ValueError the constructor raises for an undisplayable body.
+        """
+        from seedsigner.helpers.cardano_utils import (
+            verify_change_outputs,
+            verify_collateral_return,
+            derive_owned_key_hashes,
+        )
+        parsed = cls(sign_request, verified_change_indices=[])
+        parsed.verified_change_indices = verify_change_outputs(
+            sign_request, seed, parsed.body)
+        parsed.collateral_return_verified = verify_collateral_return(
+            sign_request, seed, parsed.body)
+        parsed.owned_key_hashes = derive_owned_key_hashes(sign_request, seed)
+        return parsed
 
-    @property
-    def certificates(self):
-        return self.body.certificates
+    def __getattr__(self, name: str):
+        """Delegate unknown attributes to the wrapped cometa TransactionBody.
 
-    @property
-    def withdrawals(self):
-        return self.body.withdrawals
-
-    @property
-    def mint(self):
-        return self.body.mint
-
-    @property
-    def voting_procedures(self):
-        return self.body.voting_procedures
+        Pure pass-through body fields (``outputs``, ``fee``, ``mint`` ...) are
+        served straight from ``self.body``; only accessors that add logic or
+        rename a cometa field are defined explicitly on this class. As
+        ``__getattr__`` runs solely for names not found normally, it never
+        shadows a real attribute, and it raises ``AttributeError`` (via the
+        delegate) for names the body does not define.
+        """
+        try:
+            body = object.__getattribute__(self, "body")
+        except AttributeError:
+            raise AttributeError(name)
+        return getattr(body, name)
 
     @property
     def proposals(self):
+        """Governance proposal procedures (Conway CDDL body key 20)."""
         return self.body.proposal_procedures
 
     @property
-    def collateral(self):
-        return self.body.collateral
-
-    @property
-    def reference_inputs(self):
-        return self.body.reference_inputs
-
-    @property
-    def inputs(self):
-        return self.body.inputs
-
-    @property
     def sending_amount(self) -> int:
+        """Total lovelace leaving the wallet: every output not verified as change."""
         total = 0
         for i, output in enumerate(self.outputs):
             if i not in self.verified_change_indices:
@@ -509,6 +564,7 @@ class CardanoParsedTx:
 
     @property
     def num_recipients(self) -> int:
+        """Count of outputs that are not this wallet's verified change."""
         return len(self.outputs) - len(self.verified_change_indices)
 
     @property
@@ -533,15 +589,18 @@ class CardanoParsedTx:
 
     @property
     def output_amounts(self) -> list[int]:
+        """Lovelace value of each output, in transaction-body order."""
         return [output.value.coin for output in self.outputs]
 
     @property
     def change_amount(self) -> int:
+        """Total lovelace across the outputs verified as this wallet's change."""
         return sum(self.outputs[i].value.coin for i in self.verified_change_indices)
 
     @property
     def sending_tokens(self) -> dict:
-        from cometa import Blake2bHash, Bech32
+        """Native tokens leaving the wallet, keyed by CIP-14 asset fingerprint."""
+        from seedsigner.helpers.cardano_utils import asset_fingerprint
         tokens = {}
         for i, output in enumerate(self.outputs):
             if i not in self.verified_change_indices:
@@ -549,129 +608,126 @@ class CardanoParsedTx:
                 if ma:
                     for policy_id, asset_map in ma.items():
                         for asset_name, qty in asset_map.items():
-                            data = policy_id.to_bytes() + asset_name.to_bytes()
-                            h = Blake2bHash.compute(data, hash_size=20)
-                            key = Bech32.encode("asset", h.to_bytes())
+                            key = asset_fingerprint(policy_id, asset_name)
                             tokens[key] = tokens.get(key, 0) + qty
         return tokens
 
     @property
     def recipient_addresses(self) -> list[str]:
+        """Addresses of every output not verified as this wallet's change."""
         return [str(self.outputs[i].address) for i in range(len(self.outputs))
                 if i not in self.verified_change_indices]
 
     @property
     def network(self) -> NetworkId:
+        """Network the sign request targets (testnet or mainnet)."""
         return self.sign_request.network
 
     @property
     def has_certificates(self):
+        """True when the body carries certificates (Conway CDDL body key 4)."""
         return self.certificates is not None and len(self.certificates) > 0
 
     @property
     def has_withdrawals(self):
+        """True when the body carries reward withdrawals (Conway CDDL body key 5)."""
         return self.withdrawals is not None and len(self.withdrawals) > 0
 
     @property
     def has_minting(self):
+        """True when the body mints or burns native assets (Conway CDDL body key 9)."""
         return self.mint is not None and len(self.mint) > 0
 
     @property
     def has_voting(self):
+        """True when the body casts governance votes (Conway CDDL body key 19)."""
         return (self.voting_procedures is not None
                 and len(self.voting_procedures.get_voters()) > 0)
 
     @property
     def has_proposals(self):
+        """True when the body submits governance proposals (Conway CDDL body key 20)."""
         return self.proposals is not None and len(self.proposals) > 0
 
     @property
     def has_collateral(self):
+        """True when the body declares collateral inputs (Conway CDDL body key 13)."""
         return self.collateral is not None and len(self.collateral) > 0
 
     @property
     def has_reference_inputs(self):
+        """True when the body declares reference inputs (Conway CDDL body key 18)."""
         return self.reference_inputs is not None and len(self.reference_inputs) > 0
 
     @property
     def ttl(self):
+        """Upper bound of the validity interval (Conway CDDL body key 3)."""
         return self.body.invalid_after
 
     @property
     def auxiliary_data_hash(self):
+        """Auxiliary data hash (Conway CDDL body key 7)."""
         return self.body.aux_data_hash
 
     @property
     def validity_interval_start(self):
+        """Lower bound of the validity interval (Conway CDDL body key 8)."""
         return self.body.invalid_before
 
     @property
-    def script_data_hash(self):
-        return self.body.script_data_hash
-
-    @property
-    def required_signers(self):
-        return self.body.required_signers
-
-    @property
     def network_id_field(self):
+        """Network id declared in the body itself (Conway CDDL body key 15), if any."""
         return self.body.network_id
 
     @property
-    def collateral_return(self):
-        return self.body.collateral_return
-
-    @property
-    def total_collateral(self):
-        return self.body.total_collateral
-
-    @property
-    def treasury_value(self):
-        return self.body.treasury_value
-
-    @property
-    def donation(self):
-        return self.body.donation
-
-    @property
     def has_ttl(self):
+        """True when the body sets an upper validity bound (Conway CDDL body key 3)."""
         return self.ttl is not None
 
     @property
     def has_auxiliary_data_hash(self):
+        """True when the body sets an auxiliary data hash (Conway CDDL body key 7)."""
         return self.auxiliary_data_hash is not None
 
     @property
     def has_validity_interval_start(self):
+        """True when the body sets a lower validity bound (Conway CDDL body key 8)."""
         return self.validity_interval_start is not None
 
     @property
     def has_script_data_hash(self):
+        """True when the body sets a script data hash (Conway CDDL body key 11)."""
         return self.script_data_hash is not None
 
     @property
     def has_required_signers(self):
+        """True when the body lists required signer key hashes (Conway CDDL body key 14)."""
         rs = self.required_signers
         return rs is not None and len(rs) > 0
 
     @property
     def has_network_id_field(self):
+        """True when the body declares its own network id (Conway CDDL body key 15)."""
         return self.network_id_field is not None
 
     @property
     def has_collateral_return(self):
+        """True when the body sets a collateral return output (Conway CDDL body key 16)."""
         return self.collateral_return is not None
 
     @property
     def has_total_collateral(self):
+        """True when the body sets a total collateral amount (Conway CDDL body key 17)."""
         return self.total_collateral is not None
 
     @property
     def has_treasury(self):
+        """True when the body states the current treasury value (Conway CDDL body key 21)."""
         return self.treasury_value is not None
 
     @property
     def has_donation(self):
+        """True when the body includes a treasury donation (Conway CDDL body key 22)."""
         return self.donation is not None
 
     def build_review_pages(self) -> list:
@@ -693,75 +749,75 @@ class CardanoParsedTx:
 
         n = len(self.outputs)
         for i, output in enumerate(self.outputs):
-            pages.append(ReviewPage("output", i, n, output))
+            pages.append(ReviewPage(ReviewSection.OUTPUT, i, n, output))
 
-        pages.append(ReviewPage("fee", 0, 1, self.fee))
+        pages.append(ReviewPage(ReviewSection.FEE, 0, 1, self.fee))
 
         if self.has_validity_interval_start:
-            pages.append(ReviewPage("validity_start", 0, 1, self.validity_interval_start))
+            pages.append(ReviewPage(ReviewSection.VALIDITY_START, 0, 1, self.validity_interval_start))
         if self.has_ttl:
-            pages.append(ReviewPage("ttl", 0, 1, self.ttl))
+            pages.append(ReviewPage(ReviewSection.TTL, 0, 1, self.ttl))
 
         if self.has_certificates:
             certs = list(self.certificates)
             for i, cert in enumerate(certs):
-                pages.append(ReviewPage("certificate", i, len(certs), cert))
+                pages.append(ReviewPage(ReviewSection.CERTIFICATE, i, len(certs), cert))
 
         if self.has_withdrawals:
             items = list(self.withdrawals.items())
             for i, item in enumerate(items):
-                pages.append(ReviewPage("withdrawal", i, len(items), item))
+                pages.append(ReviewPage(ReviewSection.WITHDRAWAL, i, len(items), item))
 
         if self.has_auxiliary_data_hash:
-            pages.append(ReviewPage("aux_data_hash", 0, 1, self.auxiliary_data_hash))
+            pages.append(ReviewPage(ReviewSection.AUX_DATA_HASH, 0, 1, self.auxiliary_data_hash))
 
         if self.has_minting:
             items = list(self.mint.items())
             for i, item in enumerate(items):
-                pages.append(ReviewPage("mint", i, len(items), item))
+                pages.append(ReviewPage(ReviewSection.MINT, i, len(items), item))
 
         if self.has_script_data_hash:
-            pages.append(ReviewPage("script_data_hash", 0, 1, self.script_data_hash))
+            pages.append(ReviewPage(ReviewSection.SCRIPT_DATA_HASH, 0, 1, self.script_data_hash))
 
         if self.has_collateral and not self.has_total_collateral:
             items = list(self.collateral)
             for i, inp in enumerate(items):
-                pages.append(ReviewPage("collateral", i, len(items), inp))
+                pages.append(ReviewPage(ReviewSection.COLLATERAL, i, len(items), inp))
 
         if self.has_required_signers:
             signers = list(self.required_signers)
             for i, signer in enumerate(signers):
-                pages.append(ReviewPage("required_signer", i, len(signers), signer))
+                pages.append(ReviewPage(ReviewSection.REQUIRED_SIGNER, i, len(signers), signer))
 
         if self.has_network_id_field:
-            pages.append(ReviewPage("network_id", 0, 1, self.network_id_field))
+            pages.append(ReviewPage(ReviewSection.NETWORK_ID, 0, 1, self.network_id_field))
 
         if self.has_collateral_return:
-            pages.append(ReviewPage("collateral_return", 0, 1, self.collateral_return))
+            pages.append(ReviewPage(ReviewSection.COLLATERAL_RETURN, 0, 1, self.collateral_return))
 
         if self.has_total_collateral:
-            pages.append(ReviewPage("total_collateral", 0, 1, self.total_collateral))
+            pages.append(ReviewPage(ReviewSection.TOTAL_COLLATERAL, 0, 1, self.total_collateral))
 
         if self.has_reference_inputs:
             items = list(self.reference_inputs)
             for i, inp in enumerate(items):
-                pages.append(ReviewPage("reference_input", i, len(items), inp))
+                pages.append(ReviewPage(ReviewSection.REFERENCE_INPUT, i, len(items), inp))
 
         if self.has_voting:
             items = list(self.voting_procedures.items())
             for i, item in enumerate(items):
-                pages.append(ReviewPage("voting", i, len(items), item))
+                pages.append(ReviewPage(ReviewSection.VOTING, i, len(items), item))
 
         if self.has_proposals:
             proposals = list(self.proposals)
             for i, proposal in enumerate(proposals):
-                pages.append(ReviewPage("proposal", i, len(proposals), proposal))
+                pages.append(ReviewPage(ReviewSection.PROPOSAL, i, len(proposals), proposal))
 
         if self.has_treasury:
-            pages.append(ReviewPage("treasury", 0, 1, self.treasury_value))
+            pages.append(ReviewPage(ReviewSection.TREASURY, 0, 1, self.treasury_value))
 
         if self.has_donation:
-            pages.append(ReviewPage("donation", 0, 1, self.donation))
+            pages.append(ReviewPage(ReviewSection.DONATION, 0, 1, self.donation))
 
         return pages
 
@@ -769,7 +825,7 @@ class CardanoParsedTx:
 @dataclass
 class ReviewPage:
     """A single page in the sequential review flow."""
-    section: str
+    section: ReviewSection
     item_index: int
     total_in_section: int
     data: Any
@@ -785,6 +841,7 @@ class SigningPath:
     path: list[int]
 
     def to_cbor(self, w: "CborWriter") -> None:
+        """Write this signing path (index, path) to the shared writer."""
         w.write_start_map(2)
         w.write_int(1)
         w.write_int(self.index)
@@ -793,6 +850,7 @@ class SigningPath:
 
     @classmethod
     def from_cbor(cls, r: "CborReader") -> "SigningPath":
+        """Read a signing path from the reader, requiring both fields."""
         index = path = None
         for _ in range(r.read_map_len()):
             key = r.read_uint()
@@ -833,6 +891,7 @@ class CardanoMessageSignRequest:
     xfp: bytes = b""
 
     def to_cbor(self) -> bytes:
+        """Encode the request as the key-numbered CBOR map in the class CDDL."""
         w = CborWriter()
         num_entries = 4 + (1 if self.origin is not None else 0) \
             + (1 if self.address_bytes is not None else 0)
@@ -855,6 +914,7 @@ class CardanoMessageSignRequest:
 
     @classmethod
     def from_cbor(cls, data: bytes) -> "CardanoMessageSignRequest":
+        """Decode from CBOR, normalising any parser failure to ValueError."""
         try:
             return cls._from_cbor(data)
         except ValueError:
@@ -864,6 +924,7 @@ class CardanoMessageSignRequest:
 
     @classmethod
     def _from_cbor(cls, data: bytes) -> "CardanoMessageSignRequest":
+        """Parse and validate the request map, requiring payload and signing path."""
         r = CborReader.from_bytes(data)
         request_id = message_payload = required_signing_path = None
         origin = address_bytes = None
@@ -920,6 +981,7 @@ class CardanoCip8SignResponse:
     cose_key: bytes
 
     def to_cbor(self) -> bytes:
+        """Encode the response (request_id, cose_sign1, cose_key) as a CBOR map."""
         w = CborWriter()
         w.write_start_map(3)
         w.write_int(1)
@@ -932,6 +994,7 @@ class CardanoCip8SignResponse:
 
     @classmethod
     def from_cbor(cls, data: bytes) -> "CardanoCip8SignResponse":
+        """Decode from CBOR, normalising any parser failure to ValueError."""
         try:
             return cls._from_cbor(data)
         except ValueError:
@@ -941,6 +1004,7 @@ class CardanoCip8SignResponse:
 
     @classmethod
     def _from_cbor(cls, data: bytes) -> "CardanoCip8SignResponse":
+        """Parse and validate the response map, requiring both COSE fields."""
         r = CborReader.from_bytes(data)
         request_id = None
         cose_sign1 = cose_key = None

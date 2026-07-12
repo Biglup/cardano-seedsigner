@@ -25,6 +25,15 @@ UR_DECODER_QR_TYPES = [
     QRType.CARDANO_CIP8_SIG_RESPONSE,
 ]
 
+CARDANO_UR_DETECTORS = {
+    qr_type: re.compile(f"^UR:{qr_type.upper()}/", re.IGNORECASE)
+    for qr_type in UR_DECODER_QR_TYPES
+}
+"""Maps each Cardano QRType to a compiled first-fragment detector regex.
+
+The UR type string is the single source: the anchored, slash-terminated
+pattern is built from it so a new Cardano UR type needs no separate regex."""
+
 
 class DecodeQRStatus(IntEnum):
     """
@@ -169,11 +178,13 @@ class DecodeQR:
 
     @property
     def is_cardano_account_request(self):
+        """True when the decoded UR is a cardano-account-req (xpub export request)."""
         return self.qr_type == QRType.CARDANO_ACCOUNT_REQUEST
 
 
     @property
     def is_cardano_account(self):
+        """True when the decoded UR is a cardano-account response (account xpubs)."""
         return self.qr_type == QRType.CARDANO_ACCOUNT
 
 
@@ -188,51 +199,61 @@ class DecodeQR:
 
 
     def get_cardano_account_request(self):
+        """Decode the completed UR into a CardanoAccountRequest."""
         from seedsigner.models.cardano_account import CardanoAccountRequest
         return CardanoAccountRequest.from_cbor(self._cardano_result_cbor())
 
 
     def get_cardano_account_response(self):
+        """Decode the completed UR into a CardanoAccountResponse."""
         from seedsigner.models.cardano_account import CardanoAccountResponse
         return CardanoAccountResponse.from_cbor(self._cardano_result_cbor())
 
 
     @property
     def is_cardano_tx_sign_request(self):
+        """True when the decoded UR is a cardano-tx-sig-req (transaction to sign)."""
         return self.qr_type == QRType.CARDANO_TX_SIG_REQUEST
 
 
     @property
     def is_cardano_cip8_sign_request(self):
+        """True when the decoded UR is a cardano-cip8-sig-req (message to sign)."""
         return self.qr_type == QRType.CARDANO_CIP8_SIG_REQUEST
 
 
     @property
     def is_cardano_tx_sign_response(self):
+        """True when the decoded UR is a cardano-tx-sig-res (witness set)."""
         return self.qr_type == QRType.CARDANO_TX_SIG_RESPONSE
 
 
     @property
     def is_cardano_cip8_sign_response(self):
+        """True when the decoded UR is a cardano-cip8-sig-res (COSE signature)."""
         return self.qr_type == QRType.CARDANO_CIP8_SIG_RESPONSE
 
 
     def get_cardano_tx_sign_request(self):
+        """Decode the completed UR into a CardanoSignRequest."""
         from seedsigner.models.cardano_tx import CardanoSignRequest
         return CardanoSignRequest.from_cbor(self._cardano_result_cbor())
 
 
     def get_cardano_cip8_sign_request(self):
+        """Decode the completed UR into a CardanoMessageSignRequest."""
         from seedsigner.models.cardano_tx import CardanoMessageSignRequest
         return CardanoMessageSignRequest.from_cbor(self._cardano_result_cbor())
 
 
     def get_cardano_tx_sign_response(self):
+        """Decode the completed UR into a CardanoTxSignResponse."""
         from seedsigner.models.cardano_tx import CardanoTxSignResponse
         return CardanoTxSignResponse.from_cbor(self._cardano_result_cbor())
 
 
     def get_cardano_cip8_sign_response(self):
+        """Decode the completed UR into a CardanoCip8SignResponse."""
         from seedsigner.models.cardano_tx import CardanoCip8SignResponse
         return CardanoCip8SignResponse.from_cbor(self._cardano_result_cbor())
 
@@ -273,23 +294,9 @@ class DecodeQR:
             logger.debug(f"segment string length: {len(s)}")
 
             # Cardano UR types
-            if re.search("^UR:CARDANO-ACCOUNT-REQ/", s, re.IGNORECASE):
-                return QRType.CARDANO_ACCOUNT_REQUEST
-
-            elif re.search("^UR:CARDANO-ACCOUNT/", s, re.IGNORECASE):
-                return QRType.CARDANO_ACCOUNT
-
-            elif re.search("^UR:CARDANO-TX-SIG-REQ/", s, re.IGNORECASE):
-                return QRType.CARDANO_TX_SIG_REQUEST
-
-            elif re.search("^UR:CARDANO-TX-SIG-RES/", s, re.IGNORECASE):
-                return QRType.CARDANO_TX_SIG_RESPONSE
-
-            elif re.search("^UR:CARDANO-CIP8-SIG-REQ/", s, re.IGNORECASE):
-                return QRType.CARDANO_CIP8_SIG_REQUEST
-
-            elif re.search("^UR:CARDANO-CIP8-SIG-RES/", s, re.IGNORECASE):
-                return QRType.CARDANO_CIP8_SIG_RESPONSE
+            for qr_type, detector in CARDANO_UR_DETECTORS.items():
+                if detector.search(s):
+                    return qr_type
 
             # Seed
             if re.search(r'\d{48,96}', s):

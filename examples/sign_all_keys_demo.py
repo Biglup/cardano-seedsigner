@@ -53,13 +53,12 @@ from seedsigner.models.cardano_tx import (
     ExtraSigner,
     SigningPath,
 )
+from seedsigner.helpers.cardano_utils import HARDENED_OFFSET as HARDENED, COIN_TYPE_ADA
 
 DEFAULT_MNEMONIC = (
     "abandon abandon abandon abandon abandon abandon abandon abandon "
     "abandon abandon abandon about"
 )
-HARDENED = 0x80000000
-COIN_TYPE_ADA = 1815
 ZERO_TX_HASH = b"\x00" * 32
 FOREIGN_ADDR = bytes.fromhex("60" + "11" * 28)
 

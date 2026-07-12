@@ -12,7 +12,7 @@ from cometa import NetworkId
 from seedsigner.models.settings import Settings, SettingsConstants
 from seedsigner.models.seed import Seed
 from seedsigner.views.view import MainMenuView
-from seedsigner.views import seed_views, scan_views
+from seedsigner.views import seed_views, scan_views, cardano_export_views
 from seedsigner.views.tx_review.overview_view import CardanoTxOverviewView
 from seedsigner.views.tx_review.sign_view import CardanoTxSignView, CardanoTxSignedQRView
 from seedsigner.views.msg_sign.overview_view import CardanoMsgOverviewView
@@ -102,7 +102,7 @@ class TestCardanoSignFlows(FlowTest):
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
             FlowStep(scan_views.ScanView, before_run=inject_tx_request()),
-            FlowStep(seed_views.CardanoTxSelectSeedView, is_redirect=True),
+            FlowStep(cardano_export_views.CardanoTxSelectSeedView, is_redirect=True),
             FlowStep(CardanoTxOverviewView),
         ])
 
@@ -111,7 +111,7 @@ class TestCardanoSignFlows(FlowTest):
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
             FlowStep(scan_views.ScanView, before_run=inject_cip8_request()),
-            FlowStep(seed_views.CardanoMsgSelectSeedView, is_redirect=True),
+            FlowStep(cardano_export_views.CardanoMsgSelectSeedView, is_redirect=True),
             FlowStep(CardanoMsgOverviewView),
         ])
 
@@ -122,8 +122,8 @@ class TestCardanoSignFlows(FlowTest):
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
             FlowStep(scan_views.ScanView, before_run=inject_tx_request()),
-            FlowStep(seed_views.CardanoTxSelectSeedView,
-                     button_data_selection=seed_views.CardanoTxSelectSeedView.TYPE_12WORD),
+            FlowStep(cardano_export_views.CardanoTxSelectSeedView,
+                     button_data_selection=cardano_export_views.CardanoTxSelectSeedView.TYPE_12WORD),
             FlowStep(seed_views.SeedMnemonicEntryView, is_redirect=True),
         ])
         assert self.controller.resume_main_flow == self.controller.FLOW__CARDANO_TX_SIGN
@@ -144,7 +144,7 @@ class TestCardanoSignFlows(FlowTest):
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
             FlowStep(scan_views.ScanView, before_run=inject),
-            FlowStep(seed_views.CardanoTxSelectSeedView, is_redirect=True),
+            FlowStep(cardano_export_views.CardanoTxSelectSeedView, is_redirect=True),
             FlowStep(ErrorView),
         ])
 
@@ -172,7 +172,7 @@ class TestCardanoSignFlows(FlowTest):
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
             FlowStep(scan_views.ScanView, before_run=inject),
-            FlowStep(seed_views.CardanoTxSelectSeedView, is_redirect=True),
+            FlowStep(cardano_export_views.CardanoTxSelectSeedView, is_redirect=True),
             FlowStep(ErrorView),
         ])
 
@@ -188,7 +188,7 @@ class TestCardanoSignFlows(FlowTest):
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
             FlowStep(scan_views.ScanView, before_run=inject_tx_request()),
-            FlowStep(seed_views.CardanoTxSelectSeedView, screen_return_value=1),
+            FlowStep(cardano_export_views.CardanoTxSelectSeedView, screen_return_value=1),
             FlowStep(CardanoTxOverviewView),
         ])
         assert self.controller.cardano_seed is seeds[1]
@@ -596,7 +596,7 @@ class TestCardanoSignFlows(FlowTest):
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
             FlowStep(scan_views.ScanView, before_run=inject_cip8_request()),
-            FlowStep(seed_views.CardanoMsgSelectSeedView, before_run=clear_request,
+            FlowStep(cardano_export_views.CardanoMsgSelectSeedView, before_run=clear_request,
                      is_redirect=True),
             FlowStep(ErrorView),
         ])
@@ -729,3 +729,13 @@ class TestCardanoSignFlows(FlowTest):
             ],
             initial_destination_view_args=dict(parsed_tx=self._parsed_tx_for(request)),
         )
+
+
+def test_section_view_map_covers_every_review_section():
+    """Every ReviewSection must have a section view and the map must define no
+    section the enum does not, so adding a section without wiring its view or
+    leaving a stale entry fails here."""
+    from seedsigner.models.cardano_tx import ReviewSection
+    from seedsigner.views.tx_review.sequential_review_view import _SECTION_VIEW_MAP
+
+    assert set(ReviewSection) == set(_SECTION_VIEW_MAP)

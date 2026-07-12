@@ -16,13 +16,14 @@ from cometa import (
     NetworkId,
 )
 
-HARDENED = 0x80000000
-PURPOSE_CIP1852 = 1852
-COIN_TYPE_ADA = 1815
-
-ROLE_PAYMENT = 0
-ROLE_STAKE = 2
-ROLE_DREP = 3
+from seedsigner.helpers.cardano_utils import (
+    HARDENED_OFFSET,
+    PURPOSE_CIP1852,
+    COIN_TYPE_ADA,
+    ROLE_PAYMENT,
+    ROLE_STAKE,
+    ROLE_DREP,
+)
 
 
 class WatchOnlyWallet:
@@ -45,9 +46,9 @@ class WatchOnlyWallet:
 
     def _full_path(self, role: int, index: int = 0):
         return [
-            self.purpose | HARDENED,
-            COIN_TYPE_ADA | HARDENED,
-            self.account_index | HARDENED,
+            self.purpose | HARDENED_OFFSET,
+            COIN_TYPE_ADA | HARDENED_OFFSET,
+            self.account_index | HARDENED_OFFSET,
             role,
             index,
         ]

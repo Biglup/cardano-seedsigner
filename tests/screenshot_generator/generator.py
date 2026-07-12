@@ -130,6 +130,32 @@ def _build_cardano_msg_request():
     )
 
 
+def _build_cardano_network_mismatch_tx() -> CardanoParsedTx:
+    """Build a CardanoParsedTx whose body network id contradicts the request.
+
+    The body declares mainnet (network id 1) while the request names testnet,
+    which makes the overview show the rejection detail screen.
+    """
+    body = bytes.fromhex(
+        "a4"
+        "00" "81" "82" "5820" + "00" * 32 + "00"
+        "01" "81" "82" "581d61" + "11" * 28 + "1a000f4240"
+        "02" "1a0002bf20"
+        "0f" "01"
+    )
+    sign_request = CardanoSignRequest(
+        request_id="network-mismatch",
+        origin="Eternl",
+        sign_data=body,
+        inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0,
+                             xfp=bytes.fromhex(seed_12.get_fingerprint()),
+                             path=[2147485500, 2147485463, 2147483648, 0, 0])],
+        change_outputs=[],
+        network=NetworkId.TESTNET,
+    )
+    return CardanoParsedTx(sign_request, verified_change_indices=[])
+
+
 def _build_cardano_screenshot_configs():
     """Build screenshot configs for Cardano TX and message signing views."""
     parsed_tx = _build_cardano_parsed_tx()
@@ -148,6 +174,7 @@ def _build_cardano_screenshot_configs():
     from seedsigner.views.msg_sign.payload_view import CardanoMsgPayloadView
     from seedsigner.views.msg_sign.sign_view import CardanoMsgSignView
     from seedsigner.views.msg_sign.signing_key_view import CardanoMsgSigningKeyView
+    from seedsigner.views.cardano_explorer_views import CardanoPaymentAddressExplorerView
 
     return [
         # TX Overview / Summary / Sign
@@ -196,6 +223,16 @@ def _build_cardano_screenshot_configs():
         ScreenshotConfig(CardanoMsgPayloadView, dict(msg_request=msg_request), scroll_all=True),
         ScreenshotConfig(CardanoMsgSigningKeyView, dict(msg_request=msg_request)),
         ScreenshotConfig(CardanoMsgSignView, dict(msg_request=msg_request)),
+
+        # Network-mismatch rejection detail screen
+        ScreenshotConfig(cardano_tx_views.CardanoTxOverviewView,
+                         dict(parsed_tx=_build_cardano_network_mismatch_tx()),
+                         screenshot_name="CardanoTxOverviewView_network_mismatch"),
+
+        # Address explorer list
+        ScreenshotConfig(CardanoPaymentAddressExplorerView,
+                         dict(seed_num=0, network_id=1, account_index=0),
+                         screenshot_name="CardanoPaymentAddressExplorerView", scroll_all=True),
     ]
 
 

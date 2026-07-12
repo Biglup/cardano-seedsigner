@@ -4,6 +4,7 @@ from .base import BaseSequentialSectionView
 
 
 class NetworkIdReviewView(BaseSequentialSectionView):
+    """Review page for the network id declared in the body (Conway CDDL body key 15)."""
     section_title = "Network"
 
     def render(self, page, title, has_left, has_right, total_pages):

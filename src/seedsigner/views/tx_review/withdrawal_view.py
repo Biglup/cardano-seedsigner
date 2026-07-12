@@ -1,38 +1,39 @@
 """Withdrawal section review view."""
 
-from seedsigner.gui.screens.tx_review import format_ada
+from seedsigner.gui.screens.tx_review import format_ada, Line
 
 from .base import BaseSequentialSectionView
 from .certificate_view import _format_bech32
 
 
 class WithdrawalReviewView(BaseSequentialSectionView):
+    """Review page for a reward-account withdrawal (Conway CDDL body key 5)."""
     section_title = "Withdrawal"
 
     def render(self, page, title, has_left, has_right, total_pages):
-        from seedsigner.gui.screens.tx_review import CardanoCertificateSequentialScreen
+        from seedsigner.gui.screens.tx_review import CardanoContentSequentialScreen
 
         reward_addr, amount = page.data
         addr_str = str(reward_addr)
         fmt, hn, tn = _format_bech32(addr_str)
 
         content = [
-            ("label", "Amount:"),
-            ("spacer_small", ""),
-            ("value_large", format_ada(amount)),
-            ("spacer", ""),
-            ("label", "Reward Account:"),
-            ("spacer_small", ""),
-            ("hash_display", fmt, hn, tn),
+            Line.label("Amount:"),
+            Line.spacer_small(),
+            Line.value_large(format_ada(amount)),
+            Line.spacer(),
+            Line.label("Reward Account:"),
+            Line.spacer_small(),
+            Line.hash(fmt, hn, tn),
         ]
         if self._is_key_hash_account(reward_addr):
-            content.append(("spacer_small", ""))
-            content.append(("verified", "Own Reward Account")
+            content.append(Line.spacer_small())
+            content.append(Line.verified("Own Reward Account")
                            if self._is_own_reward_account(reward_addr)
-                           else ("foreign", "Unknown Reward Account"))
+                           else Line.foreign("Unknown Reward Account"))
 
         return self.run_screen(
-            CardanoCertificateSequentialScreen,
+            CardanoContentSequentialScreen,
             title=title,
             page_num=self.global_index + 1,
             total_pages=total_pages,

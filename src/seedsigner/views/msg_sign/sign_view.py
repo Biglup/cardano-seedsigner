@@ -68,11 +68,12 @@ class CardanoMsgSignView(View):
         """
         from seedsigner.gui.screens.screen import WarningScreen
         from seedsigner.helpers.cardano_signing import build_cip8_sign_response
+        from seedsigner.helpers.cardano_utils import seed_fingerprint
 
         seed = self.controller.cardano_seed
         request = self.msg_request
 
-        if seed is not None and request.xfp and request.xfp != bytes.fromhex(seed.get_fingerprint()):
+        if seed is not None and request.xfp and request.xfp != seed_fingerprint(seed):
             self.run_screen(
                 WarningScreen,
                 title=_("Cannot Sign"),
@@ -131,6 +132,7 @@ class CardanoMsgSignedQRView(View):
         )
 
     def run(self):
+        """Display the COSE QR, clear the pending request, and exit to the menu."""
         from seedsigner.gui.screens.screen import QRDisplayScreen
 
         self.run_screen(QRDisplayScreen, qr_encoder=self.qr_encoder)

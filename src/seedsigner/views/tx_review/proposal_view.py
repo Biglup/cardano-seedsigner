@@ -11,7 +11,8 @@ as ADA.
 
 from cometa import Bech32, GovernanceActionType, PlutusLanguageVersion
 
-from seedsigner.gui.screens.tx_review import format_ada
+from seedsigner.gui.screens.tx_review import format_ada, Line
+from seedsigner.helpers.cardano_utils import format_percent
 
 from .base import BaseSequentialSectionView
 from .certificate_view import _format_bech32, _add_anchor
@@ -75,10 +76,12 @@ _COEFFICIENT_FIELDS = {"pool_pledge_influence", "ref_script_cost_per_byte"}
 
 
 class ProposalReviewView(BaseSequentialSectionView):
+    """Review page for one governance proposal / action (Conway CDDL body key 20)."""
     section_title = "Proposal"
 
     def render(self, page, title, has_left, has_right, total_pages):
-        from seedsigner.gui.screens.tx_review import CardanoCertificateSequentialScreen
+        """Render the proposal, rejecting the transaction if it cannot be displayed."""
+        from seedsigner.gui.screens.tx_review import CardanoContentSequentialScreen
 
         proposal = page.data
         try:
@@ -87,7 +90,7 @@ class ProposalReviewView(BaseSequentialSectionView):
             return self.reject_undisplayable("governance proposal")
 
         return self.run_screen(
-            CardanoCertificateSequentialScreen,
+            CardanoContentSequentialScreen,
             title=title,
             page_num=self.global_index + 1,
             total_pages=total_pages,
@@ -106,21 +109,21 @@ class ProposalReviewView(BaseSequentialSectionView):
         at = proposal.action_type
         friendly = _ACTION_TYPE_NAMES.get(at, at.name)
 
-        lines.append(("label", "Type:"))
-        lines.append(("spacer_small", ""))
-        lines.append(("value_highlight", friendly))
+        lines.append(Line.label("Type:"))
+        lines.append(Line.spacer_small())
+        lines.append(Line.value_highlight(friendly))
 
-        lines.append(("spacer", ""))
-        lines.append(("label", "Deposit:"))
-        lines.append(("spacer_small", ""))
-        lines.append(("value_large", format_ada(proposal.deposit)))
+        lines.append(Line.spacer())
+        lines.append(Line.label("Deposit:"))
+        lines.append(Line.spacer_small())
+        lines.append(Line.value_large(format_ada(proposal.deposit)))
 
-        lines.append(("spacer", ""))
+        lines.append(Line.spacer())
         reward_bech32 = str(proposal.reward_address)
         fmt, hn, tn = _format_bech32(reward_bech32)
-        lines.append(("label", "Reward Account:"))
-        lines.append(("spacer_small", ""))
-        lines.append(("hash_display", fmt, hn, tn))
+        lines.append(Line.label("Reward Account:"))
+        lines.append(Line.spacer_small())
+        lines.append(Line.hash(fmt, hn, tn))
 
         if at == GovernanceActionType.PARAMETER_CHANGE:
             self._add_parameter_change(lines, proposal.to_parameter_change_action())
@@ -144,12 +147,12 @@ class ProposalReviewView(BaseSequentialSectionView):
         """Add governance action ID if present."""
         if gov_id is None:
             return
-        lines.append(("spacer", ""))
+        lines.append(Line.spacer())
         gov_bech32 = gov_id.to_bech32()
         fmt, hn, tn = _format_bech32(gov_bech32)
-        lines.append(("label", "Prev Action:"))
-        lines.append(("spacer_small", ""))
-        lines.append(("hash_display", fmt, hn, tn))
+        lines.append(Line.label("Prev Action:"))
+        lines.append(Line.spacer_small())
+        lines.append(Line.hash(fmt, hn, tn))
 
     def _add_parameter_change(self, lines, action):
         """Render a parameter change action listing every changed parameter.
@@ -164,24 +167,24 @@ class ProposalReviewView(BaseSequentialSectionView):
         self._add_gov_action_id(lines, action.governance_action_id)
 
         if action.policy_hash:
-            lines.append(("spacer", ""))
+            lines.append(Line.spacer())
             policy_bech32 = Bech32.encode("script", action.policy_hash.to_bytes())
             fmt, hn, tn = _format_bech32(policy_bech32)
-            lines.append(("label", "Policy:"))
-            lines.append(("spacer_small", ""))
-            lines.append(("hash_display", fmt, hn, tn))
+            lines.append(Line.label("Policy:"))
+            lines.append(Line.spacer_small())
+            lines.append(Line.hash(fmt, hn, tn))
 
         ppu = action.protocol_param_update
-        lines.append(("spacer", ""))
-        lines.append(("label", "Changes:"))
+        lines.append(Line.spacer())
+        lines.append(Line.label("Changes:"))
 
         for field_name, friendly_name in _PARAM_FIELDS:
             val = getattr(ppu, field_name, None)
             if val is None:
                 continue
             for line in self._format_param_lines(field_name, friendly_name, val):
-                lines.append(("spacer_small", ""))
-                lines.append(("value_highlight", line))
+                lines.append(Line.spacer_small())
+                lines.append(Line.value_highlight(line))
 
         self._add_voting_thresholds(lines, ppu)
 
@@ -216,10 +219,7 @@ class ProposalReviewView(BaseSequentialSectionView):
         if hasattr(val, "to_float"):
             if field_name in _COEFFICIENT_FIELDS:
                 return f"{float(val):g}"
-            pct = float(val) * 100
-            if pct == int(pct):
-                return f"{int(pct)}%"
-            return f"{pct:.2f}%"
+            return format_percent(val)
         if hasattr(val, "memory") and hasattr(val, "cpu_steps"):
             return f"mem:{val.memory:,} cpu:{val.cpu_steps:,}"
         if hasattr(val, "major") and hasattr(val, "minor"):
@@ -232,8 +232,8 @@ class ProposalReviewView(BaseSequentialSectionView):
         """Add DRep and pool voting thresholds if changed."""
         drep = getattr(ppu, "drep_voting_thresholds", None)
         if drep:
-            lines.append(("spacer", ""))
-            lines.append(("label", "DRep Thresholds:"))
+            lines.append(Line.spacer())
+            lines.append(Line.label("DRep Thresholds:"))
             for name, friendly in [
                 ("motion_no_confidence", "No Confidence"),
                 ("committee_normal", "Committee Normal"),
@@ -248,15 +248,14 @@ class ProposalReviewView(BaseSequentialSectionView):
             ]:
                 val = getattr(drep, name, None)
                 if val is not None:
-                    pct = float(val) * 100
-                    pct_str = f"{int(pct)}%" if pct == int(pct) else f"{pct:.2f}%"
-                    lines.append(("spacer_small", ""))
-                    lines.append(("value_highlight", f"{friendly}: {pct_str}"))
+                    pct_str = format_percent(val)
+                    lines.append(Line.spacer_small())
+                    lines.append(Line.value_highlight(f"{friendly}: {pct_str}"))
 
         pool = getattr(ppu, "pool_voting_thresholds", None)
         if pool:
-            lines.append(("spacer", ""))
-            lines.append(("label", "Pool Thresholds:"))
+            lines.append(Line.spacer())
+            lines.append(Line.label("Pool Thresholds:"))
             for name, friendly in [
                 ("motion_no_confidence", "No Confidence"),
                 ("committee_normal", "Committee Normal"),
@@ -266,95 +265,96 @@ class ProposalReviewView(BaseSequentialSectionView):
             ]:
                 val = getattr(pool, name, None)
                 if val is not None:
-                    pct = float(val) * 100
-                    pct_str = f"{int(pct)}%" if pct == int(pct) else f"{pct:.2f}%"
-                    lines.append(("spacer_small", ""))
-                    lines.append(("value_highlight", f"{friendly}: {pct_str}"))
+                    pct_str = format_percent(val)
+                    lines.append(Line.spacer_small())
+                    lines.append(Line.value_highlight(f"{friendly}: {pct_str}"))
 
     def _add_hard_fork(self, lines, action):
+        """Show the prior action id and the protocol version the hard fork targets."""
         self._add_gov_action_id(lines, action.governance_action_id)
 
         pv = action.protocol_version
-        lines.append(("spacer", ""))
-        lines.append(("label", "Target Version:"))
-        lines.append(("spacer_small", ""))
-        lines.append(("value_highlight", f"{pv.major}.{pv.minor}"))
+        lines.append(Line.spacer())
+        lines.append(Line.label("Target Version:"))
+        lines.append(Line.spacer_small())
+        lines.append(Line.value_highlight(f"{pv.major}.{pv.minor}"))
 
     def _add_treasury_withdrawals(self, lines, action):
+        """Show the optional guardrail policy and each reward account and its amount."""
         if action.policy_hash:
-            lines.append(("spacer", ""))
+            lines.append(Line.spacer())
             policy_bech32 = Bech32.encode("script", action.policy_hash.to_bytes())
             fmt, hn, tn = _format_bech32(policy_bech32)
-            lines.append(("label", "Policy:"))
-            lines.append(("spacer_small", ""))
-            lines.append(("hash_display", fmt, hn, tn))
+            lines.append(Line.label("Policy:"))
+            lines.append(Line.spacer_small())
+            lines.append(Line.hash(fmt, hn, tn))
 
-        lines.append(("spacer", ""))
-        lines.append(("label", f"Withdrawals ({len(action.withdrawals)}):"))
+        lines.append(Line.spacer())
+        lines.append(Line.label(f"Withdrawals ({len(action.withdrawals)}):"))
 
         for addr, amount in action.withdrawals.items():
             addr_bech32 = str(addr)
             fmt, hn, tn = _format_bech32(addr_bech32)
-            lines.append(("spacer", ""))
-            lines.append(("value_large", format_ada(amount)))
-            lines.append(("spacer_small", ""))
-            lines.append(("hash_display", fmt, hn, tn))
+            lines.append(Line.spacer())
+            lines.append(Line.value_large(format_ada(amount)))
+            lines.append(Line.spacer_small())
+            lines.append(Line.hash(fmt, hn, tn))
 
     def _add_update_committee(self, lines, action):
+        """Show the quorum and the committee members being added (with terms) or removed."""
         self._add_gov_action_id(lines, action.governance_action_id)
 
-        q = action.quorum
-        pct = float(q) * 100
-        q_str = f"{int(pct)}%" if pct == int(pct) else f"{pct:.2f}%"
-        lines.append(("spacer", ""))
-        lines.append(("label", "Quorum:"))
-        lines.append(("spacer_small", ""))
-        lines.append(("value_highlight", q_str))
+        q_str = format_percent(action.quorum)
+        lines.append(Line.spacer())
+        lines.append(Line.label("Quorum:"))
+        lines.append(Line.spacer_small())
+        lines.append(Line.value_highlight(q_str))
 
         if len(action.members_to_be_added) > 0:
-            lines.append(("spacer", ""))
-            lines.append(("label", f"Add ({len(action.members_to_be_added)}):"))
+            lines.append(Line.spacer())
+            lines.append(Line.label(f"Add ({len(action.members_to_be_added)}):"))
             for cred, epoch in action.members_to_be_added.items():
                 prefix = "cc_cold_vkh" if cred.is_key_hash else "cc_cold"
                 bech32_str = Bech32.encode(prefix, cred.hash_bytes)
                 fmt, hn, tn = _format_bech32(bech32_str)
-                lines.append(("spacer", ""))
-                lines.append(("hash_display", fmt, hn, tn))
-                lines.append(("spacer_small", ""))
-                lines.append(("value_highlight", f"Term: epoch {epoch}"))
+                lines.append(Line.spacer())
+                lines.append(Line.hash(fmt, hn, tn))
+                lines.append(Line.spacer_small())
+                lines.append(Line.value_highlight(f"Term: epoch {epoch}"))
 
         if len(action.members_to_be_removed) > 0:
-            lines.append(("spacer", ""))
-            lines.append(("label", f"Remove ({len(action.members_to_be_removed)}):"))
+            lines.append(Line.spacer())
+            lines.append(Line.label(f"Remove ({len(action.members_to_be_removed)}):"))
             for cred in action.members_to_be_removed:
                 prefix = "cc_cold_vkh" if cred.is_key_hash else "cc_cold"
                 bech32_str = Bech32.encode(prefix, cred.hash_bytes)
                 fmt, hn, tn = _format_bech32(bech32_str)
-                lines.append(("spacer", ""))
-                lines.append(("hash_display", fmt, hn, tn))
+                lines.append(Line.spacer())
+                lines.append(Line.hash(fmt, hn, tn))
 
     def _add_new_constitution(self, lines, action):
+        """Show the constitution anchor URL and hash and its optional guardrail script."""
         self._add_gov_action_id(lines, action.governance_action_id)
 
         constitution = action.constitution
 
-        lines.append(("spacer", ""))
-        lines.append(("label", "Constitution URL:"))
-        lines.append(("spacer_small", ""))
-        lines.append(("value_highlight", str(constitution.anchor.url)))
+        lines.append(Line.spacer())
+        lines.append(Line.label("Constitution URL:"))
+        lines.append(Line.spacer_small())
+        lines.append(Line.value_highlight(str(constitution.anchor.url)))
         anchor_hash = constitution.anchor.hash_hex
         if anchor_hash:
-            lines.append(("spacer", ""))
-            lines.append(("label", "Constitution Hash:"))
-            lines.append(("spacer_small", ""))
+            lines.append(Line.spacer())
+            lines.append(Line.label("Constitution Hash:"))
+            lines.append(Line.spacer_small())
             from .certificate_view import _format_hex_display
             fmt = _format_hex_display(anchor_hash)
-            lines.append(("hash_display", fmt, 8, 8))
+            lines.append(Line.hash(fmt, 8, 8))
 
         if constitution.script_hash:
-            lines.append(("spacer", ""))
+            lines.append(Line.spacer())
             script_bech32 = Bech32.encode("script", constitution.script_hash.to_bytes())
             fmt, hn, tn = _format_bech32(script_bech32)
-            lines.append(("label", "Script:"))
-            lines.append(("spacer_small", ""))
-            lines.append(("hash_display", fmt, hn, tn))
+            lines.append(Line.label("Script:"))
+            lines.append(Line.spacer_small())
+            lines.append(Line.hash(fmt, hn, tn))
