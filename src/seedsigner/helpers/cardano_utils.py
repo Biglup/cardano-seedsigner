@@ -68,6 +68,16 @@ def format_percent(value) -> str:
     return f"{pct:.2f}%"
 
 
+def sanitize_origin(origin):
+    """Strip non-printable chars and cap at 20 characters."""
+    if not origin:
+        return origin
+    cleaned = "".join(c for c in origin if c.isprintable())
+    if len(cleaned) > 20:
+        cleaned = cleaned[:20] + "..."
+    return cleaned or None
+
+
 def path_purpose(path) -> int:
     """The unhardened purpose component of a derivation path, or ``None``."""
     if not path:
