@@ -416,6 +416,14 @@ BODY_CBOR_ONE_VOTE = bytes.fromhex(
     "13" "a1" "8200581c" + "22" * 28 + "a1" "825820" + "33" * 32 + "00" "8201f6"
 )
 
+BODY_CBOR_WITH_UPDATE = bytes.fromhex(
+    "a4"
+    "00" "80"
+    "01" "80"
+    "02" "1a00029810"
+    "06" "82" "a1" "581c" + "aa" * 28 + "a1" "00" "1a000f423f" "05"
+)
+
 
 def _parsed_tx(verified_change_indices, sign_data=BODY_CBOR_ONE_OUTPUT):
     from seedsigner.models.cardano_tx import CardanoParsedTx
@@ -446,6 +454,14 @@ def test_has_voting_false_for_empty_voting_procedures():
 def test_has_voting_true_for_nonempty_voting_procedures():
     parsed = _parsed_tx([], sign_data=BODY_CBOR_ONE_VOTE)
     assert parsed.has_voting
+
+
+def test_body_with_protocol_param_update_field_is_rejected():
+    """A body carrying the pre-Conway protocol parameter update (key 6) has
+    no review page, so parsing it must raise ValueError instead of letting
+    the user approve content that was never displayed."""
+    with pytest.raises(ValueError, match="protocol parameter update"):
+        _parsed_tx([], sign_data=BODY_CBOR_WITH_UPDATE)
 
 
 def test_signing_input_encode_path_without_xfp_raises():

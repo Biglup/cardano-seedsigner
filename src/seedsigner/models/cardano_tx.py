@@ -424,6 +424,12 @@ class CardanoParsedTx:
     auxiliary_data_hash, script_data_hash, required_signers, collateral
     return and treasury/donation values.
 
+    Construction raises ValueError when the body carries the pre-Conway
+    protocol parameter update field (key 6). Conway-era Cardano replaced
+    that mechanism with governance proposals, the device has no review page
+    for it, and nothing consequential may be hidden from the user, so the
+    request is refused like any other unreadable transaction.
+
     `collateral_return_verified` is True when the request's
     collateral_return_path derives to the body's collateral_return address.
     `owned_key_hashes` holds the blake2b-224 hashes of every public key
@@ -436,6 +442,10 @@ class CardanoParsedTx:
         from cometa import CborReader, TransactionBody
         reader = CborReader.from_bytes(sign_request.sign_data)
         self.body = TransactionBody.from_cbor(reader)
+        if self.body.update is not None:
+            raise ValueError(
+                "transaction body contains a pre-Conway protocol parameter "
+                "update (key 6), which this device cannot display")
         self.sign_request = sign_request
         self.verified_change_indices = verified_change_indices
         self.collateral_return_verified = False
@@ -672,6 +682,9 @@ class CardanoParsedTx:
         required signers 14, network id 15, collateral return 16, total
         collateral 17, reference inputs 18, voting procedures 19,
         proposals 20, treasury 21, donation 22.
+
+        The pre-Conway protocol parameter update (key 6) never gets a page:
+        a body carrying it is rejected at construction time.
         """
         pages = []
 

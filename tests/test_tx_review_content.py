@@ -7,6 +7,8 @@ ref_script_cost_per_byte) must render as plain decimals while genuinely
 rate-like parameters keep their percentage rendering. Every parameter a
 protocol param update can change must appear in the Changes list, including
 execution_costs (both price rationals) and cost_models (a presence digest).
+Every cometa TransactionBody accessor must likewise be accounted for by
+build_review_pages, so no body field can be silently omitted from review.
 """
 
 from unittest.mock import MagicMock, patch
@@ -191,3 +193,37 @@ def test_param_fields_cover_every_protocol_param_update_accessor():
     explicitly_rendered = {"pool_voting_thresholds", "drep_voting_thresholds"}
     covered = {name for name, _ in _PARAM_FIELDS} | explicitly_rendered
     assert accessors <= covered, f"unrendered parameters: {accessors - covered}"
+
+
+def test_review_pages_cover_every_transaction_body_accessor():
+    """Every cometa TransactionBody accessor must be surfaced as a review
+    page, deliberately excluded, or rejected at parse time, so a new body
+    field added by cometa cannot slip past review unnoticed.
+
+    Excluded: `inputs` (key 0) are opaque UTXO pointers the device cannot
+    resolve to amounts (the review verifies outputs, fee and collateral
+    instead), and `hash` is the computed body digest, not a body field.
+    Individual `collateral` inputs are surfaced only when total_collateral
+    is absent, but the accessor is still surfaced.
+
+    Rejected: `update` (key 6), the pre-Conway protocol parameter update;
+    CardanoParsedTx refuses to construct when it is present.
+    """
+    from cometa import TransactionBody
+
+    accessors = {
+        name for name in dir(TransactionBody)
+        if isinstance(getattr(TransactionBody, name), property)
+    }
+    surfaced = {
+        "outputs", "fee", "invalid_before", "invalid_after", "certificates",
+        "withdrawals", "aux_data_hash", "mint", "script_data_hash",
+        "collateral", "required_signers", "network_id", "collateral_return",
+        "total_collateral", "reference_inputs", "voting_procedures",
+        "proposal_procedures", "treasury_value", "donation",
+    }
+    excluded = {"inputs", "hash"}
+    rejected = {"update"}
+    covered = surfaced | excluded | rejected
+    assert accessors <= covered, f"unaccounted body accessors: {accessors - covered}"
+    assert covered <= accessors, f"stale accessor names: {covered - accessors}"

@@ -148,6 +148,34 @@ class TestCardanoSignFlows(FlowTest):
             FlowStep(ErrorView),
         ])
 
+    def test_tx_sign_body_with_param_update_routes_to_error(self):
+        """A body carrying the pre-Conway protocol parameter update (key 6)
+        has no review page, so the request must land on the friendly
+        ErrorView and never reach the review or sign views."""
+        from seedsigner.models.cardano_tx import CardanoSignRequest, SigningInput
+        from seedsigner.views.view import ErrorView
+
+        body = bytes.fromhex(
+            "a4"
+            "00" "80"
+            "01" "80"
+            "02" "1a00029810"
+            "06" "82" "a1" "581c" + "aa" * 28 + "a1" "00" "1a000f423f" "05"
+        )
+        self._load_seed()
+        request = CardanoSignRequest(
+            request_id="update", origin=None, sign_data=body,
+            inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=XFP, path=PATH)],
+            change_outputs=[], network=NetworkId.MAINNET,
+        )
+        inject = lambda view: _feed(view, "cardano-tx-sig-req", request.to_cbor())
+        self.run_sequence([
+            FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
+            FlowStep(scan_views.ScanView, before_run=inject),
+            FlowStep(seed_views.CardanoTxSelectSeedView, is_redirect=True),
+            FlowStep(ErrorView),
+        ])
+
     def test_tx_sign_multi_seed_picker_selects_correct_seed(self):
         SECOND_MNEMONIC = ("legal winner thank year wave sausage worth useful "
                            "legal winner thank yellow").split()
