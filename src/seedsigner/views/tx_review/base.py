@@ -5,13 +5,15 @@ Provides shared navigation logic so each section view only needs
 to implement its own render() method.
 """
 
+from gettext import gettext as _
+
 from seedsigner.gui.screens import RET_CODE__BACK_BUTTON
 from seedsigner.gui.screens.tx_review import (
     RET_CODE__LEFT_BUTTON,
     RET_CODE__RIGHT_BUTTON,
 )
 from seedsigner.models.cardano_tx import CardanoParsedTx
-from seedsigner.views.view import View, Destination, BackStackView
+from seedsigner.views.view import View, Destination, BackStackView, MainMenuView
 
 
 class BaseSequentialSectionView(View):
@@ -60,9 +62,35 @@ class BaseSequentialSectionView(View):
             content_lines=content_lines,
         )
 
+    def reject_undisplayable(self, element_name):
+        """Refuse to sign a transaction containing an element the device
+        cannot decode for display.
+
+        The user must be able to review everything they sign, so show a dire
+        warning, clear the pending sign request and exit to the main menu so
+        the sign confirmation can never be reached.
+        """
+        from seedsigner.gui.screens.screen import ButtonOption, DireWarningScreen
+
+        self.run_screen(
+            DireWarningScreen,
+            title=_("Cannot Display"),
+            status_headline=_("TX Rejected"),
+            text=_("This transaction contains a {} this device cannot display. It will not be signed.").format(element_name),
+            show_back_button=False,
+            button_data=[ButtonOption("OK")],
+        )
+        self.controller.cardano_tx_sign_request = None
+        self.controller.cardano_seed = None
+        self.controller.resume_main_flow = None
+        return Destination(MainMenuView, clear_history=True)
+
     def _handle_navigation(self, result, total_pages):
         from .signing_keys_view import CardanoTxSigningKeysView
         from .sequential_review_view import CardanoTxSequentialReviewView
+
+        if isinstance(result, Destination):
+            return result
 
         is_last_page = self.global_index >= total_pages - 1
 

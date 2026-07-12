@@ -67,7 +67,10 @@ class ProposalReviewView(BaseSequentialSectionView):
         from seedsigner.gui.screens.tx_review import CardanoCertificateSequentialScreen
 
         proposal = page.data
-        content = self._build_content(proposal)
+        try:
+            content = self._build_content(proposal)
+        except Exception:
+            return self.reject_undisplayable("governance proposal")
 
         return self.run_screen(
             CardanoCertificateSequentialScreen,
@@ -104,23 +107,19 @@ class ProposalReviewView(BaseSequentialSectionView):
         lines.append(("hash_display", fmt, hn, tn))
 
         # Type-specific fields
-        try:
-            if at == GovernanceActionType.PARAMETER_CHANGE:
-                self._add_parameter_change(lines, proposal.to_parameter_change_action())
-            elif at == GovernanceActionType.HARD_FORK_INITIATION:
-                self._add_hard_fork(lines, proposal.to_hard_fork_initiation_action())
-            elif at == GovernanceActionType.TREASURY_WITHDRAWALS:
-                self._add_treasury_withdrawals(lines, proposal.to_treasury_withdrawals_action())
-            elif at == GovernanceActionType.NO_CONFIDENCE:
-                self._add_gov_action_id(lines, proposal.to_no_confidence_action().governance_action_id)
-            elif at == GovernanceActionType.UPDATE_COMMITTEE:
-                self._add_update_committee(lines, proposal.to_update_committee_action())
-            elif at == GovernanceActionType.NEW_CONSTITUTION:
-                self._add_new_constitution(lines, proposal.to_constitution_action())
-            # INFO has no extra fields
-        except Exception:
-            lines.append(("spacer", ""))
-            lines.append(("value_text", "(parse error)"))
+        if at == GovernanceActionType.PARAMETER_CHANGE:
+            self._add_parameter_change(lines, proposal.to_parameter_change_action())
+        elif at == GovernanceActionType.HARD_FORK_INITIATION:
+            self._add_hard_fork(lines, proposal.to_hard_fork_initiation_action())
+        elif at == GovernanceActionType.TREASURY_WITHDRAWALS:
+            self._add_treasury_withdrawals(lines, proposal.to_treasury_withdrawals_action())
+        elif at == GovernanceActionType.NO_CONFIDENCE:
+            self._add_gov_action_id(lines, proposal.to_no_confidence_action().governance_action_id)
+        elif at == GovernanceActionType.UPDATE_COMMITTEE:
+            self._add_update_committee(lines, proposal.to_update_committee_action())
+        elif at == GovernanceActionType.NEW_CONSTITUTION:
+            self._add_new_constitution(lines, proposal.to_constitution_action())
+        # INFO has no extra fields
 
         # Anchor
         if proposal.anchor:
