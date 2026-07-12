@@ -178,13 +178,38 @@ def _credential_key_hash(address_bytes, role=None):
     return None
 
 
+def _payment_key_credential_matches(addr, derived_payment_cred) -> bool:
+    """Whether `addr`'s payment credential is a key hash equal to the derived
+    payment credential's hash.
+
+    Used for base addresses whose stake part is a script hash: the device
+    cannot rebuild the whole address (it does not know the script), but
+    ownership of the payment credential is still provable. Any shape that
+    cannot be positively checked returns False.
+    """
+    from cometa import CredentialType
+
+    try:
+        base = addr.to_base_address()
+        if base is None:
+            return False
+        payment_cred = base.payment_credential
+        if payment_cred.type != CredentialType.KEY_HASH:
+            return False
+        return payment_cred.hash.to_bytes() == derived_payment_cred.hash.to_bytes()
+    except Exception:
+        return False
+
+
 def _derived_address_matches(root_key, path, network_id, actual_addr) -> bool:
     """Whether the address derived from `path` equals `actual_addr`.
 
     Supports BaseAddress (payment key from the full path + staking key from
     the same account's 2/0 path) and EnterpriseAddress (payment key only);
-    the actual address's type selects the derivation. Any other address type
-    (pointer, reward, script-based, byron) or a parse failure returns False.
+    the actual address's type selects the derivation. A base address with a
+    script stake part is matched on its payment credential alone, since the
+    stake script is not derivable from the seed. Any other address type
+    (pointer, reward, script-payment, byron) or a parse failure returns False.
     """
     from cometa import (
         Address,
@@ -196,7 +221,6 @@ def _derived_address_matches(root_key, path, network_id, actual_addr) -> bool:
 
     BASE_TYPES = {
         AddressType.BASE_PAYMENT_KEY_STAKE_KEY,
-        AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT,
     }
     ENTERPRISE_TYPES = {
         AddressType.ENTERPRISE_KEY,
@@ -221,6 +245,14 @@ def _derived_address_matches(root_key, path, network_id, actual_addr) -> bool:
         )
         derived_addr = BaseAddress.from_credentials(network_id, payment_cred, stake_cred)
         return str(derived_addr) == actual_addr
+
+    if addr_type == AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT:
+        try:
+            if parsed.network_id != network_id:
+                return False
+        except Exception:
+            return False
+        return _payment_key_credential_matches(parsed, payment_cred)
 
     if addr_type in ENTERPRISE_TYPES:
         derived_addr = EnterpriseAddress.from_credentials(network_id, payment_cred)
@@ -314,7 +346,9 @@ def verify_message_signing_address(msg_request, seed) -> bool:
     """Verify that the signing path matches the address in a CIP-8 request.
 
     For base/enterprise addresses, derives the payment key from the signing
-    path and verifies it matches the payment credential in the address.
+    path and verifies it matches the payment credential in the address. A
+    base address with a script stake part is matched on its payment
+    credential alone, since the stake script is not derivable from the seed.
     For reward addresses, derives the staking key and verifies the stake
     credential.
     For DRep credentials (28-byte raw key hash), compares directly against
@@ -351,7 +385,6 @@ def verify_message_signing_address(msg_request, seed) -> bool:
 
     BASE_TYPES = {
         AddressType.BASE_PAYMENT_KEY_STAKE_KEY,
-        AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT,
     }
     ENTERPRISE_TYPES = {
         AddressType.ENTERPRISE_KEY,
@@ -365,6 +398,9 @@ def verify_message_signing_address(msg_request, seed) -> bool:
         derived_cred = Credential.from_key_hash(
             key.get_public_key().to_ed25519_key().to_hash()
         )
+
+        if addr_type == AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT:
+            return _payment_key_credential_matches(addr, derived_cred)
 
         if addr_type in BASE_TYPES:
             # Payment credential from signing path + stake from same account
