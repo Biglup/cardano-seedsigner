@@ -458,6 +458,7 @@ class SeedWordsScreen(WarningEdgesMixin, ButtonListScreen):
     words: List[str] = None
     page_index: int = 0
     num_pages: int = 3
+    words_per_page: int = 4
     is_bottom_list: bool = True
     status_color: str = GUIConstants.DIRE_WARNING_COLOR
 
@@ -466,8 +467,6 @@ class SeedWordsScreen(WarningEdgesMixin, ButtonListScreen):
         # TRANSLATOR_NOTE: Displays the page number and total: (e.g. page 1 of 6)
         self.title = _("Seed Words: {}/{}").format(self.page_index + 1, self.num_pages)
         super().__post_init__()
-
-        words_per_page = len(self.words)
 
         self.body_x = 0
         self.body_y = self.top_nav.height - int(GUIConstants.COMPONENT_PADDING / 2)
@@ -513,7 +512,7 @@ class SeedWordsScreen(WarningEdgesMixin, ButtonListScreen):
             draw.text(
                 (number_box_x + int(number_box_width/2), baseline_y),
                 font=number_font,
-                text=str(self.page_index * words_per_page + index + 1),
+                text=str(self.page_index * self.words_per_page + index + 1),
                 fill=GUIConstants.INFO_COLOR,
                 anchor="ms"  # Middle (centered), baSeline
             )
@@ -1476,52 +1475,6 @@ class SeedAddressVerificationSuccessScreen(LargeIconStatusScreen):
         self.components.append(TextArea(
             text=index_str,
             screen_y=self.components[-1].screen_y + self.components[-1].height + GUIConstants.COMPONENT_PADDING,
-        ))
-
-
-
-@dataclass
-class LoadMultisigWalletDescriptorScreen(ButtonListScreen):
-    def __post_init__(self):
-        self.title = _("Multisig Verification")
-        self.is_bottom_list = True
-        super().__post_init__()
-
-        self.components.append(TextArea(
-            text=_("Load your multisig wallet descriptor to verify your receive/self-transfer or change address."),
-            screen_y=self.top_nav.height,
-            height=self.buttons[0].screen_y - self.top_nav.height,
-        ))
-
-
-
-@dataclass
-class MultisigWalletDescriptorScreen(ButtonListScreen):
-    policy: str = None
-    fingerprints: List[str] = None
-
-    def __post_init__(self):
-        self.title = _("Descriptor Loaded")
-        self.is_bottom_list = True
-        super().__post_init__()
-
-        self.components.append(IconTextLine(
-            # TRANSLATOR_NOTE: Label for the multisig wallet's signing policy (e.g. 2-of-3)
-            label_text=_("Policy"),
-            value_text=self.policy,
-            font_size=20,
-            screen_y=self.top_nav.height,
-            is_text_centered=True,
-        ))
-
-        self.components.append(IconTextLine(
-            label_text=_("Signing Keys"),
-            value_text=" ".join(self.fingerprints),
-            font_size=24,
-            font_name=GUIConstants.FIXED_WIDTH_EMPHASIS_FONT_NAME,
-            screen_y=self.components[-1].screen_y + self.components[-1].height + 2*GUIConstants.COMPONENT_PADDING,
-            is_text_centered=True,
-            auto_line_break=True,
         ))
 
 

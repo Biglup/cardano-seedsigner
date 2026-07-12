@@ -26,9 +26,9 @@ never drift on the wire format.
   scripts are tested and how you validate the flow before touching hardware.
 - Default (no `--simulator`) talks to a **real SeedSigner** in a single Tkinter
   window: the request QR animates on the **left** while the **right** shows the
-  live webcam watching for the device's animated QR response (modelled on
-  `scripts/cardano_companion_test.py`). Tkinter is used instead of OpenCV's GUI
-  so it works with headless OpenCV builds. Press `q`/`Esc` to abort.
+  live webcam watching for the device's animated QR response. Tkinter is used
+  instead of OpenCV's GUI so it works with headless OpenCV builds. Press
+  `q`/`Esc` to abort.
 
   Hardware tuning flags (all scripts): `--camera N` (webcam index),
   `--width/--height` (capture resolution — higher reads dense QRs better),
@@ -70,7 +70,7 @@ python examples/sign_all_keys_demo.py --simulator   # --skip-cip8 for the tx ste
 ```
 
 Each `*_e2e` script writes the request and result CBOR to `--evidence-dir` as
-`.txt` files for the milestone evidence.
+`.txt` files.
 
 ## Layout
 
@@ -80,6 +80,7 @@ examples/
   sign_message_e2e.py        CIP-8 end-to-end (+ verify)
   sign_tx_e2e.py             transaction end-to-end (+ broadcast)
   sign_all_keys_demo.py      sign with every purpose/role (tx + CIP-8, offline)
+  review_badges_demo.py      exercise the ownership badges on the review screens
   test_companion.py          offline e2e tests (pytest)
   companion/
     device.py                SimulatedDevice / HardwareDevice (exchange API)

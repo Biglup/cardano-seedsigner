@@ -4,7 +4,7 @@
 Flow: request the account key (STEP 1) -> derive the signing address -> send an
 animated ``cardano-cip8-sig-req`` to the device -> device reviews + signs ->
 receive the ``cardano-cip8-sig-res`` (COSE_Sign1 + COSE_Key) -> verify the
-signature externally and dump the CBOR as milestone evidence.
+signature externally. The request/response CBOR is written to --evidence-dir.
 
     python examples/sign_message_e2e.py --simulator --message "Hello, Cardano!"
     python examples/sign_message_e2e.py   # real hardware over QR

@@ -30,7 +30,14 @@ def cose_key_hash_hex(cose_key: bytes) -> str:
 
 
 def verify_cose_sign1(cose_sign1: bytes, cose_key: bytes) -> bool:
-    """Verify a COSE_Sign1 (CIP-8, hashed=false, empty external_aad)."""
+    """Verify a COSE_Sign1 (CIP-8, hashed=false, empty external_aad).
+
+    Checks the signature against the public key embedded in ``cose_key``, so a
+    True result proves self-consistency only: any key can produce a pair that
+    passes. To prove origin, callers must also compare
+    ``cose_key_hash_hex(cose_key)`` (or the raw public key) to the expected
+    wallet credential.
+    """
     protected, _unprotected, payload, signature = cbor2.loads(cose_sign1)
 
     sig_structure = cbor2.dumps(["Signature1", protected, b"", payload])

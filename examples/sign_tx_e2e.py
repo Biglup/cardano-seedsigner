@@ -5,8 +5,8 @@ Flow: request the account key (STEP 1) -> derive the wallet address -> fetch
 preprod UTXOs + params from Blockfrost -> build a send-lovelace transaction
 (no private keys) -> send the tx body to the device as an animated
 ``cardano-tx-sig-req`` -> device reviews + signs -> receive the
-``cardano-tx-sig-res`` witness set -> apply it, optionally broadcast, and dump
-the request/witness CBOR as milestone evidence.
+``cardano-tx-sig-res`` witness set -> apply it and optionally broadcast. The
+request/witness CBOR is written to --evidence-dir.
 
 Requires a Blockfrost preprod project id and (to broadcast) a funded address:
 
@@ -76,7 +76,7 @@ def main():
     parser.add_argument("--lovelace", type=int, default=2_000_000)
     parser.add_argument("--ttl-seconds", type=int, default=7200)
     parser.add_argument("--broadcast", action="store_true", help="submit the signed tx to preprod")
-    parser.add_argument("--evidence-dir", default=None)
+    parser.add_argument("--evidence-dir", default=None, help="write request/response CBOR .txt here")
     parser.add_argument("--fragment", type=int, default=90)
     parser.add_argument("--fps", type=float, default=6.0)
     parser.add_argument("--camera", type=int, default=0)

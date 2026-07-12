@@ -1,4 +1,4 @@
-"""Message signing overview — first screen in the CIP-8 flow."""
+"""Message signing overview, the first screen in the CIP-8 flow."""
 
 from seedsigner.gui.screens import RET_CODE__BACK_BUTTON, ButtonListScreen
 from seedsigner.gui.screens.screen import ButtonOption
@@ -8,7 +8,7 @@ from seedsigner.views.view import View, Destination, BackStackView, MainMenuView
 
 
 class CardanoMsgOverviewView(View):
-    """Overview screen — 'Sign Message' with origin and Review button."""
+    """Overview screen: 'Sign Message' with origin and Review button."""
 
     REVIEW = ButtonOption("Review details")
 
@@ -17,14 +17,22 @@ class CardanoMsgOverviewView(View):
         self.msg_request = msg_request
 
     def run(self):
+        """Validate the request, then show the overview.
+
+        Rejects the request when the declared signing path does not derive
+        the given address, and rejects any 28-byte non-ASCII payload since
+        it may be a Blake2b-224 hash (blind hash signing is unsafe).
+        """
         from seedsigner.gui.components import GUIConstants, TextArea
         from seedsigner.gui.screens.screen import DireWarningScreen
         from seedsigner.helpers.cardano_utils import verify_message_signing_address
         from .payload_view import _is_printable_ascii
 
-        # Verify the signing path matches the address
+        seed = self.controller.cardano_seed
+        if seed is None:
+            return Destination(MainMenuView, clear_history=True)
+
         if self.msg_request.address_bytes is not None:
-            seed = self.controller.cardano_seed or self.controller.storage.seeds[-1]
             if not verify_message_signing_address(self.msg_request, seed):
                 self._show_rejection(
                     DireWarningScreen, GUIConstants, TextArea,
@@ -34,7 +42,6 @@ class CardanoMsgOverviewView(View):
                 )
                 return Destination(MainMenuView, clear_history=True)
 
-        # Reject 28-byte non-ASCII payloads (potential Blake2b-224 hash)
         payload = self.msg_request.message_payload
         if len(payload) == 28 and not _is_printable_ascii(payload):
             self._show_rejection(
@@ -84,7 +91,7 @@ class CardanoMsgOverviewView(View):
 
         return Destination(
             CardanoMsgAddressView,
-            view_args=dict(msg_request=self.msg_request, page_index=0),
+            view_args=dict(msg_request=self.msg_request),
         )
 
     def _show_rejection(self, DireWarningScreen, GUIConstants, TextArea,
@@ -112,7 +119,7 @@ class CardanoMsgOverviewView(View):
 
 
 def _sanitize_origin(origin):
-    """Strip non-printable chars and cap at 30 characters."""
+    """Strip non-printable chars and cap at 20 characters."""
     if not origin:
         return origin
     cleaned = "".join(c for c in origin if c.isprintable())
@@ -128,7 +135,11 @@ from seedsigner.gui.components import GUIConstants, TextArea
 
 @dataclass
 class _MsgOverviewScreen(ButtonListScreen):
-    """Overview screen for message signing."""
+    """Overview screen for message signing.
+
+    Row advance heights are fixed, measured from a "y" glyph so every row
+    reserves descender space regardless of its actual text.
+    """
     origin: str = None
     network: str = None
     addr_type: str = None
@@ -154,7 +165,6 @@ class _MsgOverviewScreen(ButtonListScreen):
         row_spacing = 6
         cur_y = 50
 
-        # Fixed row advance heights (use "y" to include descender space)
         label_h = TextArea(text="y", font_size=GUIConstants.get_body_font_size() - 2,
                            auto_line_break=False).height
         value_h = TextArea(text="y", font_size=GUIConstants.get_body_font_size(),

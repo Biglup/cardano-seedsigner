@@ -12,12 +12,12 @@ _TOTAL_PAGES = 3
 
 
 class CardanoMsgAddressView(View):
-    """Shows the signing address in bech32."""
+    """Shows the signing credential: a payment address, stake address, DRep ID,
+    or key hash, depending on the request."""
 
-    def __init__(self, msg_request: CardanoMessageSignRequest, page_index: int = 0):
+    def __init__(self, msg_request: CardanoMessageSignRequest):
         super().__init__()
         self.msg_request = msg_request
-        self.page_index = page_index
 
     def run(self):
         from seedsigner.gui.screens.tx_review import CardanoCertificateSequentialScreen
@@ -63,7 +63,7 @@ class CardanoMsgAddressView(View):
         if result == RET_CODE__RIGHT_BUTTON:
             return Destination(
                 CardanoMsgPayloadView,
-                view_args=dict(msg_request=self.msg_request, page_index=1),
+                view_args=dict(msg_request=self.msg_request),
                 skip_current_view=True,
             )
 

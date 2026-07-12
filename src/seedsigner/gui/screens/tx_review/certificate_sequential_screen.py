@@ -37,7 +37,7 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
     - verified: green check icon + white text, centered (ownership badge)
     - foreign: red centered text (negative ownership badge)
     - hero_fields: 2-tuple (type, fields) where fields is a list of
-      (label, label_suffix, value) — each field is a small centered label
+      (label, label_suffix, value); each field is a small centered label
       (suffix in accent color) over a large fixed-width value, and the whole
       stack is centered vertically in the viewport
     - spacer / spacer_small: vertical spacing
@@ -46,6 +46,18 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
     highlight_n: int = 7
 
     def __post_init__(self):
+        """Expand content entries into renderable ``_lines`` with position tracking.
+
+        ``_hash_segments`` records, per hash_display entry, the index of its
+        first hash_line, the global display position of each wrapped line,
+        the display length and the head/tail highlight sizes. A hero_fields
+        entry keeps its field list; every remaining entry lands in
+        ``_lines`` as a 2-tuple of (line type, text).
+
+        Head and tail highlight sizes are stored one character larger than
+        requested to cover the separator space after the head and before
+        the tail.
+        """
         from seedsigner.gui.renderer import Renderer
         renderer = Renderer.get_instance()
         side_button_width = 20
@@ -55,7 +67,6 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
         char_w = hash_font.getlength("A")
         self._chars_per_line = max(10, int(usable_width / char_w))
 
-        # Pre-compute fonts for wrapping
         max_w = renderer.canvas_width - 2 * side_button_width - 16
         vh_font = Fonts.get_font(
             GUIConstants.get_body_font_name(),
@@ -65,9 +76,8 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
             GUIConstants.get_body_font_name(), GUIConstants.get_body_font_size(),
         )
 
-        # Expand entries into renderable _lines with position tracking
         self._lines = []
-        self._hash_segments = []  # [(first_line_idx, display_len, head_n, tail_n), ...]
+        self._hash_segments = []
 
         for entry in self.content:
             line_type = entry[0]
@@ -91,7 +101,6 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
                 for wrapped in self._wrap_text(text, vh_font, max_w):
                     self._lines.append((line_type, wrapped))
             elif line_type == "mono_text":
-                # Left-aligned monospace — wrap by character count
                 if len(text) > self._chars_per_line:
                     for i in range(0, len(text), self._chars_per_line):
                         self._lines.append(("mono_text", text[i:i + self._chars_per_line]))
@@ -104,8 +113,8 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
                 display = text
                 display_len = len(display)
                 if len(entry) >= 4:
-                    head_n = entry[2] + 1  # +1 for space after head
-                    tail_n = entry[3] + 1  # +1 for space before tail
+                    head_n = entry[2] + 1
+                    tail_n = entry[3] + 1
                 else:
                     head_n = self.highlight_n + 1
                     tail_n = self.highlight_n + 1
@@ -123,7 +132,7 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
 
                 self._hash_segments.append((first_idx, line_gpos, display_len, head_n, tail_n))
             else:
-                self._lines.append((line_type, text))  # always 2-tuple in _lines
+                self._lines.append((line_type, text))
 
         super().__post_init__()
 
@@ -264,7 +273,6 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
                         anchor="mt",
                     )
                 elif line_type == "hash_line":
-                    # Find which segment this hash_line belongs to
                     seg = self._find_segment(hash_line_idx)
                     if seg:
                         first_idx, line_gpos, display_len, head_n, tail_n = seg
@@ -443,7 +451,6 @@ class CardanoCertificateSequentialScreen(CardanoSequentialBaseScreen):
                 continue
             if current:
                 lines.append(current)
-            # Break the word itself if it exceeds max_w
             if font.getlength(word) > max_w:
                 chunk = ""
                 for ch in word:

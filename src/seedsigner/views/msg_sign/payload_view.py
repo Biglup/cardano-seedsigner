@@ -14,9 +14,9 @@ _TOTAL_PAGES = 3
 
 
 def _is_printable_ascii(data: bytes) -> bool:
-    """Check if all bytes are printable ASCII (0x20-0x7E) or common whitespace."""
+    """Check if all bytes are printable ASCII (0x20-0x7E) or common whitespace (newline, CR, tab)."""
     for b in data:
-        if b == 0x0A or b == 0x0D or b == 0x09:  # newline, CR, tab
+        if b == 0x0A or b == 0x0D or b == 0x09:
             continue
         if b < 0x20 or b > 0x7E:
             return False
@@ -24,12 +24,16 @@ def _is_printable_ascii(data: bytes) -> bool:
 
 
 class CardanoMsgPayloadView(View):
-    """Shows the message payload as ASCII text, JSON, or hex."""
+    """Shows the message payload as ASCII text, JSON, or hex.
 
-    def __init__(self, msg_request: CardanoMessageSignRequest, page_index: int = 1):
+    Rendering is chosen by attempting a UTF-8 decode, then a printable
+    ASCII check, then a JSON parse: valid JSON is pretty-printed, other
+    printable text is shown as plain text, and anything else as hex.
+    """
+
+    def __init__(self, msg_request: CardanoMessageSignRequest):
         super().__init__()
         self.msg_request = msg_request
-        self.page_index = page_index
 
     def run(self):
         from seedsigner.gui.screens.tx_review import CardanoCertificateSequentialScreen
@@ -41,11 +45,9 @@ class CardanoMsgPayloadView(View):
         if size == 0:
             content.append(("label", "Empty Message"))
         else:
-            # Try UTF-8 decode → printable check → JSON check
             try:
                 text = payload.decode("utf-8")
                 if _is_printable_ascii(payload):
-                    # Try JSON pretty-print
                     try:
                         parsed = json.loads(text)
                         pretty = json.dumps(parsed, indent=2)
@@ -53,8 +55,7 @@ class CardanoMsgPayloadView(View):
                         content.append(("spacer_small", ""))
                         for line in pretty.split("\n"):
                             content.append(("mono_text", line))
-                    except (json.JSONDecodeError, ValueError):
-                        # Plain ASCII text
+                    except (json.JSONDecodeError, ValueError, RecursionError):
                         content.append(("label", f"Plain Text ({size} bytes):"))
                         content.append(("spacer_small", ""))
                         for line in text.split("\n"):
@@ -95,7 +96,7 @@ class CardanoMsgPayloadView(View):
         if result == RET_CODE__LEFT_BUTTON:
             return Destination(
                 CardanoMsgAddressView,
-                view_args=dict(msg_request=self.msg_request, page_index=0),
+                view_args=dict(msg_request=self.msg_request),
                 skip_current_view=True,
             )
 

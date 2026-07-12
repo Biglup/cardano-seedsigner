@@ -24,7 +24,7 @@ If you modified or added functionality/workflow, did you add new unit tests?
 
 I have tested this PR on the following platforms/os:
 
-- [ ] [SeedSigner OS](https://github.com/SeedSigner/seedsigner-os) on a Pi0/Pi0W board
+- [ ] [SeedSigner OS](https://github.com/Biglup/cardano-seedsigner-os) on a Pi0/Pi0W board
 - [ ] Other
 
 

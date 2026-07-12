@@ -218,3 +218,11 @@ seedsigner-screenshots/
 
 # Emulator build folder
 build/emulation/
+
+# Local working files (untracked notes and captured artifacts)
+/plan.md
+/milestone-4-plan.md
+/milestone-5-plan.md
+/milestone-5-poa.md
+/evidence/
+/todo/

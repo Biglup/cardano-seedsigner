@@ -1,6 +1,9 @@
 """
 Cardano-specific utilities for key derivation, change output verification,
 and CIP-8 message signing address verification.
+
+``CREDENTIAL_SHORT_LABEL`` maps a credential kind to the short type label
+shown on the message signing overview screen.
 """
 
 
@@ -55,7 +58,6 @@ def drep_id_from_key_hash(key_hash: bytes) -> str:
     return DRep.new(DRepType.KEY_HASH, cred).to_cip129_string()
 
 
-# Short type label shown on the overview screen, keyed by credential kind.
 CREDENTIAL_SHORT_LABEL = {
     "payment": "Payment",
     "stake": "Stake",
@@ -178,13 +180,39 @@ def _credential_key_hash(address_bytes, role=None):
     return None
 
 
+def _payment_key_credential_matches(addr, derived_payment_cred) -> bool:
+    """Whether `addr`'s payment credential is a key hash equal to the derived
+    payment credential's hash.
+
+    Used for base addresses whose stake part is a script hash: the device
+    cannot rebuild the whole address (it does not know the script), but
+    ownership of the payment credential is still provable. Any shape that
+    cannot be positively checked returns False.
+    """
+    from cometa import CredentialType
+
+    try:
+        base = addr.to_base_address()
+        if base is None:
+            return False
+        payment_cred = base.payment_credential
+        if payment_cred.type != CredentialType.KEY_HASH:
+            return False
+        return payment_cred.hash.to_bytes() == derived_payment_cred.hash.to_bytes()
+    except Exception:
+        return False
+
+
 def _derived_address_matches(root_key, path, network_id, actual_addr) -> bool:
     """Whether the address derived from `path` equals `actual_addr`.
 
     Supports BaseAddress (payment key from the full path + staking key from
     the same account's 2/0 path) and EnterpriseAddress (payment key only);
-    the actual address's type selects the derivation. Any other address type
-    (pointer, reward, script-based, byron) or a parse failure returns False.
+    the actual address's type selects the derivation. A base address with a
+    script stake part is matched on its payment credential alone, since the
+    stake script is not derivable from the seed. Any other address type
+    (pointer, reward, script-payment, byron), a parse failure, or a path
+    that cannot be derived returns False.
     """
     from cometa import (
         Address,
@@ -196,7 +224,6 @@ def _derived_address_matches(root_key, path, network_id, actual_addr) -> bool:
 
     BASE_TYPES = {
         AddressType.BASE_PAYMENT_KEY_STAKE_KEY,
-        AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT,
     }
     ENTERPRISE_TYPES = {
         AddressType.ENTERPRISE_KEY,
@@ -208,23 +235,31 @@ def _derived_address_matches(root_key, path, network_id, actual_addr) -> bool:
     except Exception:
         return False
 
-    key = root_key.derive(path)
-    payment_cred = Credential.from_key_hash(
-        key.get_public_key().to_ed25519_key().to_hash()
-    )
-
-    if addr_type in BASE_TYPES:
-        stake_path = list(path[:3]) + [2, 0]
-        stake_key = root_key.derive(stake_path)
-        stake_cred = Credential.from_key_hash(
-            stake_key.get_public_key().to_ed25519_key().to_hash()
+    try:
+        key = root_key.derive(path)
+        payment_cred = Credential.from_key_hash(
+            key.get_public_key().to_ed25519_key().to_hash()
         )
-        derived_addr = BaseAddress.from_credentials(network_id, payment_cred, stake_cred)
-        return str(derived_addr) == actual_addr
 
-    if addr_type in ENTERPRISE_TYPES:
-        derived_addr = EnterpriseAddress.from_credentials(network_id, payment_cred)
-        return str(derived_addr) == actual_addr
+        if addr_type in BASE_TYPES:
+            stake_path = list(path[:3]) + [2, 0]
+            stake_key = root_key.derive(stake_path)
+            stake_cred = Credential.from_key_hash(
+                stake_key.get_public_key().to_ed25519_key().to_hash()
+            )
+            derived_addr = BaseAddress.from_credentials(network_id, payment_cred, stake_cred)
+            return str(derived_addr) == actual_addr
+
+        if addr_type == AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT:
+            if parsed.network_id != network_id:
+                return False
+            return _payment_key_credential_matches(parsed, payment_cred)
+
+        if addr_type in ENTERPRISE_TYPES:
+            derived_addr = EnterpriseAddress.from_credentials(network_id, payment_cred)
+            return str(derived_addr) == actual_addr
+    except Exception:
+        return False
 
     return False
 
@@ -237,17 +272,26 @@ def verify_change_outputs(sign_request, seed, body) -> list[int]:
     compares against the actual output addresses in the transaction body.
 
     If an output's address doesn't match the derived address (wrong network,
-    wrong keys, unsupported address type, etc.), it is not included — safe
+    wrong keys, unsupported address type, etc.), it is not included; safe
     failure mode: unverified outputs are treated as external (user sees
-    inflated spending amount).
+    inflated spending amount). An entry whose index falls outside the body's
+    output list or whose path cannot be derived is skipped the same way
+    rather than failing the request.
+
+    Base addresses are verified against the account's standard stake key
+    (role 2, index 0), so a base address using a non-default stake index is
+    treated as unverified.
 
     Returns a list of output indices that are verified as change.
     """
     root_key = root_key_from_seed(seed)
     network_id = sign_request.network
+    output_count = len(body.outputs)
     verified = []
 
     for change_output in sign_request.change_outputs:
+        if not 0 <= change_output.index < output_count:
+            continue
         actual_addr = str(body.outputs[change_output.index].address)
         if _derived_address_matches(root_key, change_output.path, network_id, actual_addr):
             verified.append(change_output.index)
@@ -261,7 +305,7 @@ def verify_collateral_return(sign_request, seed, body) -> bool:
     The request's optional collateral_return_path declares the derivation
     path; the derived address must equal the collateral_return address and
     the declared xfp must match the selected seed. Absent field, absent
-    collateral_return, or any mismatch returns False — the collateral return
+    collateral_return, or any mismatch returns False; the collateral return
     is then displayed as an external output (safe failure mode).
     """
     crp = sign_request.collateral_return_path
@@ -283,8 +327,9 @@ def derive_owned_key_hashes(sign_request, seed) -> set:
     Since each hash is computed on-device from the seed itself, membership is
     cryptographic proof that a credential hash appearing in the transaction
     (certificates, withdrawals, required signers, voters) belongs to this
-    wallet — a host cannot make a foreign credential match by declaring
-    extra paths.
+    wallet; a host cannot make a foreign credential match by declaring
+    extra paths. A declared path that cannot be derived contributes no hash
+    and is skipped, so one malformed entry does not fail the request.
     """
     fingerprint = bytes.fromhex(seed.get_fingerprint())
 
@@ -305,7 +350,10 @@ def derive_owned_key_hashes(sign_request, seed) -> set:
     root_key = root_key_from_seed(seed)
     hashes = set()
     for path in paths:
-        key = root_key.derive(list(path))
+        try:
+            key = root_key.derive(list(path))
+        except Exception:
+            continue
         hashes.add(key.get_public_key().to_ed25519_key().to_hash().to_bytes())
     return hashes
 
@@ -314,11 +362,21 @@ def verify_message_signing_address(msg_request, seed) -> bool:
     """Verify that the signing path matches the address in a CIP-8 request.
 
     For base/enterprise addresses, derives the payment key from the signing
-    path and verifies it matches the payment credential in the address.
+    path and verifies it matches the payment credential in the address. Base
+    addresses are verified against the account's standard stake key (role 2,
+    index 0), so a base address using a non-default stake index is treated
+    as unverified. A base address with a script stake part is matched on its
+    payment credential alone, since the stake script is not derivable from
+    the seed.
     For reward addresses, derives the staking key and verifies the stake
     credential.
     For DRep credentials (28-byte raw key hash), compares directly against
     the derived key hash.
+
+    Parses the bytes as a standard Cardano address first; if that fails and
+    the value is 28 bytes, treats it as a bare DRep key hash. For base
+    addresses the payment credential comes from the signing path and the
+    stake credential from the same account (role 2, index 0).
 
     Returns True if the address matches or if no address is provided.
     Returns False if verification fails (wrong key, unknown address type).
@@ -338,20 +396,17 @@ def verify_message_signing_address(msg_request, seed) -> bool:
     root_key = root_key_from_seed(seed)
     path = msg_request.required_signing_path.path
 
-    # Try standard Cardano address first
     try:
         addr = Address.from_bytes(msg_request.address_bytes)
         addr_type = AddressType(addr.type)
         network_id = addr.network_id
     except Exception:
-        # Not a standard address — try DRep credential (28-byte key hash)
         if len(msg_request.address_bytes) == 28:
             return _verify_drep_credential(root_key, path, msg_request.address_bytes)
         return False
 
     BASE_TYPES = {
         AddressType.BASE_PAYMENT_KEY_STAKE_KEY,
-        AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT,
     }
     ENTERPRISE_TYPES = {
         AddressType.ENTERPRISE_KEY,
@@ -366,8 +421,10 @@ def verify_message_signing_address(msg_request, seed) -> bool:
             key.get_public_key().to_ed25519_key().to_hash()
         )
 
+        if addr_type == AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT:
+            return _payment_key_credential_matches(addr, derived_cred)
+
         if addr_type in BASE_TYPES:
-            # Payment credential from signing path + stake from same account
             stake_path = list(path[:3]) + [2, 0]
             stake_key = root_key.derive(stake_path)
             stake_cred = Credential.from_key_hash(

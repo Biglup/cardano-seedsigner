@@ -180,3 +180,16 @@ def test_request_unsupported_key_purpose_raises():
                                     key_purpose=bad_purpose)
         with pytest.raises(ValueError):
             CardanoAccountRequest.from_cbor(req.to_cbor())
+
+
+def test_request_hardened_account_index_raises():
+    for bad_index in (HARDENED_OFFSET, HARDENED_OFFSET + 1, 2**32):
+        req = CardanoAccountRequest(request_id="bad", account_indices=[bad_index])
+        with pytest.raises(ValueError):
+            CardanoAccountRequest.from_cbor(req.to_cbor())
+
+
+def test_request_max_soft_account_index_accepted():
+    req = CardanoAccountRequest(request_id="max", account_indices=[HARDENED_OFFSET - 1])
+    decoded = CardanoAccountRequest.from_cbor(req.to_cbor())
+    assert decoded.account_indices == [HARDENED_OFFSET - 1]

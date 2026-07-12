@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Throw-away demo: exercise every ownership badge on the review screens.
+"""Exercises every ownership badge on the review screens.
 
 Builds one hand-crafted transaction per case — collateral return (own and
 foreign variants), certificate credentials (stake registration / stake

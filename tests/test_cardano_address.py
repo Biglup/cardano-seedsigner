@@ -33,38 +33,33 @@ def test_first_receive_address_matches_known_wallets():
     mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".split()
     root_key = _derive_root_key(mnemonic)
 
-    # Payment key: m/1852'/1815'/0'/0/0
     payment_key = root_key.derive([1852 | 0x80000000, 1815 | 0x80000000, 0x80000000, 0, 0])
     payment_cred = Credential.from_key_hash(
         payment_key.get_public_key().to_ed25519_key().to_hash()
     )
 
-    # Staking key: m/1852'/1815'/0'/2/0
     stake_key = root_key.derive([1852 | 0x80000000, 1815 | 0x80000000, 0x80000000, 2, 0])
     stake_cred = Credential.from_key_hash(
         stake_key.get_public_key().to_ed25519_key().to_hash()
     )
 
-    # Mainnet base address
     addr = BaseAddress.from_credentials(1, payment_cred, stake_cred)
 
-    # This address is verifiable in Yoroi/Eternl with the same mnemonic
     expected = "addr1qy8ac7qqy0vtulyl7wntmsxc6wex80gvcyjy33qffrhm7sh927ysx5sftuw0dlft05dz3c7revpf7jx0xnlcjz3g69mq4afdhv"
     assert str(addr) == expected
 
 
 def test_stake_address():
-    """Verify the staking (reward) address derivation."""
+    """Verify the mainnet staking (reward) address derived from the staking
+    key at m/1852'/1815'/0'/2/0."""
     mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".split()
     root_key = _derive_root_key(mnemonic)
 
-    # Staking key: m/1852'/1815'/0'/2/0
     stake_key = root_key.derive([1852 | 0x80000000, 1815 | 0x80000000, 0x80000000, 2, 0])
     stake_cred = Credential.from_key_hash(
         stake_key.get_public_key().to_ed25519_key().to_hash()
     )
 
-    # Mainnet reward address
     reward_addr = RewardAddress.from_credentials(1, stake_cred)
     assert str(reward_addr).startswith("stake1")
 
@@ -122,7 +117,6 @@ def test_passphrase_changes_address():
         payment_key = root.derive([1852 | 0x80000000, 1815 | 0x80000000, 0x80000000, 0, 0])
         stake_key = root.derive([1852 | 0x80000000, 1815 | 0x80000000, 0x80000000, 2, 0])
 
-    # Derive addresses for both
     def _get_addr(root):
         pk = root.derive([1852 | 0x80000000, 1815 | 0x80000000, 0x80000000, 0, 0])
         sk = root.derive([1852 | 0x80000000, 1815 | 0x80000000, 0x80000000, 2, 0])

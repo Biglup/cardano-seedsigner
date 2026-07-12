@@ -76,8 +76,9 @@ class DecodeQR:
                 self.decoder = SettingsQrDecoder()  # Settings config
 
         elif self.qr_type != qr_type:
-            raise Exception('QR Fragment Unexpected Type Change')
-        
+            logger.debug(f"Ignoring stray QR frame of type {qr_type}; decode in progress is {self.qr_type}")
+            return DecodeQRStatus.FALSE
+
         if not self.decoder:
             # Did not find any recognizable format
             return DecodeQRStatus.INVALID

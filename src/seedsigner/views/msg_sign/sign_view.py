@@ -60,14 +60,18 @@ class CardanoMsgSignView(View):
         self.msg_request = msg_request
 
     def run(self):
+        """Confirm and sign the reviewed message.
+
+        The request may name a specific signer (xfp); the selected seed
+        must match it, otherwise the signature would be from the wrong
+        key. The confirmation screen returns 0 for Cancel and 1 for Sign.
+        """
         from seedsigner.gui.screens.screen import WarningScreen
         from seedsigner.helpers.cardano_signing import build_cip8_sign_response
 
         seed = self.controller.cardano_seed
         request = self.msg_request
 
-        # Guard: the request may name a specific signer (xfp); the selected seed
-        # must match it, otherwise the signature would be from the wrong key.
         if seed is not None and request.xfp and request.xfp != bytes.fromhex(seed.get_fingerprint()):
             self.run_screen(
                 WarningScreen,
@@ -89,15 +93,15 @@ class CardanoMsgSignView(View):
         if selected_menu_num == RET_CODE__BACK_BUTTON:
             return Destination(BackStackView)
 
-        if selected_menu_num == 0:  # Cancel
+        if selected_menu_num == 0:
             return Destination(MainMenuView, clear_history=True)
 
-        elif selected_menu_num == 1:  # Sign
+        elif selected_menu_num == 1:
             if seed is None:
                 return Destination(MainMenuView, clear_history=True)
             try:
                 response = build_cip8_sign_response(seed, request)
-            except ValueError as e:
+            except Exception as e:
                 logger.info(repr(e), exc_info=True)
                 self.run_screen(
                     WarningScreen,
@@ -176,7 +180,6 @@ class _MsgSignScreen(ButtonListScreen):
         self.components.append(confirm_text)
         cur_y += confirm_text.height + GUIConstants.COMPONENT_PADDING * 2
 
-        # Payload hash
         if self.payload_hash:
             hash_label = TextArea(
                 text="Payload Hash:",
@@ -190,7 +193,6 @@ class _MsgSignScreen(ButtonListScreen):
             self.components.append(hash_label)
             cur_y += hash_label.height + 4
 
-            # Show first 8 + last 8 hex chars
             h = self.payload_hash
             if len(h) > 16:
                 truncated = f"{h[:8]}...{h[-8:]}"

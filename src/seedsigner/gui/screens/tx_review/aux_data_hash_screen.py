@@ -14,16 +14,26 @@ class CardanoAuxDataHashScreen(CardanoSequentialBaseScreen):
     When `badge_text` is set, an ownership badge is rendered below the hash:
     a green check icon + white text when `badge_own` is True, red text when
     False.
+
+    `head_n` and `tail_n` override the head/tail highlight sizes; 0 falls
+    back to `highlight_n` for that end.
     """
 
     hash_hex: str = ""
     highlight_n: int = 8
-    head_n: int = 0  # Override head highlight size (0 = use highlight_n)
-    tail_n: int = 0  # Override tail highlight size (0 = use highlight_n)
+    head_n: int = 0
+    tail_n: int = 0
     badge_text: str = ""
     badge_own: bool = False
 
     def __post_init__(self):
+        """Prepare the wrapped display lines for the hash.
+
+        Spaces are inserted at the highlight boundaries for visual
+        separation, so the stored head/tail highlight counts are one larger
+        than requested. Wrapped lines skip a leading space at line
+        boundaries and record their global position in the display string.
+        """
         from seedsigner.gui.renderer import Renderer
         renderer = Renderer.get_instance()
 
@@ -35,7 +45,6 @@ class CardanoAuxDataHashScreen(CardanoSequentialBaseScreen):
         char_w = self._hash_font.getlength("A")
         chars_per_line = max(10, int(usable_width / char_w))
 
-        # Insert spaces at highlight boundaries for visual separation
         hn_head = self.head_n if self.head_n > 0 else self.highlight_n
         hn_tail = self.tail_n if self.tail_n > 0 else self.highlight_n
         h = self.hash_hex
@@ -45,10 +54,9 @@ class CardanoAuxDataHashScreen(CardanoSequentialBaseScreen):
             display = h
 
         self._display_len = len(display)
-        self._head_n = hn_head + 1  # +1 for space
+        self._head_n = hn_head + 1
         self._tail_n = hn_tail + 1
 
-        # Split into lines, skipping leading spaces
         self._hash_lines = []
         pos = 0
         while pos < len(display):
@@ -74,7 +82,6 @@ class CardanoAuxDataHashScreen(CardanoSequentialBaseScreen):
             line_w = char_w * len(text)
             x_cursor = int(center_x - line_w // 2)
 
-            # Build segments with accent boundaries
             segments = []
             seg_start = 0
             for ci in range(len(text)):

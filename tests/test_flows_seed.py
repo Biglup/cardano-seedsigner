@@ -4,6 +4,7 @@ from unittest.mock import patch
 # Must import test base before the Controller
 from base import BaseTest, FlowTest, FlowStep
 
+from seedsigner.controller import Controller
 from seedsigner.gui.screens.screen import RET_CODE__BACK_BUTTON, ButtonOption
 from seedsigner.models.settings import Settings, SettingsConstants
 from seedsigner.models.seed import Seed
@@ -100,6 +101,57 @@ class TestSeedFlows(FlowTest):
         test_with_mnemonic(
             "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon address".split(),
             seed_views.LoadSeedView.TYPE_15WORD,
+        )
+
+
+    def test_seed_words_pagination(self):
+        """
+            Viewing seed words should paginate the entire mnemonic with each word
+            numbered by its position: 3 pages for 12 words, 4 pages for 15 words
+            (final page shows only words 13-15), and 6 pages for 24 words.
+        """
+        def paginate_seed_words(mnemonic: list[str], expected_num_pages: int):
+            BaseTest.reset_controller()
+            controller = Controller.get_instance()
+            controller.storage.set_pending_seed(Seed(mnemonic=mnemonic))
+            controller.storage.finalize_pending_seed()
+
+            captured = {}
+            def fake_run_screen(self, screen_cls, **kwargs):
+                captured.update(kwargs)
+                return RET_CODE__BACK_BUTTON
+
+            words_displayed = []
+            numbers_displayed = []
+            with patch.object(seed_views.SeedWordsView, "run_screen", fake_run_screen):
+                for page_index in range(expected_num_pages):
+                    seed_views.SeedWordsView(seed_num=0, page_index=page_index).run()
+                    assert captured["num_pages"] == expected_num_pages
+                    assert captured["title"] == f"Seed Words: {page_index + 1}/{expected_num_pages}"
+                    if page_index < expected_num_pages - 1:
+                        assert captured["button_data"] == [seed_views.SeedWordsView.NEXT]
+                    else:
+                        assert captured["button_data"] == [seed_views.SeedWordsView.DONE]
+                    words_displayed.extend(captured["words"])
+                    numbers_displayed.extend(
+                        captured["page_index"] * captured["words_per_page"] + index + 1
+                        for index in range(len(captured["words"]))
+                    )
+
+            assert words_displayed == mnemonic
+            assert numbers_displayed == list(range(1, len(mnemonic) + 1))
+
+        paginate_seed_words(
+            "tone flat shed cool census soul paddle boy flight fantasy stem social".split(),
+            expected_num_pages=3,
+        )
+        paginate_seed_words(
+            "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon address".split(),
+            expected_num_pages=4,
+        )
+        paginate_seed_words(
+            "cotton artefact spy mind wing there echo steak child oak awful host despair online bicycle divorce middle firm diamond rare execute chimney almost hollow".split(),
+            expected_num_pages=6,
         )
 
 
