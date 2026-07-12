@@ -119,6 +119,7 @@ class Controller(Singleton):
     cardano_account_request = None
     cardano_tx_sign_request = None
     cardano_cip8_sign_request = None
+    cardano_unverified_warning_acknowledged = False
     # TODO: end refactor section
 
     # Destination placeholder for when we need to jump out to a side flow but intend to
@@ -300,6 +301,7 @@ class Controller(Singleton):
                     self.cardano_account_request = None
                     self.cardano_tx_sign_request = None
                     self.cardano_cip8_sign_request = None
+                    self.cardano_unverified_warning_acknowledged = False
                 
                 logger.info(f"\nback_stack: {self.back_stack}")
 

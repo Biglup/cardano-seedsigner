@@ -729,3 +729,13 @@ class TestCardanoSignFlows(FlowTest):
             ],
             initial_destination_view_args=dict(parsed_tx=self._parsed_tx_for(request)),
         )
+
+
+def test_section_view_map_covers_every_review_section():
+    """Every ReviewSection must have a section view and the map must define no
+    section the enum does not, so adding a section without wiring its view or
+    leaving a stale entry fails here."""
+    from seedsigner.models.cardano_tx import ReviewSection
+    from seedsigner.views.tx_review.sequential_review_view import _SECTION_VIEW_MAP
+
+    assert set(ReviewSection) == set(_SECTION_VIEW_MAP)

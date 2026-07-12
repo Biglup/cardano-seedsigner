@@ -47,7 +47,7 @@ class CardanoTxOverviewView(View):
         from seedsigner.gui.screens.tx_review import CardanoOverviewScreen, format_ada
         from .sequential_review_view import CardanoTxSequentialReviewView
 
-        if self.parsed_tx.has_unverified_outputs and not self.parsed_tx.unverified_warning_acknowledged:
+        if self.parsed_tx.has_unverified_outputs and not self.controller.cardano_unverified_warning_acknowledged:
             from seedsigner.gui.screens.screen import WarningScreen
 
             if self.parsed_tx.has_failed_change_claims:
@@ -65,7 +65,7 @@ class CardanoTxOverviewView(View):
             )
             if selected_menu_num == RET_CODE__BACK_BUTTON:
                 return Destination(BackStackView)
-            self.parsed_tx.unverified_warning_acknowledged = True
+            self.controller.cardano_unverified_warning_acknowledged = True
 
         origin = sanitize_origin(self.parsed_tx.sign_request.origin)
 

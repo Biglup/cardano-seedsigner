@@ -4,7 +4,7 @@ Unified sequential review dispatcher.
 Routes each review page to its section-specific view class.
 """
 
-from seedsigner.models.cardano_tx import CardanoParsedTx
+from seedsigner.models.cardano_tx import CardanoParsedTx, ReviewSection
 
 from seedsigner.views.view import View, Destination, BackStackView
 
@@ -30,25 +30,25 @@ from .donation_view import DonationReviewView
 
 
 _SECTION_VIEW_MAP = {
-    "output": OutputReviewView,
-    "fee": FeeReviewView,
-    "ttl": TtlReviewView,
-    "certificate": CertificateReviewView,
-    "withdrawal": WithdrawalReviewView,
-    "aux_data_hash": AuxDataHashReviewView,
-    "validity_start": ValidityStartReviewView,
-    "mint": MintReviewView,
-    "script_data_hash": ScriptDataHashReviewView,
-    "collateral": CollateralReviewView,
-    "required_signer": RequiredSignerReviewView,
-    "network_id": NetworkIdReviewView,
-    "collateral_return": CollateralReturnReviewView,
-    "total_collateral": TotalCollateralReviewView,
-    "reference_input": ReferenceInputReviewView,
-    "voting": VotingReviewView,
-    "proposal": ProposalReviewView,
-    "treasury": TreasuryReviewView,
-    "donation": DonationReviewView,
+    ReviewSection.OUTPUT: OutputReviewView,
+    ReviewSection.FEE: FeeReviewView,
+    ReviewSection.TTL: TtlReviewView,
+    ReviewSection.CERTIFICATE: CertificateReviewView,
+    ReviewSection.WITHDRAWAL: WithdrawalReviewView,
+    ReviewSection.AUX_DATA_HASH: AuxDataHashReviewView,
+    ReviewSection.VALIDITY_START: ValidityStartReviewView,
+    ReviewSection.MINT: MintReviewView,
+    ReviewSection.SCRIPT_DATA_HASH: ScriptDataHashReviewView,
+    ReviewSection.COLLATERAL: CollateralReviewView,
+    ReviewSection.REQUIRED_SIGNER: RequiredSignerReviewView,
+    ReviewSection.NETWORK_ID: NetworkIdReviewView,
+    ReviewSection.COLLATERAL_RETURN: CollateralReturnReviewView,
+    ReviewSection.TOTAL_COLLATERAL: TotalCollateralReviewView,
+    ReviewSection.REFERENCE_INPUT: ReferenceInputReviewView,
+    ReviewSection.VOTING: VotingReviewView,
+    ReviewSection.PROPOSAL: ProposalReviewView,
+    ReviewSection.TREASURY: TreasuryReviewView,
+    ReviewSection.DONATION: DonationReviewView,
 }
 
 

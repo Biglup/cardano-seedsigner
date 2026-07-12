@@ -26,9 +26,39 @@ one component (an empty path names no key and could not be signed with), and
 """
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Optional
 
 from cometa import CborReader, CborWriter, NetworkId
+
+
+class ReviewSection(str, Enum):
+    """Names the sequential-review sections a transaction can produce.
+
+    ``build_review_pages`` tags each ``ReviewPage`` with one of these values
+    and ``sequential_review_view._SECTION_VIEW_MAP`` maps each to its section
+    view. Being a ``str`` Enum, members compare and hash equal to their bare
+    string, so existing string-keyed lookups keep working.
+    """
+    OUTPUT = "output"
+    FEE = "fee"
+    VALIDITY_START = "validity_start"
+    TTL = "ttl"
+    CERTIFICATE = "certificate"
+    WITHDRAWAL = "withdrawal"
+    AUX_DATA_HASH = "aux_data_hash"
+    MINT = "mint"
+    SCRIPT_DATA_HASH = "script_data_hash"
+    COLLATERAL = "collateral"
+    REQUIRED_SIGNER = "required_signer"
+    NETWORK_ID = "network_id"
+    COLLATERAL_RETURN = "collateral_return"
+    TOTAL_COLLATERAL = "total_collateral"
+    REFERENCE_INPUT = "reference_input"
+    VOTING = "voting"
+    PROPOSAL = "proposal"
+    TREASURY = "treasury"
+    DONATION = "donation"
 
 
 XFP_LEN = 4
@@ -422,10 +452,14 @@ class CardanoParsedTx:
     """Holds the parsed cometa TransactionBody + verified change indices.
 
     Views access cometa objects directly; there are no wrapper dataclasses.
-    Beyond the primary sections, properties expose the remaining transaction
-    body fields (CBOR keys 3, 7, 8, 11, 14-17, 21-22) such as ttl,
-    auxiliary_data_hash, script_data_hash, required_signers, collateral
-    return and treasury/donation values.
+    Pure body fields are reached through ``__getattr__``, which delegates any
+    unknown attribute to the wrapped ``TransactionBody`` (so ``self.outputs``
+    is ``self.body.outputs``). Explicit properties remain only where they add
+    logic (``sending_amount``, ``has_*`` predicates) or rename a cometa field
+    (``ttl`` for ``invalid_after``, ``auxiliary_data_hash`` for
+    ``aux_data_hash``, ``validity_interval_start`` for ``invalid_before``,
+    ``network_id_field`` for ``network_id``, ``proposals`` for
+    ``proposal_procedures``).
 
     Construction raises ValueError when the body carries the pre-Conway
     protocol parameter update field (key 6). Conway-era Cardano replaced
@@ -453,51 +487,52 @@ class CardanoParsedTx:
         self.verified_change_indices = verified_change_indices
         self.collateral_return_verified = False
         self.owned_key_hashes: set = set()
-        self.unverified_warning_acknowledged = False
         self.network_mismatch_error = (
             self.body.network_id is not None
             and self.body.network_id != sign_request.network
         )
 
-    @property
-    def outputs(self):
-        return self.body.outputs
+    @classmethod
+    def for_seed(cls, sign_request: CardanoSignRequest, seed) -> "CardanoParsedTx":
+        """Parse `sign_request` and run every ownership verification for `seed`.
 
-    @property
-    def fee(self):
-        return self.body.fee
+        Returns a fully initialised instance: change outputs, the collateral
+        return and owned credential hashes are all resolved against the seed,
+        so no field needs to be set after construction. Propagates the same
+        ValueError the constructor raises for an undisplayable body.
+        """
+        from seedsigner.helpers.cardano_utils import (
+            verify_change_outputs,
+            verify_collateral_return,
+            derive_owned_key_hashes,
+        )
+        parsed = cls(sign_request, verified_change_indices=[])
+        parsed.verified_change_indices = verify_change_outputs(
+            sign_request, seed, parsed.body)
+        parsed.collateral_return_verified = verify_collateral_return(
+            sign_request, seed, parsed.body)
+        parsed.owned_key_hashes = derive_owned_key_hashes(sign_request, seed)
+        return parsed
 
-    @property
-    def certificates(self):
-        return self.body.certificates
+    def __getattr__(self, name: str):
+        """Delegate unknown attributes to the wrapped cometa TransactionBody.
 
-    @property
-    def withdrawals(self):
-        return self.body.withdrawals
-
-    @property
-    def mint(self):
-        return self.body.mint
-
-    @property
-    def voting_procedures(self):
-        return self.body.voting_procedures
+        Pure pass-through body fields (``outputs``, ``fee``, ``mint`` ...) are
+        served straight from ``self.body``; only accessors that add logic or
+        rename a cometa field are defined explicitly on this class. As
+        ``__getattr__`` runs solely for names not found normally, it never
+        shadows a real attribute, and it raises ``AttributeError`` (via the
+        delegate) for names the body does not define.
+        """
+        try:
+            body = object.__getattribute__(self, "body")
+        except AttributeError:
+            raise AttributeError(name)
+        return getattr(body, name)
 
     @property
     def proposals(self):
         return self.body.proposal_procedures
-
-    @property
-    def collateral(self):
-        return self.body.collateral
-
-    @property
-    def reference_inputs(self):
-        return self.body.reference_inputs
-
-    @property
-    def inputs(self):
-        return self.body.inputs
 
     @property
     def sending_amount(self) -> int:
@@ -604,32 +639,8 @@ class CardanoParsedTx:
         return self.body.invalid_before
 
     @property
-    def script_data_hash(self):
-        return self.body.script_data_hash
-
-    @property
-    def required_signers(self):
-        return self.body.required_signers
-
-    @property
     def network_id_field(self):
         return self.body.network_id
-
-    @property
-    def collateral_return(self):
-        return self.body.collateral_return
-
-    @property
-    def total_collateral(self):
-        return self.body.total_collateral
-
-    @property
-    def treasury_value(self):
-        return self.body.treasury_value
-
-    @property
-    def donation(self):
-        return self.body.donation
 
     @property
     def has_ttl(self):
@@ -691,75 +702,75 @@ class CardanoParsedTx:
 
         n = len(self.outputs)
         for i, output in enumerate(self.outputs):
-            pages.append(ReviewPage("output", i, n, output))
+            pages.append(ReviewPage(ReviewSection.OUTPUT, i, n, output))
 
-        pages.append(ReviewPage("fee", 0, 1, self.fee))
+        pages.append(ReviewPage(ReviewSection.FEE, 0, 1, self.fee))
 
         if self.has_validity_interval_start:
-            pages.append(ReviewPage("validity_start", 0, 1, self.validity_interval_start))
+            pages.append(ReviewPage(ReviewSection.VALIDITY_START, 0, 1, self.validity_interval_start))
         if self.has_ttl:
-            pages.append(ReviewPage("ttl", 0, 1, self.ttl))
+            pages.append(ReviewPage(ReviewSection.TTL, 0, 1, self.ttl))
 
         if self.has_certificates:
             certs = list(self.certificates)
             for i, cert in enumerate(certs):
-                pages.append(ReviewPage("certificate", i, len(certs), cert))
+                pages.append(ReviewPage(ReviewSection.CERTIFICATE, i, len(certs), cert))
 
         if self.has_withdrawals:
             items = list(self.withdrawals.items())
             for i, item in enumerate(items):
-                pages.append(ReviewPage("withdrawal", i, len(items), item))
+                pages.append(ReviewPage(ReviewSection.WITHDRAWAL, i, len(items), item))
 
         if self.has_auxiliary_data_hash:
-            pages.append(ReviewPage("aux_data_hash", 0, 1, self.auxiliary_data_hash))
+            pages.append(ReviewPage(ReviewSection.AUX_DATA_HASH, 0, 1, self.auxiliary_data_hash))
 
         if self.has_minting:
             items = list(self.mint.items())
             for i, item in enumerate(items):
-                pages.append(ReviewPage("mint", i, len(items), item))
+                pages.append(ReviewPage(ReviewSection.MINT, i, len(items), item))
 
         if self.has_script_data_hash:
-            pages.append(ReviewPage("script_data_hash", 0, 1, self.script_data_hash))
+            pages.append(ReviewPage(ReviewSection.SCRIPT_DATA_HASH, 0, 1, self.script_data_hash))
 
         if self.has_collateral and not self.has_total_collateral:
             items = list(self.collateral)
             for i, inp in enumerate(items):
-                pages.append(ReviewPage("collateral", i, len(items), inp))
+                pages.append(ReviewPage(ReviewSection.COLLATERAL, i, len(items), inp))
 
         if self.has_required_signers:
             signers = list(self.required_signers)
             for i, signer in enumerate(signers):
-                pages.append(ReviewPage("required_signer", i, len(signers), signer))
+                pages.append(ReviewPage(ReviewSection.REQUIRED_SIGNER, i, len(signers), signer))
 
         if self.has_network_id_field:
-            pages.append(ReviewPage("network_id", 0, 1, self.network_id_field))
+            pages.append(ReviewPage(ReviewSection.NETWORK_ID, 0, 1, self.network_id_field))
 
         if self.has_collateral_return:
-            pages.append(ReviewPage("collateral_return", 0, 1, self.collateral_return))
+            pages.append(ReviewPage(ReviewSection.COLLATERAL_RETURN, 0, 1, self.collateral_return))
 
         if self.has_total_collateral:
-            pages.append(ReviewPage("total_collateral", 0, 1, self.total_collateral))
+            pages.append(ReviewPage(ReviewSection.TOTAL_COLLATERAL, 0, 1, self.total_collateral))
 
         if self.has_reference_inputs:
             items = list(self.reference_inputs)
             for i, inp in enumerate(items):
-                pages.append(ReviewPage("reference_input", i, len(items), inp))
+                pages.append(ReviewPage(ReviewSection.REFERENCE_INPUT, i, len(items), inp))
 
         if self.has_voting:
             items = list(self.voting_procedures.items())
             for i, item in enumerate(items):
-                pages.append(ReviewPage("voting", i, len(items), item))
+                pages.append(ReviewPage(ReviewSection.VOTING, i, len(items), item))
 
         if self.has_proposals:
             proposals = list(self.proposals)
             for i, proposal in enumerate(proposals):
-                pages.append(ReviewPage("proposal", i, len(proposals), proposal))
+                pages.append(ReviewPage(ReviewSection.PROPOSAL, i, len(proposals), proposal))
 
         if self.has_treasury:
-            pages.append(ReviewPage("treasury", 0, 1, self.treasury_value))
+            pages.append(ReviewPage(ReviewSection.TREASURY, 0, 1, self.treasury_value))
 
         if self.has_donation:
-            pages.append(ReviewPage("donation", 0, 1, self.donation))
+            pages.append(ReviewPage(ReviewSection.DONATION, 0, 1, self.donation))
 
         return pages
 
@@ -767,7 +778,7 @@ class CardanoParsedTx:
 @dataclass
 class ReviewPage:
     """A single page in the sequential review flow."""
-    section: str
+    section: ReviewSection
     item_index: int
     total_in_section: int
     data: Any
