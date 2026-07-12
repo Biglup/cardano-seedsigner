@@ -168,14 +168,17 @@ class CardanoSelectSeedView(View):
 
 
     def _resume_flow(self):
+        """Override with the controller flow to resume after a scan/type seed load."""
         raise NotImplementedError
 
 
     def _seed_selected_destination(self, seed_num: int):
+        """Override with the destination reached once a seed has been chosen."""
         raise NotImplementedError
 
 
     def _invalid_request_destination(self, text: str):
+        """Error destination shown when the pending request cannot be read."""
         return Destination(ErrorView, view_args=dict(
             title="Error",
             status_headline=_("Invalid Request"),

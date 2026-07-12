@@ -64,6 +64,7 @@ class CardanoTxSequentialReviewView(View):
         self.global_index = global_index
 
     def run(self):
+        """Dispatch the current review page to its section view and run it."""
         pages = self.parsed_tx.build_review_pages()
         page = pages[self.global_index]
 

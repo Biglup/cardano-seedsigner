@@ -68,12 +68,14 @@ MAX_PATH_COMPONENT = 0xFFFFFFFF
 
 
 def _write_path(w: "CborWriter", path: list[int]) -> None:
+    """Write a derivation path as a CBOR array of unsigned integers."""
     w.write_start_array(len(path))
     for component in path:
         w.write_int(component)
 
 
 def _read_path(r: "CborReader") -> list[int]:
+    """Read a derivation path, rejecting an empty, over-long, or out-of-range one."""
     count = r.read_array_len()
     if count == 0:
         raise ValueError("derivation path is empty")
@@ -88,12 +90,12 @@ def _read_path(r: "CborReader") -> list[int]:
 
 
 def _check_xfp(xfp: bytes, *, allow_empty: bool) -> bytes:
+    """Validate a master fingerprint as 4 bytes, or empty when allowed."""
     if xfp == b"" and allow_empty:
         return xfp
     if len(xfp) != XFP_LEN:
         raise ValueError(f"xfp must be {XFP_LEN} bytes, got {len(xfp)}")
     return xfp
-
 
 
 @dataclass
@@ -120,6 +122,7 @@ class SigningInput:
     path: Optional[list[int]] = None
 
     def to_cbor(self, w: "CborWriter") -> None:
+        """Write this input to the shared writer, omitting an absent xfp/path."""
         _check_xfp(self.xfp, allow_empty=(self.path is None))
         num_entries = (
             2
@@ -140,6 +143,7 @@ class SigningInput:
 
     @classmethod
     def from_cbor(cls, r: "CborReader") -> "SigningInput":
+        """Read one input from the reader, validating the tx_hash length and xfp."""
         tx_hash = index = path = None
         xfp = b""
         for _ in range(r.read_map_len()):
@@ -185,6 +189,7 @@ class ChangeOutput:
     xfp: bytes = b""
 
     def to_cbor(self, w: "CborWriter") -> None:
+        """Write this change output (index, xfp, path) to the shared writer."""
         w.write_start_map(3)
         w.write_int(1)
         w.write_int(self.index)
@@ -195,6 +200,7 @@ class ChangeOutput:
 
     @classmethod
     def from_cbor(cls, r: "CborReader") -> "ChangeOutput":
+        """Read one change output from the reader, validating the xfp."""
         index = path = None
         xfp = b""
         for _ in range(r.read_map_len()):
@@ -226,6 +232,7 @@ class ExtraSigner:
     path: list[int]
 
     def to_cbor(self, w: "CborWriter") -> None:
+        """Write this signer (xfp, path) to the shared writer."""
         w.write_start_map(2)
         w.write_int(1)
         w.write_bytes(self.xfp)
@@ -234,6 +241,7 @@ class ExtraSigner:
 
     @classmethod
     def from_cbor(cls, r: "CborReader") -> "ExtraSigner":
+        """Read one signer from the reader, requiring a 4-byte xfp."""
         xfp = path = None
         for _ in range(r.read_map_len()):
             key = r.read_uint()
@@ -288,6 +296,7 @@ class CardanoSignRequest:
     collateral_return_path: Optional[ExtraSigner] = None
 
     def to_cbor(self) -> bytes:
+        """Encode the request as the key-numbered CBOR map in the class CDDL."""
         w = CborWriter()
         num_entries = (
             6
@@ -323,6 +332,7 @@ class CardanoSignRequest:
 
     @classmethod
     def from_cbor(cls, data: bytes) -> "CardanoSignRequest":
+        """Decode from CBOR, normalising any parser failure to ValueError."""
         try:
             return cls._from_cbor(data)
         except ValueError:
@@ -332,6 +342,11 @@ class CardanoSignRequest:
 
     @classmethod
     def _from_cbor(cls, data: bytes) -> "CardanoSignRequest":
+        """Parse and validate the request map, rejecting one that names no signer.
+
+        A request all of whose inputs are script-locked (no signing path) and
+        with no extra_signers could not be signed by any key, so it is refused.
+        """
         r = CborReader.from_bytes(data)
         request_id = sign_data = network = None
         origin = None
@@ -410,6 +425,7 @@ class CardanoTxSignResponse:
     vkey_witness_set: bytes
 
     def to_cbor(self) -> bytes:
+        """Encode the response (request_id, vkey_witness_set) as a CBOR map."""
         w = CborWriter()
         w.write_start_map(2)
         w.write_int(1)
@@ -420,6 +436,7 @@ class CardanoTxSignResponse:
 
     @classmethod
     def from_cbor(cls, data: bytes) -> "CardanoTxSignResponse":
+        """Decode from CBOR, normalising any parser failure to ValueError."""
         try:
             return cls._from_cbor(data)
         except ValueError:
@@ -429,6 +446,7 @@ class CardanoTxSignResponse:
 
     @classmethod
     def _from_cbor(cls, data: bytes) -> "CardanoTxSignResponse":
+        """Parse and validate the response map, requiring request_id and witnesses."""
         r = CborReader.from_bytes(data)
         request_id = None
         vkey_witness_set = None
@@ -532,10 +550,12 @@ class CardanoParsedTx:
 
     @property
     def proposals(self):
+        """Governance proposal procedures (Conway CDDL body key 20)."""
         return self.body.proposal_procedures
 
     @property
     def sending_amount(self) -> int:
+        """Total lovelace leaving the wallet: every output not verified as change."""
         total = 0
         for i, output in enumerate(self.outputs):
             if i not in self.verified_change_indices:
@@ -544,6 +564,7 @@ class CardanoParsedTx:
 
     @property
     def num_recipients(self) -> int:
+        """Count of outputs that are not this wallet's verified change."""
         return len(self.outputs) - len(self.verified_change_indices)
 
     @property
@@ -568,14 +589,17 @@ class CardanoParsedTx:
 
     @property
     def output_amounts(self) -> list[int]:
+        """Lovelace value of each output, in transaction-body order."""
         return [output.value.coin for output in self.outputs]
 
     @property
     def change_amount(self) -> int:
+        """Total lovelace across the outputs verified as this wallet's change."""
         return sum(self.outputs[i].value.coin for i in self.verified_change_indices)
 
     @property
     def sending_tokens(self) -> dict:
+        """Native tokens leaving the wallet, keyed by CIP-14 asset fingerprint."""
         from seedsigner.helpers.cardano_utils import asset_fingerprint
         tokens = {}
         for i, output in enumerate(self.outputs):
@@ -590,97 +614,120 @@ class CardanoParsedTx:
 
     @property
     def recipient_addresses(self) -> list[str]:
+        """Addresses of every output not verified as this wallet's change."""
         return [str(self.outputs[i].address) for i in range(len(self.outputs))
                 if i not in self.verified_change_indices]
 
     @property
     def network(self) -> NetworkId:
+        """Network the sign request targets (testnet or mainnet)."""
         return self.sign_request.network
 
     @property
     def has_certificates(self):
+        """True when the body carries certificates (Conway CDDL body key 4)."""
         return self.certificates is not None and len(self.certificates) > 0
 
     @property
     def has_withdrawals(self):
+        """True when the body carries reward withdrawals (Conway CDDL body key 5)."""
         return self.withdrawals is not None and len(self.withdrawals) > 0
 
     @property
     def has_minting(self):
+        """True when the body mints or burns native assets (Conway CDDL body key 9)."""
         return self.mint is not None and len(self.mint) > 0
 
     @property
     def has_voting(self):
+        """True when the body casts governance votes (Conway CDDL body key 19)."""
         return (self.voting_procedures is not None
                 and len(self.voting_procedures.get_voters()) > 0)
 
     @property
     def has_proposals(self):
+        """True when the body submits governance proposals (Conway CDDL body key 20)."""
         return self.proposals is not None and len(self.proposals) > 0
 
     @property
     def has_collateral(self):
+        """True when the body declares collateral inputs (Conway CDDL body key 13)."""
         return self.collateral is not None and len(self.collateral) > 0
 
     @property
     def has_reference_inputs(self):
+        """True when the body declares reference inputs (Conway CDDL body key 18)."""
         return self.reference_inputs is not None and len(self.reference_inputs) > 0
 
     @property
     def ttl(self):
+        """Upper bound of the validity interval (Conway CDDL body key 3)."""
         return self.body.invalid_after
 
     @property
     def auxiliary_data_hash(self):
+        """Auxiliary data hash (Conway CDDL body key 7)."""
         return self.body.aux_data_hash
 
     @property
     def validity_interval_start(self):
+        """Lower bound of the validity interval (Conway CDDL body key 8)."""
         return self.body.invalid_before
 
     @property
     def network_id_field(self):
+        """Network id declared in the body itself (Conway CDDL body key 15), if any."""
         return self.body.network_id
 
     @property
     def has_ttl(self):
+        """True when the body sets an upper validity bound (Conway CDDL body key 3)."""
         return self.ttl is not None
 
     @property
     def has_auxiliary_data_hash(self):
+        """True when the body sets an auxiliary data hash (Conway CDDL body key 7)."""
         return self.auxiliary_data_hash is not None
 
     @property
     def has_validity_interval_start(self):
+        """True when the body sets a lower validity bound (Conway CDDL body key 8)."""
         return self.validity_interval_start is not None
 
     @property
     def has_script_data_hash(self):
+        """True when the body sets a script data hash (Conway CDDL body key 11)."""
         return self.script_data_hash is not None
 
     @property
     def has_required_signers(self):
+        """True when the body lists required signer key hashes (Conway CDDL body key 14)."""
         rs = self.required_signers
         return rs is not None and len(rs) > 0
 
     @property
     def has_network_id_field(self):
+        """True when the body declares its own network id (Conway CDDL body key 15)."""
         return self.network_id_field is not None
 
     @property
     def has_collateral_return(self):
+        """True when the body sets a collateral return output (Conway CDDL body key 16)."""
         return self.collateral_return is not None
 
     @property
     def has_total_collateral(self):
+        """True when the body sets a total collateral amount (Conway CDDL body key 17)."""
         return self.total_collateral is not None
 
     @property
     def has_treasury(self):
+        """True when the body states the current treasury value (Conway CDDL body key 21)."""
         return self.treasury_value is not None
 
     @property
     def has_donation(self):
+        """True when the body includes a treasury donation (Conway CDDL body key 22)."""
         return self.donation is not None
 
     def build_review_pages(self) -> list:
@@ -794,6 +841,7 @@ class SigningPath:
     path: list[int]
 
     def to_cbor(self, w: "CborWriter") -> None:
+        """Write this signing path (index, path) to the shared writer."""
         w.write_start_map(2)
         w.write_int(1)
         w.write_int(self.index)
@@ -802,6 +850,7 @@ class SigningPath:
 
     @classmethod
     def from_cbor(cls, r: "CborReader") -> "SigningPath":
+        """Read a signing path from the reader, requiring both fields."""
         index = path = None
         for _ in range(r.read_map_len()):
             key = r.read_uint()
@@ -842,6 +891,7 @@ class CardanoMessageSignRequest:
     xfp: bytes = b""
 
     def to_cbor(self) -> bytes:
+        """Encode the request as the key-numbered CBOR map in the class CDDL."""
         w = CborWriter()
         num_entries = 4 + (1 if self.origin is not None else 0) \
             + (1 if self.address_bytes is not None else 0)
@@ -864,6 +914,7 @@ class CardanoMessageSignRequest:
 
     @classmethod
     def from_cbor(cls, data: bytes) -> "CardanoMessageSignRequest":
+        """Decode from CBOR, normalising any parser failure to ValueError."""
         try:
             return cls._from_cbor(data)
         except ValueError:
@@ -873,6 +924,7 @@ class CardanoMessageSignRequest:
 
     @classmethod
     def _from_cbor(cls, data: bytes) -> "CardanoMessageSignRequest":
+        """Parse and validate the request map, requiring payload and signing path."""
         r = CborReader.from_bytes(data)
         request_id = message_payload = required_signing_path = None
         origin = address_bytes = None
@@ -929,6 +981,7 @@ class CardanoCip8SignResponse:
     cose_key: bytes
 
     def to_cbor(self) -> bytes:
+        """Encode the response (request_id, cose_sign1, cose_key) as a CBOR map."""
         w = CborWriter()
         w.write_start_map(3)
         w.write_int(1)
@@ -941,6 +994,7 @@ class CardanoCip8SignResponse:
 
     @classmethod
     def from_cbor(cls, data: bytes) -> "CardanoCip8SignResponse":
+        """Decode from CBOR, normalising any parser failure to ValueError."""
         try:
             return cls._from_cbor(data)
         except ValueError:
@@ -950,6 +1004,7 @@ class CardanoCip8SignResponse:
 
     @classmethod
     def _from_cbor(cls, data: bytes) -> "CardanoCip8SignResponse":
+        """Parse and validate the response map, requiring both COSE fields."""
         r = CborReader.from_bytes(data)
         request_id = None
         cose_sign1 = cose_key = None

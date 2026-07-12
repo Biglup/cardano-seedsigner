@@ -38,6 +38,11 @@ def _extract_script_ref_info(output):
 
 
 class OutputReviewView(BaseSequentialSectionView):
+    """Review page for one transaction output (Conway CDDL body key 1).
+
+    Shows the address, ADA amount, native tokens, datum and reference script,
+    labelling the address as this wallet's own change or a foreign destination.
+    """
     section_title = "Output"
 
     def render(self, page, title, has_left, has_right, total_pages):

@@ -8,6 +8,7 @@ from .certificate_view import _format_bech32
 
 
 class MintReviewView(BaseSequentialSectionView):
+    """Review page for one policy's mint or burn of native assets (Conway CDDL body key 9)."""
     section_title = "Mint"
 
     def render(self, page, title, has_left, has_right, total_pages):

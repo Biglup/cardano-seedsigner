@@ -52,6 +52,7 @@ class CardanoMsgAddressView(View):
         return self._handle_navigation(result)
 
     def _handle_navigation(self, result):
+        """Route the screen result forward to the payload page, or back."""
         from .payload_view import CardanoMsgPayloadView
 
         if result == RET_CODE__BACK_BUTTON:

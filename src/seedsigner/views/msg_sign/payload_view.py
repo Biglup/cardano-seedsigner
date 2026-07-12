@@ -88,6 +88,7 @@ class CardanoMsgPayloadView(View):
         content.append(Line.mono_text(hex_str))
 
     def _handle_navigation(self, result):
+        """Route the screen result back to the address page or on to the signing key."""
         from .address_view import CardanoMsgAddressView
         from .signing_key_view import CardanoMsgSigningKeyView
 

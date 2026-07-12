@@ -4,6 +4,7 @@ from .base import BaseSequentialSectionView
 
 
 class AuxDataHashReviewView(BaseSequentialSectionView):
+    """Review page for the auxiliary data hash (Conway CDDL body key 7)."""
     section_title = "Aux Data Hash"
 
     def render(self, page, title, has_left, has_right, total_pages):

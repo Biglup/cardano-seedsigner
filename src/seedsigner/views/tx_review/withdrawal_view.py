@@ -7,6 +7,7 @@ from .certificate_view import _format_bech32
 
 
 class WithdrawalReviewView(BaseSequentialSectionView):
+    """Review page for a reward-account withdrawal (Conway CDDL body key 5)."""
     section_title = "Withdrawal"
 
     def render(self, page, title, has_left, has_right, total_pages):

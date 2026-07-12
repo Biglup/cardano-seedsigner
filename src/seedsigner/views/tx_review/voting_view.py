@@ -29,6 +29,11 @@ _VOTE_DISPLAY = {
 
 
 class VotingReviewView(BaseSequentialSectionView):
+    """Review page for one governance vote (Conway CDDL body key 19).
+
+    Shows the voter (DRep, committee or SPO credential), the governance action
+    voted on, and the Yes/No/Abstain choice, badging an own voter credential.
+    """
     section_title = "Vote"
 
     def render(self, page, title, has_left, has_right, total_pages):

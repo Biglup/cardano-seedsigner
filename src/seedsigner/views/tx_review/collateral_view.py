@@ -4,6 +4,7 @@ from .base import BaseSequentialSectionView
 
 
 class CollateralReviewView(BaseSequentialSectionView):
+    """Review page for a collateral input UTXO reference (Conway CDDL body key 13)."""
     section_title = "Collateral Input"
 
     def render(self, page, title, has_left, has_right, total_pages):

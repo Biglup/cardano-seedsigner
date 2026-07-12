@@ -6,6 +6,7 @@ from .base import BaseSequentialSectionView
 
 
 class TreasuryReviewView(BaseSequentialSectionView):
+    """Review page for the stated current treasury value (Conway CDDL body key 21)."""
     section_title = "Treasury"
 
     def render(self, page, title, has_left, has_right, total_pages):

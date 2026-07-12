@@ -152,18 +152,22 @@ class CardanoExplorerListView(View):
 
 
     def _derive_item(self, root_key, index: int) -> str:
+        """Override to derive the credential or address string at `index`."""
         raise NotImplementedError
 
 
     def _list_title(self) -> str:
+        """Override with the title shown above the paginated list."""
         raise NotImplementedError
 
 
     def _single_title(self):
+        """Title used when the sole item is shown directly; None keeps the list."""
         return None
 
 
     def _detail_title(self, index: int) -> str:
+        """Override with the title of the detail view for the item at `index`."""
         raise NotImplementedError
 
 

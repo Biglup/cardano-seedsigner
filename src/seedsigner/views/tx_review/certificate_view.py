@@ -75,9 +75,15 @@ def _format_bech32(bech32_str):
 
 
 class CertificateReviewView(BaseSequentialSectionView):
+    """Review page for one certificate (Conway CDDL body key 4).
+
+    Covers the pre-Conway staking and pool certificates and the Conway
+    governance certificates (DRep, committee, vote delegation).
+    """
     section_title = "Certificate"
 
     def render(self, page, title, has_left, has_right, total_pages):
+        """Render the certificate, rejecting the transaction if it cannot be displayed."""
         from seedsigner.gui.screens.tx_review import CardanoContentSequentialScreen
 
         cert = page.data
@@ -308,6 +314,7 @@ class CertificateReviewView(BaseSequentialSectionView):
             lines.append(Line.foreign("Unknown Key"))
 
     def _add_stake_credential(self, lines, credential):
+        """Display a stake credential (key hash or script) with its ownership badge."""
         prefix = "stake_vkh" if credential.is_key_hash else "script"
         bech32_str = Bech32.encode(prefix, credential.hash_bytes)
         self._add_credential_display(lines, "Credential", bech32_str, credential)
@@ -320,24 +327,29 @@ class CertificateReviewView(BaseSequentialSectionView):
         self._add_credential_display(lines, "DRep ID", str(drep), credential)
 
     def _add_pool(self, lines, pool_key_hash):
+        """Display a stake pool id as a ``pool1...`` bech32 identifier."""
         bech32_str = Bech32.encode("pool", pool_key_hash.to_bytes())
         self._add_bech32_display(lines, "Pool:", bech32_str)
 
     def _add_bech32_hash(self, lines, label, hash_obj, prefix):
+        """Encode a hash under ``prefix`` and display it as a labelled bech32 value."""
         bech32_str = Bech32.encode(prefix, hash_obj.to_bytes())
         self._add_bech32_display(lines, label, bech32_str)
 
     def _add_bech32_credential(self, lines, label, credential, prefix):
+        """Display a credential encoded under ``prefix`` with its ownership badge."""
         bech32_str = Bech32.encode(prefix, credential.hash_bytes)
         self._add_credential_display(lines, label.rstrip(":"), bech32_str, credential)
 
     def _add_amount_field(self, lines, label, lovelace):
+        """Display a labelled lovelace amount formatted as ADA."""
         lines.append(Line.spacer())
         lines.append(Line.label(label))
         lines.append(Line.spacer_small())
         lines.append(Line.value_large(format_ada(lovelace)))
 
     def _add_relay(self, lines, relay):
+        """Display a pool relay: host address with port, DNS name, or multi-host name."""
         from cometa import RelayType
         rt = relay.relay_type
         lines.append(Line.spacer_small())
@@ -362,6 +374,7 @@ class CertificateReviewView(BaseSequentialSectionView):
             lines.append(Line.value_highlight(r.dns))
 
     def _add_drep(self, lines, drep):
+        """Display a vote-delegation target: Abstain, No Confidence, or a ``drep...`` id."""
         from cometa import DRepType
         lines.append(Line.spacer())
         lines.append(Line.label("DRep:"))

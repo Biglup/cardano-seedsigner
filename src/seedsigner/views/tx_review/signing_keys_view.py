@@ -78,6 +78,7 @@ class CardanoTxSigningKeysView(View):
         return self._handle_navigation(result, total)
 
     def _handle_navigation(self, result, total):
+        """Page between signing keys, advancing to the sign confirmation past the last."""
         from .sign_view import CardanoTxSignView
 
         if result == RET_CODE__BACK_BUTTON:

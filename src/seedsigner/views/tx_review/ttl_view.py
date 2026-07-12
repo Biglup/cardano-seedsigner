@@ -4,6 +4,7 @@ from .base import BaseSequentialSectionView
 
 
 class TtlReviewView(BaseSequentialSectionView):
+    """Review page for the validity upper bound / TTL slot (Conway CDDL body key 3)."""
     section_title = "Invalid After"
 
     def render(self, page, title, has_left, has_right, total_pages):

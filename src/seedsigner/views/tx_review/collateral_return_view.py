@@ -9,6 +9,11 @@ from .certificate_view import _format_bech32
 
 
 class CollateralReturnReviewView(BaseSequentialSectionView):
+    """Review page for the collateral return output (Conway CDDL body key 16).
+
+    Badges the output as the wallet's own when the request's
+    collateral_return_path derived to this address.
+    """
     section_title = "Collateral Return"
 
     def render(self, page, title, has_left, has_right, total_pages):

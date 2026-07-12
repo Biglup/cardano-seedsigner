@@ -4,6 +4,7 @@ from .base import BaseSequentialSectionView
 
 
 class ReferenceInputReviewView(BaseSequentialSectionView):
+    """Review page for a reference input UTXO reference (Conway CDDL body key 18)."""
     section_title = "Ref Input"
 
     def render(self, page, title, has_left, has_right, total_pages):

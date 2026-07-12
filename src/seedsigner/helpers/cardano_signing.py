@@ -56,7 +56,7 @@ def matching_signing_paths(request: CardanoSignRequest, seed) -> list[list[int]]
 def sign_tx_body(seed, body_cbor: bytes, paths: list[list[int]]) -> bytes:
     """Sign a transaction-body hash with each path; return the VkeyWitnessSet CBOR.
 
-    The hash signed is ``blake2b-256(body)`` — the transaction id — exactly as
+    The hash signed is ``blake2b-256(body)``, the transaction id, exactly as
     cometa's key handler does.
     """
     from cometa import (
@@ -108,9 +108,9 @@ def sign_cip8(seed, message: bytes, address_bytes: bytes, path: list[int]) -> tu
 
     `address_bytes` is the signing context bound under the COSE ``"address"``
     header: a full Cardano address (payment / stake-reward) or a bare credential
-    key hash (e.g. a DRep). Every case uses the Ledger / Keystone wire format —
-    a 2-field protected header ``{1: alg, "address": address_bytes}`` (NO ``kid``)
-    — for parity with the dominant Cardano hardware wallets and CIP-95 dApps.
+    key hash (e.g. a DRep). Every case uses the Ledger / Keystone wire format,
+    a 2-field protected header ``{1: alg, "address": address_bytes}`` (NO ``kid``),
+    for parity with the dominant Cardano hardware wallets and CIP-95 dApps.
 
     cometa's native ``cip8_sign`` / ``cip8_sign_with_key_hash`` are deliberately
     NOT used: they emit a non-interoperable header (an extra ``kid``, and a
@@ -186,7 +186,7 @@ def build_cip8_sign_response(seed, request: CardanoMessageSignRequest) -> Cardan
 
     Enforces the signer-confusion guards: the request's xfp (if present) must
     match the selected seed, and the signing key derived from the request path
-    must actually correspond to the address the signature is bound to — otherwise
+    must actually correspond to the address the signature is bound to; otherwise
     a malicious host could obtain a signature bound to an address the user
     reviewed but signed with an unrelated key.
     """

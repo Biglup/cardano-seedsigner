@@ -76,9 +76,11 @@ _COEFFICIENT_FIELDS = {"pool_pledge_influence", "ref_script_cost_per_byte"}
 
 
 class ProposalReviewView(BaseSequentialSectionView):
+    """Review page for one governance proposal / action (Conway CDDL body key 20)."""
     section_title = "Proposal"
 
     def render(self, page, title, has_left, has_right, total_pages):
+        """Render the proposal, rejecting the transaction if it cannot be displayed."""
         from seedsigner.gui.screens.tx_review import CardanoContentSequentialScreen
 
         proposal = page.data
@@ -268,6 +270,7 @@ class ProposalReviewView(BaseSequentialSectionView):
                     lines.append(Line.value_highlight(f"{friendly}: {pct_str}"))
 
     def _add_hard_fork(self, lines, action):
+        """Show the prior action id and the protocol version the hard fork targets."""
         self._add_gov_action_id(lines, action.governance_action_id)
 
         pv = action.protocol_version
@@ -277,6 +280,7 @@ class ProposalReviewView(BaseSequentialSectionView):
         lines.append(Line.value_highlight(f"{pv.major}.{pv.minor}"))
 
     def _add_treasury_withdrawals(self, lines, action):
+        """Show the optional guardrail policy and each reward account and its amount."""
         if action.policy_hash:
             lines.append(Line.spacer())
             policy_bech32 = Bech32.encode("script", action.policy_hash.to_bytes())
@@ -297,6 +301,7 @@ class ProposalReviewView(BaseSequentialSectionView):
             lines.append(Line.hash(fmt, hn, tn))
 
     def _add_update_committee(self, lines, action):
+        """Show the quorum and the committee members being added (with terms) or removed."""
         self._add_gov_action_id(lines, action.governance_action_id)
 
         q_str = format_percent(action.quorum)
@@ -328,6 +333,7 @@ class ProposalReviewView(BaseSequentialSectionView):
                 lines.append(Line.hash(fmt, hn, tn))
 
     def _add_new_constitution(self, lines, action):
+        """Show the constitution anchor URL and hash and its optional guardrail script."""
         self._add_gov_action_id(lines, action.governance_action_id)
 
         constitution = action.constitution
