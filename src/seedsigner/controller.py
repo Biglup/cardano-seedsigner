@@ -4,6 +4,7 @@ import traceback
 
 from PIL.Image import Image
 
+from seedsigner import __version__
 from seedsigner.gui.toast import BaseToastOverlayManagerThread
 from seedsigner.models.seed import Seed
 from seedsigner.models.seed_storage import SeedStorage
@@ -102,7 +103,7 @@ class Controller(Singleton):
         rather than at the top in order avoid circular imports.
     """
 
-    VERSION = "0.0.1"
+    VERSION = __version__
 
     # Declare class member vars with type hints to enable richer IDE support throughout
     # the code.
