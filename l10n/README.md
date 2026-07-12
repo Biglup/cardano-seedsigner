@@ -3,12 +3,12 @@
 ## High-level overview
 1. Python code indicates text that needs to be translated.
 1. Those marked strings are extracted into a master `messages.pot` file.
-1. That file is uploaded [Transifex](https://app.transifex.com/seedsigner/seedsigner).
+1. That file is uploaded to the project's Transifex workspace.
 1. Translators work within Transifex on their respective languages.
 1. Completed translations are downloaded as `messages.po` files for each language.
 1. Python "compiles" them into `messages.mo` files ready for use.
-1. The `*.po` and `*.mo` files are written to the [seedsigner-translations](https://github.com/SeedSigner/seedsigner-translations) repo.
-1. That repo is linked as a submodule here as `seedsigner.resources.seedsigner-translations`.
+1. The `*.po` and `*.mo` files are written to a translations repository.
+1. That repository is linked as a submodule under `src/seedsigner/resources`.
 1. Python code retrieves a translation on demand.
 
 
@@ -198,7 +198,7 @@ class SettingsConstants
 ```
 
 ```python
-# TRANSLATOR_NOTE: Refers to the user's change output in a psbt
+# TRANSLATOR_NOTE: Refers to the change output of a Cardano transaction
 some_var = _("change")
 ```
 
@@ -243,7 +243,7 @@ Transifex will ask translators to provide the singular and plural forms on a lan
 pip install -r l10n/requirements-l10n.txt
 ```
 
-Make sure that your local repo has fetched the `seedsigner-translations` submodule. It's configured to add it in src/seedsigner/resources.
+Make sure that your local repo has fetched the translations submodule. It's configured to add it in src/seedsigner/resources.
 ```bash
 # Need --remote in order to respect the target branch listed in .gitmodules
 git submodule update --remote
@@ -281,7 +281,7 @@ _TODO: Look into Transifex options to automatically pull updates?_
 ### Once new translations are complete
 The translation file for each language will need to be downloaded via Transifex's "Download for use" option (sends you a `messages.po` file for that language).
 
-This updated `messages.po` should be added to the seedsigner-translations repo in l10n/`{TARGET_LOCALE}`/LC_MESSAGES.
+This updated `messages.po` should be added to the translations repository in l10n/`{TARGET_LOCALE}`/LC_MESSAGES.
 
 
 ### Compile all the translations
@@ -298,8 +298,8 @@ python setup.py compile_catalog -l es
 Transifex eliminates the need for the `init_catalog` and `update_catalog` commands.
 
 
-## Keep the seedsigner-translations repo up to date
-The *.po files for each language and their compiled *.mo files should all be kept up to date in the seedsigner-translations repo.
+## Keep the translations repo up to date
+The *.po files for each language and their compiled *.mo files should all be kept up to date in the translations repository.
 
 _TODO: Github Actions automation to regenerate / verify that the *.mo files have been updated after *.po changes._
 

@@ -1,5 +1,4 @@
-"""Animated-QR transport for talking to a real SeedSigner, modelled on the
-proven ``scripts/cardano_companion_test.py`` GUI.
+"""Animated-QR transport for talking to a real SeedSigner.
 
 A single Tkinter window shows the request QR (animated, left) and the live
 webcam (right) at the same time, and decodes the device's animated QR response

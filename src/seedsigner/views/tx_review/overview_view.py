@@ -103,7 +103,7 @@ class CardanoTxOverviewView(View):
 
 
 def _sanitize_origin(origin):
-    """Strip non-printable chars and cap at 30 characters."""
+    """Strip non-printable chars and cap at 20 characters."""
     if not origin:
         return origin
     cleaned = "".join(c for c in origin if c.isprintable())

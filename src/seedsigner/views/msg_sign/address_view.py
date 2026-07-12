@@ -12,7 +12,8 @@ _TOTAL_PAGES = 3
 
 
 class CardanoMsgAddressView(View):
-    """Shows the signing address in bech32."""
+    """Shows the signing credential: a payment address, stake address, DRep ID,
+    or key hash, depending on the request."""
 
     def __init__(self, msg_request: CardanoMessageSignRequest, page_index: int = 0):
         super().__init__()

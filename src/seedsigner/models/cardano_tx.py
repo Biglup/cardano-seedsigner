@@ -9,12 +9,12 @@ and each message body is **untagged CBOR**. This follows the Blockchain Commons
 Uniform Resources convention: a top-level UR carries the bare CBOR payload, and a
 registry tag (here 88000-88003) is only applied when a structure is embedded
 inside another CBOR structure. The tag numbers are recorded per class as the
-registry identity, but are not written on-wire. Consistent with the M4 account
-export (``cardano_account.py``).
+registry identity, but are not written on-wire. Consistent with the account
+export codecs in ``cardano_account.py``.
 
 Each request carries the master fingerprint (``xfp``) per signer so the device
 can match a required signer to the loaded seed whose ``Seed.get_fingerprint()``
-equals it. This is the same 4-byte BTC BIP-32 value the M4 account export returns
+equals it. This is the same 4-byte BTC BIP-32 value the account export returns
 as ``master_fingerprint`` (see ``cardano_account.py``).
 """
 

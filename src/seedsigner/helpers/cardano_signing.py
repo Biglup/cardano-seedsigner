@@ -3,8 +3,8 @@ Cardano on-device signing core.
 
 Pure crypto, no GUI/IO. Replicates cometa's
 ``SoftwareBip32SecureKeyHandler.sign_transaction`` (derive Ed25519 key per path,
-sign the transaction-body hash, build a ``VkeyWitnessSet``) and uses
-``cip8_sign`` for CIP-8 message signing.
+sign the transaction-body hash, build a ``VkeyWitnessSet``) and builds the CIP-8
+COSE_Sign1 and COSE_Key in the Ledger-compatible wire format.
 
 Each signer in a request carries the master fingerprint (``xfp``). Given one
 selected seed, only the signers whose ``xfp`` matches that seed's fingerprint are
