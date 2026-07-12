@@ -52,6 +52,14 @@ class FlowBasedTestException(Exception):
 
 class BackgroundImportThread(BaseThread):
     def run(self):
+        """Preload modules in the order the UI reaches them after boot.
+
+        Seed loading and the camera and scan path load first, since those are
+        the flows a user reaches immediately after the splash. cometa and the
+        Cardano transaction and message modules load last: they carry the slow
+        libcardano-c native load and are not needed until a signing flow
+        begins, so deferring them keeps scanning responsive right after boot.
+        """
         from importlib import import_module
 
         # import seedsigner.hardware.buttons # slowly imports GPIO along the way
@@ -68,20 +76,23 @@ class BackgroundImportThread(BaseThread):
         from seedsigner.models.seed_storage import SeedStorage
         Controller.get_instance()._storage = SeedStorage()
 
+        # The camera and scan path get priority so scanning is responsive as
+        # soon as the menu appears, ahead of the slow cometa load below.
         time_import('numpy')  # used by PiVideoStream; by far the slowest import (2.29s)
         time_import('seedsigner.hardware.pivideostream')
+        time_import('seedsigner.hardware.camera')
+        time_import('seedsigner.views.scan_views')
+
+        # Remaining MainMenuView destinations.
+        time_import('seedsigner.views.seed_views')
+        time_import('seedsigner.views.tools_views')
+        time_import('seedsigner.views.settings_views')
 
         time_import('cometa')  # loads the libcardano-c native lib via cffi; very slow on Pi Zero
         time_import('seedsigner.models.cardano_tx')
         time_import('seedsigner.views.tx_review.overview_view')
         time_import('seedsigner.views.tx_review.sequential_review_view')
         time_import('seedsigner.views.msg_sign.overview_view')
-
-        # Get MainMenuView ready to respond quickly
-        time_import('seedsigner.views.scan_views')
-        time_import('seedsigner.views.seed_views')
-        time_import('seedsigner.views.tools_views')
-        time_import('seedsigner.views.settings_views')
 
 
 
