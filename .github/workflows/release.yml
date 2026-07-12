@@ -104,12 +104,6 @@ jobs:
         if: env.HAS_SIGNING_KEY != 'true'
         run: echo "::warning::GPG_SIGNING_KEY secret is not set, publishing an unsigned release."
 
-      - name: include public key
-        run: |
-          if [ -f cardano_seedsigner_pubkey.gpg ]; then
-            cp cardano_seedsigner_pubkey.gpg release/
-          fi
-
       - name: publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

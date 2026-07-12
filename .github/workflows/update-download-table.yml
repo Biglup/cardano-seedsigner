@@ -1,0 +1,75 @@
+name: Update download table
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-download-table
+  cancel-in-progress: false
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: regenerate the download table
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          base="https://github.com/${REPO}/releases/download/${TAG}"
+
+          row() {
+            local label="$1" board="$2"
+            local file="cardano_seedsigner_os.${TAG}.${board}.img"
+            echo "| ${label} | [${file}](${base}/${file}) | [.asc](${base}/${file}.asc) |"
+          }
+
+          {
+            echo "<!-- BEGIN DOWNLOAD TABLE -->"
+            echo "Latest release: **[${TAG}](https://github.com/${REPO}/releases/tag/${TAG})**"
+            echo
+            echo "| Board | Image | Signature |"
+            echo "|-------|-------|-----------|"
+            row "Pi Zero / Zero W" pi0
+            row "Pi Zero 2 W" pi02w
+            row "Pi 2 Model B" pi2
+            row "Pi 3 / Pi 4" pi4
+            echo "| Checksums (all images) | [SHA256SUMS](${base}/SHA256SUMS) | [SHA256SUMS.asc](${base}/SHA256SUMS.asc) |"
+            echo "<!-- END DOWNLOAD TABLE -->"
+          } > table.md
+
+          python3 - <<'PY'
+          import pathlib, re
+          readme = pathlib.Path("README.md")
+          block = pathlib.Path("table.md").read_text().rstrip("\n")
+          text = readme.read_text()
+          new = re.sub(
+              r"<!-- BEGIN DOWNLOAD TABLE -->.*?<!-- END DOWNLOAD TABLE -->",
+              lambda _: block,
+              text,
+              flags=re.S,
+          )
+          readme.write_text(new)
+          PY
+
+          rm table.md
+
+      - name: commit if changed
+        run: |
+          if git diff --quiet README.md; then
+            echo "README already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs: update download table for ${{ github.event.release.tag_name }} [skip ci]"
+          git push origin main
