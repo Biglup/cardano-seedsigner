@@ -20,8 +20,9 @@ as ``master_fingerprint`` (see ``cardano_account.py``).
 Validation limits: ``XFP_LEN`` is the 4-byte BIP-32 master fingerprint length
 and ``TX_HASH_LEN`` the 32-byte UTXO transaction hash length.
 ``MAX_PATH_COMPONENTS`` caps derivation paths at 10 entries (CIP-1852 paths
-have 5; the cap rejects abusive inputs) and ``MAX_PATH_COMPONENT`` caps each
-derivation index at 32 bits.
+have 5; the cap rejects abusive inputs), a decoded path must contain at least
+one component (an empty path names no key and could not be signed with), and
+``MAX_PATH_COMPONENT`` caps each derivation index at 32 bits.
 """
 
 from dataclasses import dataclass, field
@@ -44,6 +45,8 @@ def _write_path(w: "CborWriter", path: list[int]) -> None:
 
 def _read_path(r: "CborReader") -> list[int]:
     count = r.read_array_len()
+    if count == 0:
+        raise ValueError("derivation path is empty")
     if count > MAX_PATH_COMPONENTS:
         raise ValueError(f"derivation path too long ({count} > {MAX_PATH_COMPONENTS})")
     path = [r.read_uint() for _ in range(count)]

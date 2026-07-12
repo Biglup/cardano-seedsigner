@@ -101,7 +101,7 @@ class CardanoMsgSignView(View):
                 return Destination(MainMenuView, clear_history=True)
             try:
                 response = build_cip8_sign_response(seed, request)
-            except ValueError as e:
+            except Exception as e:
                 logger.info(repr(e), exc_info=True)
                 self.run_screen(
                     WarningScreen,

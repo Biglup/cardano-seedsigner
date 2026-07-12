@@ -235,6 +235,29 @@ class TestCardanoSignFlows(FlowTest):
             initial_destination_view_args=dict(parsed_tx=self._parsed_tx_for(request)),
         )
 
+    def test_tx_sign_signing_failure_warns_and_aborts(self):
+        """A signing-core failure after the user confirms Sign must land on
+        the graceful warning screen and return to the main menu, never on
+        the unhandled-exception screen."""
+        from unittest.mock import patch
+        from seedsigner.helpers import cardano_signing
+
+        self._load_seed()
+        seed = self.controller.storage.seeds[0]
+        request = self._tx_request_with_xfp(bytes.fromhex(seed.get_fingerprint()))
+        self.controller.cardano_seed = seed
+        self.controller.cardano_tx_sign_request = request
+
+        with patch.object(cardano_signing, "build_tx_sign_response",
+                          side_effect=Exception("signing failed")):
+            self.run_sequence(
+                [
+                    FlowStep(CardanoTxSignView, screen_return_value=1),
+                    FlowStep(_MainMenuView),
+                ],
+                initial_destination_view_args=dict(parsed_tx=self._parsed_tx_for(request)),
+            )
+
     def test_tx_sign_partial_match_proceeds(self):
         from seedsigner.models.cardano_tx import CardanoSignRequest, SigningInput
 

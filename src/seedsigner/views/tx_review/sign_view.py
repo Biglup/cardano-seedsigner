@@ -1,6 +1,7 @@
 """Final confirmation screen before signing a Cardano transaction, and the
 animated QR view that transmits the resulting witness set back to the host."""
 
+import logging
 from gettext import gettext as _
 
 from seedsigner.gui.screens import RET_CODE__BACK_BUTTON
@@ -9,6 +10,9 @@ from seedsigner.models.cardano_tx import CardanoParsedTx, CardanoTxSignResponse
 from seedsigner.models.settings import SettingsConstants
 
 from seedsigner.views.view import View, Destination, BackStackView, MainMenuView
+
+
+logger = logging.getLogger(__name__)
 
 
 class CardanoTxSignView(View):
@@ -70,7 +74,19 @@ class CardanoTxSignView(View):
         elif selected_menu_num == 1:
             if seed is None or request is None:
                 return Destination(MainMenuView, clear_history=True)
-            response = build_tx_sign_response(seed, request)
+            try:
+                response = build_tx_sign_response(seed, request)
+            except Exception as e:
+                logger.info(repr(e), exc_info=True)
+                self.run_screen(
+                    WarningScreen,
+                    title=_("Cannot Sign"),
+                    status_headline=_("Rejected"),
+                    text=_("The transaction could not be signed with this seed."),
+                    show_back_button=False,
+                    button_data=[ButtonOption("OK")],
+                )
+                return Destination(MainMenuView, clear_history=True)
             return Destination(
                 CardanoTxSignedQRView,
                 view_args=dict(response=response),

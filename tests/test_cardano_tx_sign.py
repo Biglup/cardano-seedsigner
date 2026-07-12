@@ -329,6 +329,48 @@ def test_oversized_path_raises():
         ExtraSigner.from_cbor(CborReader.from_bytes(w.encode()))
 
 
+def test_empty_path_in_signing_input_raises():
+    """A zero-component derivation path cannot locate any signing key and
+    must raise ValueError instead of crashing later at signing time."""
+    from cometa import CborReader
+    w = CborWriter()
+    w.write_start_map(4)
+    w.write_int(1)
+    w.write_bytes(b"\x00" * 32)
+    w.write_int(2)
+    w.write_int(0)
+    w.write_int(3)
+    w.write_bytes(XFP)
+    w.write_int(4)
+    w.write_start_array(0)
+    with pytest.raises(ValueError):
+        SigningInput.from_cbor(CborReader.from_bytes(w.encode()))
+
+
+def test_empty_path_in_extra_signer_raises():
+    from cometa import CborReader
+    w = CborWriter()
+    w.write_start_map(2)
+    w.write_int(1)
+    w.write_bytes(XFP)
+    w.write_int(2)
+    w.write_start_array(0)
+    with pytest.raises(ValueError):
+        ExtraSigner.from_cbor(CborReader.from_bytes(w.encode()))
+
+
+def test_empty_path_in_cip8_signing_path_raises():
+    from cometa import CborReader
+    w = CborWriter()
+    w.write_start_map(2)
+    w.write_int(1)
+    w.write_int(0)
+    w.write_int(2)
+    w.write_start_array(0)
+    with pytest.raises(ValueError):
+        SigningPath.from_cbor(CborReader.from_bytes(w.encode()))
+
+
 def test_malformed_cbor_raises_valueerror_not_cometa_error():
     """A wrong type for request_id (int where tstr is expected) must surface
     as ValueError so the scan handler can fail gracefully."""
