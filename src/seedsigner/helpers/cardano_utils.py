@@ -209,7 +209,8 @@ def _derived_address_matches(root_key, path, network_id, actual_addr) -> bool:
     the actual address's type selects the derivation. A base address with a
     script stake part is matched on its payment credential alone, since the
     stake script is not derivable from the seed. Any other address type
-    (pointer, reward, script-payment, byron) or a parse failure returns False.
+    (pointer, reward, script-payment, byron), a parse failure, or a path
+    that cannot be derived returns False.
     """
     from cometa import (
         Address,
@@ -232,31 +233,31 @@ def _derived_address_matches(root_key, path, network_id, actual_addr) -> bool:
     except Exception:
         return False
 
-    key = root_key.derive(path)
-    payment_cred = Credential.from_key_hash(
-        key.get_public_key().to_ed25519_key().to_hash()
-    )
-
-    if addr_type in BASE_TYPES:
-        stake_path = list(path[:3]) + [2, 0]
-        stake_key = root_key.derive(stake_path)
-        stake_cred = Credential.from_key_hash(
-            stake_key.get_public_key().to_ed25519_key().to_hash()
+    try:
+        key = root_key.derive(path)
+        payment_cred = Credential.from_key_hash(
+            key.get_public_key().to_ed25519_key().to_hash()
         )
-        derived_addr = BaseAddress.from_credentials(network_id, payment_cred, stake_cred)
-        return str(derived_addr) == actual_addr
 
-    if addr_type == AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT:
-        try:
+        if addr_type in BASE_TYPES:
+            stake_path = list(path[:3]) + [2, 0]
+            stake_key = root_key.derive(stake_path)
+            stake_cred = Credential.from_key_hash(
+                stake_key.get_public_key().to_ed25519_key().to_hash()
+            )
+            derived_addr = BaseAddress.from_credentials(network_id, payment_cred, stake_cred)
+            return str(derived_addr) == actual_addr
+
+        if addr_type == AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT:
             if parsed.network_id != network_id:
                 return False
-        except Exception:
-            return False
-        return _payment_key_credential_matches(parsed, payment_cred)
+            return _payment_key_credential_matches(parsed, payment_cred)
 
-    if addr_type in ENTERPRISE_TYPES:
-        derived_addr = EnterpriseAddress.from_credentials(network_id, payment_cred)
-        return str(derived_addr) == actual_addr
+        if addr_type in ENTERPRISE_TYPES:
+            derived_addr = EnterpriseAddress.from_credentials(network_id, payment_cred)
+            return str(derived_addr) == actual_addr
+    except Exception:
+        return False
 
     return False
 
@@ -272,7 +273,8 @@ def verify_change_outputs(sign_request, seed, body) -> list[int]:
     wrong keys, unsupported address type, etc.), it is not included — safe
     failure mode: unverified outputs are treated as external (user sees
     inflated spending amount). An entry whose index falls outside the body's
-    output list is skipped the same way rather than failing the request.
+    output list or whose path cannot be derived is skipped the same way
+    rather than failing the request.
 
     Base addresses are verified against the account's standard stake key
     (role 2, index 0), so a base address using a non-default stake index is
@@ -324,7 +326,8 @@ def derive_owned_key_hashes(sign_request, seed) -> set:
     cryptographic proof that a credential hash appearing in the transaction
     (certificates, withdrawals, required signers, voters) belongs to this
     wallet — a host cannot make a foreign credential match by declaring
-    extra paths.
+    extra paths. A declared path that cannot be derived contributes no hash
+    and is skipped, so one malformed entry does not fail the request.
     """
     fingerprint = bytes.fromhex(seed.get_fingerprint())
 
@@ -345,7 +348,10 @@ def derive_owned_key_hashes(sign_request, seed) -> set:
     root_key = root_key_from_seed(seed)
     hashes = set()
     for path in paths:
-        key = root_key.derive(list(path))
+        try:
+            key = root_key.derive(list(path))
+        except Exception:
+            continue
         hashes.add(key.get_public_key().to_ed25519_key().to_hash().to_bytes())
     return hashes
 

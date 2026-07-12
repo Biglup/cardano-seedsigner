@@ -41,6 +41,7 @@ H = 0x80000000
 PATH_PAYMENT = [1852 + H, 1815 + H, H, 0, 0]
 PATH_CHANGE = [1852 + H, 1815 + H, H, 1, 0]
 PATH_STAKE = [1852 + H, 1815 + H, H, 2, 0]
+PATH_OVERFLOW = [1852 + H, 1815 + H, H, 1, 2**32]
 OTHER_XFP = bytes.fromhex("deadbeef")
 FOREIGN_ADDR = bytes.fromhex("61" + "11" * 28)
 FOREIGN_KEY_HASH = bytes.fromhex("33" * 28)
@@ -234,12 +235,40 @@ def test_change_output_mixed_valid_and_out_of_range_verifies_valid(seed):
     assert verify_change_outputs(req, seed, body) == [0]
 
 
+def test_change_output_underivable_path_is_unverified(seed):
+    body = _body(output_addr=_enterprise_addr_bytes(seed, PATH_CHANGE))
+    req = _request(
+        change_outputs=[ChangeOutput(index=0, path=PATH_OVERFLOW, xfp=_fingerprint(seed))]
+    )
+    assert verify_change_outputs(req, seed, body) == []
+
+
+def test_change_output_mixed_valid_and_underivable_verifies_valid(seed):
+    body = _body(output_addr=_enterprise_addr_bytes(seed, PATH_CHANGE))
+    fp = _fingerprint(seed)
+    req = _request(
+        change_outputs=[
+            ChangeOutput(index=0, path=PATH_OVERFLOW, xfp=fp),
+            ChangeOutput(index=0, path=PATH_CHANGE, xfp=fp),
+        ]
+    )
+    assert verify_change_outputs(req, seed, body) == [0]
+
+
 def test_change_output_negative_index_is_unverified(seed):
     body = _body(output_addr=_enterprise_addr_bytes(seed, PATH_CHANGE))
     req = _request(
         change_outputs=[ChangeOutput(index=-1, path=PATH_CHANGE, xfp=_fingerprint(seed))]
     )
     assert verify_change_outputs(req, seed, body) == []
+
+
+def test_collateral_return_underivable_path_fails(seed):
+    body = _body(_enterprise_addr_bytes(seed, PATH_CHANGE))
+    req = _request(
+        collateral_return_path=ExtraSigner(xfp=_fingerprint(seed), path=PATH_OVERFLOW)
+    )
+    assert verify_collateral_return(req, seed, body) is False
 
 
 def test_collateral_return_stake_script_base_address_verifies(seed):
@@ -280,6 +309,12 @@ def test_message_address_stake_script_wrong_path_fails(seed):
     assert verify_message_signing_address(req, seed) is False
 
 
+def test_message_address_underivable_path_fails(seed):
+    addr = _enterprise_addr_bytes(seed, PATH_PAYMENT)
+    req = _msg_request(seed, PATH_OVERFLOW, addr)
+    assert verify_message_signing_address(req, seed) is False
+
+
 def test_owned_key_hashes_cover_all_declared_path_sources(seed):
     fp = _fingerprint(seed)
     req = _request(
@@ -306,6 +341,18 @@ def test_owned_key_hashes_skip_foreign_xfp(seed):
         collateral_return_path=ExtraSigner(xfp=OTHER_XFP, path=PATH_CHANGE),
     )
     assert derive_owned_key_hashes(req, seed) == set()
+
+
+def test_owned_key_hashes_skip_underivable_path(seed):
+    fp = _fingerprint(seed)
+    req = _request(
+        extra_signers=[
+            ExtraSigner(xfp=fp, path=PATH_OVERFLOW),
+            ExtraSigner(xfp=fp, path=PATH_STAKE),
+        ]
+    )
+    owned = derive_owned_key_hashes(req, seed)
+    assert _key_hash(seed, PATH_STAKE) in owned
 
 
 def test_owned_key_hashes_accept_unspecified_change_xfp(seed):
