@@ -271,15 +271,19 @@ def verify_change_outputs(sign_request, seed, body) -> list[int]:
     If an output's address doesn't match the derived address (wrong network,
     wrong keys, unsupported address type, etc.), it is not included — safe
     failure mode: unverified outputs are treated as external (user sees
-    inflated spending amount).
+    inflated spending amount). An entry whose index falls outside the body's
+    output list is skipped the same way rather than failing the request.
 
     Returns a list of output indices that are verified as change.
     """
     root_key = root_key_from_seed(seed)
     network_id = sign_request.network
+    output_count = len(body.outputs)
     verified = []
 
     for change_output in sign_request.change_outputs:
+        if not 0 <= change_output.index < output_count:
+            continue
         actual_addr = str(body.outputs[change_output.index].address)
         if _derived_address_matches(root_key, change_output.path, network_id, actual_addr):
             verified.append(change_output.index)

@@ -214,6 +214,34 @@ def test_change_output_stake_script_wrong_network_fails(seed):
     assert verify_change_outputs(req, seed, body) == []
 
 
+def test_change_output_out_of_range_index_is_unverified(seed):
+    body = _body(output_addr=_enterprise_addr_bytes(seed, PATH_CHANGE))
+    req = _request(
+        change_outputs=[ChangeOutput(index=5, path=PATH_CHANGE, xfp=_fingerprint(seed))]
+    )
+    assert verify_change_outputs(req, seed, body) == []
+
+
+def test_change_output_mixed_valid_and_out_of_range_verifies_valid(seed):
+    body = _body(output_addr=_enterprise_addr_bytes(seed, PATH_CHANGE))
+    fp = _fingerprint(seed)
+    req = _request(
+        change_outputs=[
+            ChangeOutput(index=0, path=PATH_CHANGE, xfp=fp),
+            ChangeOutput(index=5, path=PATH_CHANGE, xfp=fp),
+        ]
+    )
+    assert verify_change_outputs(req, seed, body) == [0]
+
+
+def test_change_output_negative_index_is_unverified(seed):
+    body = _body(output_addr=_enterprise_addr_bytes(seed, PATH_CHANGE))
+    req = _request(
+        change_outputs=[ChangeOutput(index=-1, path=PATH_CHANGE, xfp=_fingerprint(seed))]
+    )
+    assert verify_change_outputs(req, seed, body) == []
+
+
 def test_collateral_return_stake_script_base_address_verifies(seed):
     addr = _stake_script_base_addr_bytes(_payment_credential(seed, PATH_CHANGE))
     body = _body(addr)
