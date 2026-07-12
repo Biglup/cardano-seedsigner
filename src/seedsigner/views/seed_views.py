@@ -562,7 +562,7 @@ class SeedWordsView(View):
         words = mnemonic[self.page_index*words_per_page:(self.page_index + 1)*words_per_page]
 
         button_data = []
-        num_pages = int(len(mnemonic)/words_per_page)
+        num_pages = (len(mnemonic) + words_per_page - 1) // words_per_page
         if self.page_index < num_pages - 1 or self.seed_num is None:
             button_data.append(self.NEXT)
         else:
@@ -574,6 +574,7 @@ class SeedWordsView(View):
             words=words,
             page_index=self.page_index,
             num_pages=num_pages,
+            words_per_page=words_per_page,
             button_data=button_data,
         )
 

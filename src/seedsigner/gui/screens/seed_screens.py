@@ -458,6 +458,7 @@ class SeedWordsScreen(WarningEdgesMixin, ButtonListScreen):
     words: List[str] = None
     page_index: int = 0
     num_pages: int = 3
+    words_per_page: int = 4
     is_bottom_list: bool = True
     status_color: str = GUIConstants.DIRE_WARNING_COLOR
 
@@ -466,8 +467,6 @@ class SeedWordsScreen(WarningEdgesMixin, ButtonListScreen):
         # TRANSLATOR_NOTE: Displays the page number and total: (e.g. page 1 of 6)
         self.title = _("Seed Words: {}/{}").format(self.page_index + 1, self.num_pages)
         super().__post_init__()
-
-        words_per_page = len(self.words)
 
         self.body_x = 0
         self.body_y = self.top_nav.height - int(GUIConstants.COMPONENT_PADDING / 2)
@@ -513,7 +512,7 @@ class SeedWordsScreen(WarningEdgesMixin, ButtonListScreen):
             draw.text(
                 (number_box_x + int(number_box_width/2), baseline_y),
                 font=number_font,
-                text=str(self.page_index * words_per_page + index + 1),
+                text=str(self.page_index * self.words_per_page + index + 1),
                 fill=GUIConstants.INFO_COLOR,
                 anchor="ms"  # Middle (centered), baSeline
             )
