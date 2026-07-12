@@ -85,12 +85,11 @@ One-time maintainer setup:
 
    Paste the full armored block as the `GPG_SIGNING_KEY` value.
 
-4. Export the public key and commit it to the repository root as
-   `cardano_seedsigner_pubkey.gpg`:
-
-   ```
-   gpg --export <KEY_ID> > cardano_seedsigner_pubkey.gpg
-   ```
+4. Publish the public key on Keybase (https://keybase.io/angelcastillob) and
+   anywhere else the key can be checked out of band. Keybase is the source
+   users are told to fetch the key from, so it is the trust anchor, not the
+   release. Do not attach the public key to releases: a key downloaded next to
+   the images it signs adds no assurance if the release channel is compromised.
 
 Also restrict who can push tags and create releases (Settings -> branch and tag
 protection), so only trusted maintainers can trigger the release run at all.
@@ -103,8 +102,12 @@ build workspace and release assets, and destroys the keyring when the job ends.
 
 ## Verifying a release
 
+Fetch the key from Keybase and confirm the fingerprint against the Keybase
+profile before trusting anything:
+
 ```
-gpg --import cardano_seedsigner_pubkey.gpg
+gpg --fetch-keys https://keybase.io/angelcastillob/pgp_keys.asc
+gpg --fingerprint
 gpg --verify SHA256SUMS.asc SHA256SUMS
 sha256sum -c SHA256SUMS
 ```

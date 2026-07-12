@@ -43,7 +43,6 @@ jobs:
             row "Pi 2 Model B" pi2
             row "Pi 3 / Pi 4" pi4
             echo "| Checksums (all images) | [SHA256SUMS](${base}/SHA256SUMS) | [SHA256SUMS.asc](${base}/SHA256SUMS.asc) |"
-            echo "| Public key | [cardano_seedsigner_pubkey.gpg](${base}/cardano_seedsigner_pubkey.gpg) | |"
             echo "<!-- END DOWNLOAD TABLE -->"
           } > table.md
 

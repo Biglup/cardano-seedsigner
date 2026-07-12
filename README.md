@@ -57,22 +57,21 @@ Latest release: **[v0.0.1](https://github.com/Biglup/cardano-seedsigner/releases
 | Pi 2 Model B | [cardano_seedsigner_os.v0.0.1.pi2.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_os.v0.0.1.pi2.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_os.v0.0.1.pi2.img.asc) |
 | Pi 3 / Pi 4 | [cardano_seedsigner_os.v0.0.1.pi4.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_os.v0.0.1.pi4.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_os.v0.0.1.pi4.img.asc) |
 | Checksums (all images) | [SHA256SUMS](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/SHA256SUMS) | [SHA256SUMS.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/SHA256SUMS.asc) |
-| Public key | [cardano_seedsigner_pubkey.gpg](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_pubkey.gpg) | |
 <!-- END DOWNLOAD TABLE -->
 
 Running a prepared image means trusting whoever built it. The releases are signed so you can at least confirm the image is the one that was published, and the builds are reproducible so you can rebuild from source and compare hashes (see [Building a Full Image](#building-a-full-image)).
 
 ## Verify the signature
 
-Every release includes `SHA256SUMS` (the image hashes), `SHA256SUMS.asc` (a signature over it), a detached `.img.asc` for each image, and `cardano_seedsigner_pubkey.gpg` (the public key).
+Every release includes `SHA256SUMS` (the image hashes), `SHA256SUMS.asc` (a signature over it), and a detached `.img.asc` for each image. The public key is deliberately not part of the release, since a key downloaded from the same place as the images would prove nothing if that place were compromised. Get the key from Keybase instead and check its fingerprint out of band.
 
-1. Fetch the signing key from Keybase, or import the `cardano_seedsigner_pubkey.gpg` shipped with the release:
+1. Fetch the signing key from Keybase:
 
    ```
    gpg --fetch-keys https://keybase.io/angelcastillob/pgp_keys.asc
    ```
 
-2. Confirm the key fingerprint matches the one published at https://keybase.io/angelcastillob:
+2. Confirm the key fingerprint matches the one published at https://keybase.io/angelcastillob. This step is what the whole check rests on, so compare it against Keybase (which ties the key to a verified identity), not against anything downloaded with the release:
 
    ```
    gpg --fingerprint
