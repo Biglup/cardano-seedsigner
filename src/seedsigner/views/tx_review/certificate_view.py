@@ -6,7 +6,6 @@ from seedsigner.gui.screens.tx_review import format_ada
 
 from .base import BaseSequentialSectionView
 
-# Friendly names for certificate types
 _CERT_TYPE_NAMES = {
     "STAKE_REGISTRATION": "Stake Registration",
     "STAKE_DEREGISTRATION": "Stake Deregistration",
@@ -101,7 +100,6 @@ class CertificateReviewView(BaseSequentialSectionView):
         friendly_name = _CERT_TYPE_NAMES.get(ct.name, ct.name)
         lines = []
 
-        # Certificate type — blue, prominent
         lines.append(("label", "Type:"))
         lines.append(("spacer_small", ""))
         lines.append(("value_highlight", friendly_name))
@@ -257,7 +255,7 @@ class CertificateReviewView(BaseSequentialSectionView):
         Key-hash credentials are checked against the key hashes derived
         on-device from the request's declared paths: a match is proof the
         credential is the wallet's ("Own Key" badge), otherwise it is
-        badged "Unknown Key" (ownership could not be verified — it may
+        badged "Unknown Key" (ownership could not be verified; it may
         equally be a third party's key or an undeclared own key). Script
         credentials can't be proven either way and stay unbadged.
         """

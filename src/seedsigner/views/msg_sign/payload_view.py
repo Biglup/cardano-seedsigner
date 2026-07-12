@@ -14,9 +14,9 @@ _TOTAL_PAGES = 3
 
 
 def _is_printable_ascii(data: bytes) -> bool:
-    """Check if all bytes are printable ASCII (0x20-0x7E) or common whitespace."""
+    """Check if all bytes are printable ASCII (0x20-0x7E) or common whitespace (newline, CR, tab)."""
     for b in data:
-        if b == 0x0A or b == 0x0D or b == 0x09:  # newline, CR, tab
+        if b == 0x0A or b == 0x0D or b == 0x09:
             continue
         if b < 0x20 or b > 0x7E:
             return False
@@ -24,7 +24,12 @@ def _is_printable_ascii(data: bytes) -> bool:
 
 
 class CardanoMsgPayloadView(View):
-    """Shows the message payload as ASCII text, JSON, or hex."""
+    """Shows the message payload as ASCII text, JSON, or hex.
+
+    Rendering is chosen by attempting a UTF-8 decode, then a printable
+    ASCII check, then a JSON parse: valid JSON is pretty-printed, other
+    printable text is shown as plain text, and anything else as hex.
+    """
 
     def __init__(self, msg_request: CardanoMessageSignRequest):
         super().__init__()
@@ -40,11 +45,9 @@ class CardanoMsgPayloadView(View):
         if size == 0:
             content.append(("label", "Empty Message"))
         else:
-            # Try UTF-8 decode → printable check → JSON check
             try:
                 text = payload.decode("utf-8")
                 if _is_printable_ascii(payload):
-                    # Try JSON pretty-print
                     try:
                         parsed = json.loads(text)
                         pretty = json.dumps(parsed, indent=2)
@@ -53,7 +56,6 @@ class CardanoMsgPayloadView(View):
                         for line in pretty.split("\n"):
                             content.append(("mono_text", line))
                     except (json.JSONDecodeError, ValueError, RecursionError):
-                        # Plain ASCII text
                         content.append(("label", f"Plain Text ({size} bytes):"))
                         content.append(("spacer_small", ""))
                         for line in text.split("\n"):

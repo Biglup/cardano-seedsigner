@@ -1,11 +1,13 @@
 """
 Shared utilities for Cardano transaction review screens.
+
+RET_CODE__LEFT_BUTTON and RET_CODE__RIGHT_BUTTON are the return codes for
+sequential left/right navigation.
 """
 
 from gettext import gettext as _
 
 
-# Return codes for sequential navigation
 RET_CODE__LEFT_BUTTON = -2
 RET_CODE__RIGHT_BUTTON = -3
 

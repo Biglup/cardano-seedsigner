@@ -10,7 +10,7 @@ from seedsigner.views.view import View, Destination, BackStackView, MainMenuView
 
 
 class CardanoTxOverviewView(View):
-    """TX Overview — summary of key transaction fields."""
+    """TX Overview: summary of key transaction fields."""
 
     REVIEW = ButtonOption("Review details")
 
@@ -19,18 +19,22 @@ class CardanoTxOverviewView(View):
         self.parsed_tx = parsed_tx
 
     def run(self):
-        # Reject the transaction if the network doesn't match
+        """Show the overview, or reject the transaction on a network mismatch.
+
+        A mismatch between the sign request's network and the transaction
+        body's network id rejects the transaction outright: the warning
+        screen is built first, then the colored detail TextAreas are
+        appended below its last component (the headline) before displaying.
+        """
         if self.parsed_tx.network_mismatch_error:
             from seedsigner.gui.components import GUIConstants, TextArea
             from seedsigner.gui.screens.screen import DireWarningScreen
 
-            # Build the screen, then append colored TextAreas before displaying
             self.screen = DireWarningScreen(
                 title=_("Network Mismatch"),
                 status_headline=_("TX Rejected"),
             )
 
-            # Find the y position after the last component (the headline)
             last = self.screen.components[-1]
             cur_y = last.screen_y + last.height + GUIConstants.COMPONENT_PADDING
 
@@ -95,7 +99,6 @@ class CardanoTxOverviewView(View):
         if selected_menu_num == RET_CODE__BACK_BUTTON:
             return Destination(BackStackView)
 
-        # "Review details" button pressed - enter sequential review
         return Destination(
             CardanoTxSequentialReviewView,
             view_args=dict(parsed_tx=self.parsed_tx, global_index=0)
@@ -126,6 +129,9 @@ class _TxOverviewScreen(ButtonListScreen):
     "Sending" figure is a net the device cannot prove, so it is replaced by
     the output count (per-output amounts follow in the sequential review and
     on the sign confirmation).
+
+    Row advance heights are fixed, measured from a "y" glyph so every row
+    reserves descender space regardless of its actual text.
     """
     sending: str = ""
     fee: str = ""
@@ -156,7 +162,6 @@ class _TxOverviewScreen(ButtonListScreen):
         row_spacing = 6
         cur_y = 50
 
-        # Fixed row advance heights (use "y" to include descender space)
         label_h = TextArea(text="y", font_size=GUIConstants.get_body_font_size() - 2,
                            auto_line_break=False).height
         value_h = TextArea(text="y", font_size=GUIConstants.get_body_font_size(),

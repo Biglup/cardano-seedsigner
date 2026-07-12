@@ -1,4 +1,9 @@
-"""Voting procedure section review view."""
+"""Voting procedure section review view.
+
+``_VOTER_INFO`` maps a cometa VoterType to a (friendly name, bech32 prefix)
+pair; ``_VOTE_DISPLAY`` maps a vote value name to a (display text, line type)
+pair.
+"""
 
 from cometa import Bech32, VoterType
 
@@ -6,7 +11,6 @@ from .base import BaseSequentialSectionView
 from .certificate_view import _format_bech32, _add_anchor
 
 
-# Voter type -> (friendly name, bech32 prefix)
 _VOTER_INFO = {
     VoterType.CONSTITUTIONAL_COMMITTEE_KEY_HASH: ("CC Member", "cc_hot_vkh"),
     VoterType.CONSTITUTIONAL_COMMITTEE_SCRIPT_HASH: ("CC Script", "cc_hot"),
@@ -15,7 +19,6 @@ _VOTER_INFO = {
     VoterType.STAKE_POOL_KEY_HASH: ("SPO", "pool"),
 }
 
-# Vote value -> (display text, line type)
 _VOTE_DISPLAY = {
     "YES": ("Yes", "value_highlight_yes"),
     "NO": ("No", "value_highlight_no"),
@@ -32,14 +35,12 @@ class VotingReviewView(BaseSequentialSectionView):
         voter, action_id, proc = page.data
         content = []
 
-        # Vote
         vote_name = proc.vote.name
         display_text, line_type = _VOTE_DISPLAY.get(vote_name, (vote_name, "value_highlight"))
         content.append(("label", "Vote:"))
         content.append(("spacer_small", ""))
         content.append((line_type, display_text))
 
-        # Voter
         content.append(("spacer", ""))
         vt = voter.voter_type
         friendly, prefix = _VOTER_INFO.get(vt, (vt.name, "addr_vkh"))
@@ -55,7 +56,6 @@ class VotingReviewView(BaseSequentialSectionView):
             content.append(("verified", "Own Key") if is_own
                            else ("foreign", "Unknown Key"))
 
-        # Gov Action
         content.append(("spacer", ""))
         gov_bech32 = action_id.to_bech32()
         gov_fmt, gov_hn, gov_tn = _format_bech32(gov_bech32)

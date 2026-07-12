@@ -29,7 +29,6 @@ from .treasury_view import TreasuryReviewView
 from .donation_view import DonationReviewView
 
 
-# Section name -> view class
 _SECTION_VIEW_MAP = {
     "output": OutputReviewView,
     "fee": FeeReviewView,

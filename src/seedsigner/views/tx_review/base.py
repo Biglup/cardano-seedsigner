@@ -32,6 +32,11 @@ class BaseSequentialSectionView(View):
         self.pages = parsed_tx.build_review_pages()
 
     def run(self):
+        """Render the current page and route the result.
+
+        Both chevrons are always shown: on the first page the left chevron
+        goes back to the overview.
+        """
         page = self.pages[self.global_index]
         total_pages = len(self.pages)
 
@@ -40,7 +45,6 @@ class BaseSequentialSectionView(View):
         else:
             title = self.section_title
 
-        # Always show left chevron — first page goes back to overview
         result = self.render(page, title, True, True, total_pages)
         return self._handle_navigation(result, total_pages)
 
@@ -104,7 +108,6 @@ class BaseSequentialSectionView(View):
                     view_args=dict(parsed_tx=self.parsed_tx, global_index=self.global_index - 1),
                     skip_current_view=True,
                 )
-            # First page — left goes back to overview
             return Destination(BackStackView)
 
         if result == RET_CODE__RIGHT_BUTTON:

@@ -37,7 +37,7 @@ class BaseQrEncoder:
         raise Exception("Not implemented in child class")
     
     def restart(self):
-        # only used by animated QR encoders
+        """No-op here; only used by animated QR encoders."""
         pass
 
     def _create_parts(self):
@@ -81,11 +81,11 @@ class SeedQrEncoder(BaseStaticQrEncoder):
 
 
     def __post_init__(self):
+        """Encode the mnemonic in the numeric SeedQR data format: each word as its 4-digit wordlist index."""
         self.wordlist = Seed.get_wordlist(self.wordlist_language_code)
         super().__post_init__()
 
         self.data = ""
-        # Output as Numeric data format
         for word in self.mnemonic:
             index = self.wordlist.index(word)
             self.data += str("%04d" % index)
@@ -99,26 +99,27 @@ class SeedQrEncoder(BaseStaticQrEncoder):
 @dataclass
 class CompactSeedQrEncoder(SeedQrEncoder):
     def next_part(self):
-        # Output as binary data format
+        """Encode the mnemonic in the binary CompactSeedQR data format.
+
+        Each word becomes its wordlist index zero-padded to 11 bits. The
+        BIP-39 checksum bits at the end (word_count // 3 of them) are
+        excluded, and the remaining bit string is packed into bytes 8 bits
+        at a time. Returns `bytes` so `qrcode` properly recognizes the
+        payload as byte data.
+        """
         binary_str = ""
         for word in self.mnemonic:
             index = self.wordlist.index(word)
 
-            # Convert index to binary, strip out '0b' prefix; zero-pad to 11 bits
             binary_str += bin(index).split('b')[1].zfill(11)
 
-        # We can exclude the checksum bits at the end
-        # BIP-39: checksum bits = word_count // 3
         checksum_bits = len(self.mnemonic) // 3
         binary_str = binary_str[:-checksum_bits]
 
-        # Now convert to bytes, 8 bits at a time
         as_bytes = bytearray()
         for i in range(0, math.ceil(len(binary_str) / 8)):
-            # int conversion reads byte data as a string prefixed with '0b'
             as_bytes.append(int('0b' + binary_str[i*8:(i+1)*8], 2))
         
-        # Must return data as `bytes` for `qrcode` to properly recognize it as byte data
         return bytes(as_bytes)
 
 
@@ -155,25 +156,27 @@ class BaseSimpleAnimatedQREncoder(BaseQrEncoder):
 
 
     def next_part(self) -> str:
-        # if part num sent is gt number of parts, start at 0
+        """Return the next part, wrapping back to the first after the last.
+
+        The encoder is marked complete once the final part in the list has
+        been returned.
+        """
         if self.part_num_sent > (len(self.parts) - 1):
             self.part_num_sent = 0
 
         part = self.parts[self.part_num_sent]
 
-        # when parts sent eq num of parts in list
         if self.part_num_sent == (len(self.parts) - 1):
             self.sent_complete = True
 
-        # increment to next part
         self.part_num_sent += 1
 
         return part
 
 
     def cur_part(self) -> str:
+        """Re-return the current part, rewinding to the last part when at the start."""
         if self.part_num_sent == 0:
-            # Rewind all the way back to the end
             self.part_num_sent = len(self.parts) - 1
         else:
             self.part_num_sent -= 1

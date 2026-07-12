@@ -19,6 +19,19 @@ class CardanoTxSignView(View):
         self.parsed_tx = parsed_tx
 
     def run(self):
+        """Confirm and sign the reviewed transaction.
+
+        The request signed is taken from parsed_tx so it is exactly the
+        transaction the user reviewed, not a controller field that a later
+        scan could have overwritten.
+
+        The selected seed must sign at least one required signer. An empty
+        match means the wrong seed was chosen (it would emit an empty
+        witness set that looks like success). A partial match is valid
+        (cross-device multisig) and proceeds.
+
+        The confirmation screen returns 0 for Cancel and 1 for Sign.
+        """
         from seedsigner.gui.screens.tx_review import CardanoTxSignScreen
         from seedsigner.gui.screens.screen import WarningScreen
         from seedsigner.helpers.cardano_signing import (
@@ -27,14 +40,8 @@ class CardanoTxSignView(View):
         )
 
         seed = self.controller.cardano_seed
-        # Sign exactly the transaction the user reviewed (carried on parsed_tx),
-        # not a controller field that a later scan could have overwritten.
         request = self.parsed_tx.sign_request
 
-        # Guard: the selected seed must sign at least one required signer. An
-        # empty match means the wrong seed was chosen (would emit an empty
-        # witness set that looks like success). A partial match is valid
-        # (cross-device multisig) and proceeds.
         if seed is not None and request is not None and not matching_signing_paths(request, seed):
             self.run_screen(
                 WarningScreen,
@@ -57,10 +64,10 @@ class CardanoTxSignView(View):
         if selected_menu_num == RET_CODE__BACK_BUTTON:
             return Destination(BackStackView)
 
-        if selected_menu_num == 0:  # Cancel
+        if selected_menu_num == 0:
             return Destination(MainMenuView, clear_history=True)
 
-        elif selected_menu_num == 1:  # Sign
+        elif selected_menu_num == 1:
             if seed is None or request is None:
                 return Destination(MainMenuView, clear_history=True)
             response = build_tx_sign_response(seed, request)

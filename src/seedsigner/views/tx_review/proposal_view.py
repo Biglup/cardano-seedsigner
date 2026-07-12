@@ -1,4 +1,13 @@
-"""Governance proposal section review view."""
+"""Governance proposal section review view.
+
+``_PARAM_FIELDS`` lists the ProtocolParamUpdate accessors with their
+friendly display names, grouped in order: fees, size limits, staking,
+Plutus/script, governance (CIP-1694), and the deprecated pre-Conway fields
+(d, extra_entropy, protocol_version). The pool and DRep voting-threshold
+accessors are rendered separately by ``_add_voting_thresholds``.
+``_LOVELACE_FIELDS`` names the fields whose lovelace values are formatted
+as ADA.
+"""
 
 from cometa import Bech32, GovernanceActionType, PlutusLanguageVersion
 
@@ -18,17 +27,15 @@ _ACTION_TYPE_NAMES = {
     GovernanceActionType.INFO: "Info Action",
 }
 
-# ProtocolParamUpdate fields grouped by category with friendly names
 _PARAM_FIELDS = [
-    # Fee
     ("min_fee_a", "Min Fee A"),
     ("min_fee_b", "Min Fee B"),
-    # Size limits
+
     ("max_block_body_size", "Max Block Body Size"),
     ("max_tx_size", "Max TX Size"),
     ("max_block_header_size", "Max Block Header Size"),
     ("max_value_size", "Max Value Size"),
-    # Staking
+
     ("key_deposit", "Key Deposit"),
     ("pool_deposit", "Pool Deposit"),
     ("max_epoch", "Max Epoch"),
@@ -37,7 +44,7 @@ _PARAM_FIELDS = [
     ("expansion_rate", "Expansion Rate"),
     ("treasury_growth_rate", "Treasury Growth Rate"),
     ("min_pool_cost", "Min Pool Cost"),
-    # Plutus / script
+
     ("ada_per_utxo_byte", "ADA Per UTXO Byte"),
     ("cost_models", "Cost Models"),
     ("execution_costs", "Execution Costs"),
@@ -46,20 +53,19 @@ _PARAM_FIELDS = [
     ("max_collateral_inputs", "Max Collateral Inputs"),
     ("collateral_percentage", "Collateral %"),
     ("ref_script_cost_per_byte", "Ref Script Cost/Byte"),
-    # Governance (CIP-1694)
+
     ("min_committee_size", "Min Committee Size"),
     ("committee_term_limit", "Committee Term Limit"),
     ("governance_action_validity_period", "Gov Action Validity"),
     ("governance_action_deposit", "Gov Action Deposit"),
     ("drep_deposit", "DRep Deposit"),
     ("drep_inactivity_period", "DRep Inactivity Period"),
-    # Deprecated pre-Conway
+
     ("d", "Decentralization"),
     ("extra_entropy", "Extra Entropy"),
     ("protocol_version", "Protocol Version"),
 ]
 
-# Lovelace fields that should be formatted as ADA
 _LOVELACE_FIELDS = {
     "key_deposit", "pool_deposit", "min_pool_cost", "ada_per_utxo_byte",
     "governance_action_deposit", "drep_deposit",
@@ -91,22 +97,24 @@ class ProposalReviewView(BaseSequentialSectionView):
         )
 
     def _build_content(self, proposal):
+        """Build the display lines for a proposal.
+
+        Order: action type, deposit, reward account, the type-specific
+        fields, then the anchor. INFO actions have no type-specific fields.
+        """
         lines = []
         at = proposal.action_type
         friendly = _ACTION_TYPE_NAMES.get(at, at.name)
 
-        # Action type
         lines.append(("label", "Type:"))
         lines.append(("spacer_small", ""))
         lines.append(("value_highlight", friendly))
 
-        # Deposit
         lines.append(("spacer", ""))
         lines.append(("label", "Deposit:"))
         lines.append(("spacer_small", ""))
         lines.append(("value_large", format_ada(proposal.deposit)))
 
-        # Reward address
         lines.append(("spacer", ""))
         reward_bech32 = str(proposal.reward_address)
         fmt, hn, tn = _format_bech32(reward_bech32)
@@ -114,7 +122,6 @@ class ProposalReviewView(BaseSequentialSectionView):
         lines.append(("spacer_small", ""))
         lines.append(("hash_display", fmt, hn, tn))
 
-        # Type-specific fields
         if at == GovernanceActionType.PARAMETER_CHANGE:
             self._add_parameter_change(lines, proposal.to_parameter_change_action())
         elif at == GovernanceActionType.HARD_FORK_INITIATION:
@@ -127,9 +134,7 @@ class ProposalReviewView(BaseSequentialSectionView):
             self._add_update_committee(lines, proposal.to_update_committee_action())
         elif at == GovernanceActionType.NEW_CONSTITUTION:
             self._add_new_constitution(lines, proposal.to_constitution_action())
-        # INFO has no extra fields
 
-        # Anchor
         if proposal.anchor:
             _add_anchor(lines, proposal.anchor)
 
@@ -166,7 +171,6 @@ class ProposalReviewView(BaseSequentialSectionView):
             lines.append(("spacer_small", ""))
             lines.append(("hash_display", fmt, hn, tn))
 
-        # Show each changed parameter
         ppu = action.protocol_param_update
         lines.append(("spacer", ""))
         lines.append(("label", "Changes:"))
@@ -179,7 +183,6 @@ class ProposalReviewView(BaseSequentialSectionView):
                 lines.append(("spacer_small", ""))
                 lines.append(("value_highlight", line))
 
-        # Voting thresholds
         self._add_voting_thresholds(lines, ppu)
 
     def _format_param_lines(self, field_name, friendly_name, val):
@@ -300,7 +303,6 @@ class ProposalReviewView(BaseSequentialSectionView):
     def _add_update_committee(self, lines, action):
         self._add_gov_action_id(lines, action.governance_action_id)
 
-        # Quorum
         q = action.quorum
         pct = float(q) * 100
         q_str = f"{int(pct)}%" if pct == int(pct) else f"{pct:.2f}%"
@@ -309,7 +311,6 @@ class ProposalReviewView(BaseSequentialSectionView):
         lines.append(("spacer_small", ""))
         lines.append(("value_highlight", q_str))
 
-        # Members to add
         if len(action.members_to_be_added) > 0:
             lines.append(("spacer", ""))
             lines.append(("label", f"Add ({len(action.members_to_be_added)}):"))
@@ -322,7 +323,6 @@ class ProposalReviewView(BaseSequentialSectionView):
                 lines.append(("spacer_small", ""))
                 lines.append(("value_highlight", f"Term: epoch {epoch}"))
 
-        # Members to remove
         if len(action.members_to_be_removed) > 0:
             lines.append(("spacer", ""))
             lines.append(("label", f"Remove ({len(action.members_to_be_removed)}):"))
@@ -338,7 +338,6 @@ class ProposalReviewView(BaseSequentialSectionView):
 
         constitution = action.constitution
 
-        # Constitution anchor
         lines.append(("spacer", ""))
         lines.append(("label", "Constitution URL:"))
         lines.append(("spacer_small", ""))
@@ -352,7 +351,6 @@ class ProposalReviewView(BaseSequentialSectionView):
             fmt = _format_hex_display(anchor_hash)
             lines.append(("hash_display", fmt, 8, 8))
 
-        # Script hash
         if constitution.script_hash:
             lines.append(("spacer", ""))
             script_bech32 = Bech32.encode("script", constitution.script_hash.to_bytes())

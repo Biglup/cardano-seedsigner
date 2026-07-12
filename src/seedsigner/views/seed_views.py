@@ -1189,7 +1189,6 @@ class CardanoExportAccountKeySelectView(View):
 
         account_index = selected_menu_num + self.start_index
 
-        # Show privacy warning
         destination = Destination(
             CardanoExportAccountKeyDetailsView,
             view_args={"seed_num": self.seed_num, "account_indices": [account_index],
@@ -1564,7 +1563,6 @@ class CardanoAddressExplorerNetworkView(View):
 
         network_id = button_data[selected_menu_num].return_data
 
-        # Check if multi-accounts is enabled
         multi = self.settings.get_value(SettingsConstants.SETTING__MULTI_ACCOUNTS) == SettingsConstants.OPTION__ENABLED
         if multi:
             return Destination(CardanoAccountSelectView, view_args=dict(seed_num=self.seed_num, network_id=network_id))
@@ -1574,7 +1572,12 @@ class CardanoAddressExplorerNetworkView(View):
 
 
 class CardanoAccountSelectView(View):
-    """Select which CIP-1852 account index to explore. Paginated like address list."""
+    """Select which CIP-1852 account index to explore. Paginated like address list.
+
+    Account rows are rendered as derivation path labels (m/1852'/1815'/i')
+    on the address list screen; the entry after the last row is the Next
+    page button.
+    """
 
     ACCOUNTS_PER_PAGE = 10
 
@@ -1588,7 +1591,6 @@ class CardanoAccountSelectView(View):
     def run(self):
         from seedsigner.gui.screens.tools_screens import ToolsAddressExplorerAddressListScreen
 
-        # Build derivation path labels as "addresses" for the list screen
         addresses = []
         for i in range(self.start_index, self.start_index + self.ACCOUNTS_PER_PAGE):
             addresses.append(f"m/1852'/1815'/{i}'")
@@ -1604,7 +1606,6 @@ class CardanoAccountSelectView(View):
             return Destination(BackStackView)
 
         if selected_menu_num == len(addresses):
-            # "Next N" button
             return Destination(
                 CardanoAccountSelectView,
                 view_args=dict(seed_num=self.seed_num, network_id=self.network_id, start_index=self.start_index + self.ACCOUNTS_PER_PAGE),
@@ -1657,7 +1658,13 @@ class CardanoAddressExplorerTypeView(View):
 
 
 class CardanoPaymentAddressExplorerView(View):
-    """Display a list of Cardano receive addresses, click one to see full address + QR."""
+    """Display a list of Cardano receive addresses, click one to see full address + QR.
+
+    Base addresses combine a per-index payment key
+    (m/1852'/1815'/account'/0/index) with the account's staking key
+    (m/1852'/1815'/account'/2/0), which is shared across all addresses.
+    The entry after the last address is the Next page button.
+    """
 
     ADDRS_PER_PAGE = 10
 
@@ -1681,7 +1688,6 @@ class CardanoPaymentAddressExplorerView(View):
         root_key = Bip32PrivateKey.from_bip39_entropy(passphrase_bytes, entropy)
         account = self.account_index | 0x80000000
 
-        # Staking key (shared across all addresses): m/1852'/1815'/account'/2/0
         stake_key = root_key.derive([1852 | 0x80000000, 1815 | 0x80000000, account, 2, 0])
         stake_cred = Credential.from_key_hash(
             stake_key.get_public_key().to_ed25519_key().to_hash()
@@ -1689,7 +1695,6 @@ class CardanoPaymentAddressExplorerView(View):
 
         addresses = []
         for i in range(self.start_index, self.start_index + self.ADDRS_PER_PAGE):
-            # Payment key: m/1852'/1815'/account'/0/<index>
             payment_key = root_key.derive([1852 | 0x80000000, 1815 | 0x80000000, account, 0, i])
             payment_cred = Credential.from_key_hash(
                 payment_key.get_public_key().to_ed25519_key().to_hash()
@@ -1710,13 +1715,11 @@ class CardanoPaymentAddressExplorerView(View):
             return Destination(BackStackView)
 
         if selected_menu_num == len(addresses):
-            # "Next N" button
             return Destination(
                 CardanoPaymentAddressExplorerView,
                 view_args=dict(seed_num=self.seed_num, network_id=self.network_id, account_index=self.account_index, start_index=self.start_index + self.ADDRS_PER_PAGE),
             )
 
-        # User clicked an address — show detail view
         index = selected_menu_num + self.start_index
         initial_scroll = self.screen.buttons[0].scroll_y
         return Destination(
@@ -1738,7 +1741,12 @@ class CardanoPaymentAddressExplorerView(View):
 
 
 class CardanoStakeAddressView(View):
-    """Display staking (reward) addresses. Single or paginated depending on settings."""
+    """Display staking (reward) addresses.
+
+    Reward addresses use the staking key m/1852'/1815'/account'/2/index.
+    With multi credentials disabled, index 0 is shown directly; otherwise
+    a paginated list is offered.
+    """
 
     ADDRS_PER_PAGE = 10
 
@@ -1756,7 +1764,6 @@ class CardanoStakeAddressView(View):
     def _derive_stake_address(self, root_key, index: int) -> str:
         from cometa import RewardAddress, Credential
         account = self.account_index | 0x80000000
-        # Staking key: m/1852'/1815'/account'/2/<index>
         stake_key = root_key.derive([1852 | 0x80000000, 1815 | 0x80000000, account, 2, index])
         stake_cred = Credential.from_key_hash(
             stake_key.get_public_key().to_ed25519_key().to_hash()
@@ -1774,7 +1781,6 @@ class CardanoStakeAddressView(View):
         multi = self.settings.get_value(SettingsConstants.SETTING__MULTI_CREDENTIALS) == SettingsConstants.OPTION__ENABLED
 
         if not multi:
-            # Single mode: show index 0 directly
             addr = self._derive_stake_address(root_key, 0)
             return Destination(
                 CardanoAddressDetailView,
@@ -1782,7 +1788,6 @@ class CardanoStakeAddressView(View):
                 skip_current_view=True,
             )
 
-        # Multi mode: paginated list
         from seedsigner.gui.screens.tools_screens import ToolsAddressExplorerAddressListScreen
 
         addresses = []
@@ -1828,7 +1833,12 @@ class CardanoStakeAddressView(View):
 
 
 class CardanoDRepIdView(View):
-    """Display DRep IDs. Single or paginated depending on settings."""
+    """Display DRep IDs.
+
+    DRep IDs derive from the key m/1852'/1815'/account'/3/index. With
+    multi credentials disabled, index 0 is shown directly; otherwise a
+    paginated list is offered.
+    """
 
     ADDRS_PER_PAGE = 10
 
@@ -1846,7 +1856,6 @@ class CardanoDRepIdView(View):
     def _derive_drep_id(self, root_key, index: int) -> str:
         from cometa import DRep, DRepType, Credential
         account = self.account_index | 0x80000000
-        # DRep key: m/1852'/1815'/account'/3/<index>
         drep_key = root_key.derive([1852 | 0x80000000, 1815 | 0x80000000, account, 3, index])
         drep_hash = drep_key.get_public_key().to_ed25519_key().to_hash()
         cred = Credential.from_key_hash(drep_hash)
@@ -1864,7 +1873,6 @@ class CardanoDRepIdView(View):
         multi = self.settings.get_value(SettingsConstants.SETTING__MULTI_CREDENTIALS) == SettingsConstants.OPTION__ENABLED
 
         if not multi:
-            # Single mode: show index 0 directly
             drep_id = self._derive_drep_id(root_key, 0)
             return Destination(
                 CardanoAddressDetailView,
@@ -1872,7 +1880,6 @@ class CardanoDRepIdView(View):
                 skip_current_view=True,
             )
 
-        # Multi mode: paginated list
         from seedsigner.gui.screens.tools_screens import ToolsAddressExplorerAddressListScreen
 
         addresses = []
@@ -1918,7 +1925,11 @@ class CardanoDRepIdView(View):
 
 
 class CardanoAddressDetailView(View):
-    """Show full address text with Back and Show QR buttons."""
+    """Show full address text with Back and Show QR buttons.
+
+    Show QR (button 0) displays the address as a static QR and then
+    returns to this same detail view.
+    """
     SHOW_QR = ButtonOption("Show QR", SeedSignerIconConstants.QRCODE)
 
     def __init__(self, seed_num: int, address: str, title: str,
@@ -1967,14 +1978,12 @@ class CardanoAddressDetailView(View):
             return Destination(BackStackView)
 
         if selected_menu_num == 0:
-            # "Show QR" button
             from seedsigner.gui.screens.screen import QRDisplayScreen
             qr_encoder = GenericStaticQrEncoder(data=self.address)
             self.run_screen(
                 QRDisplayScreen,
                 qr_encoder=qr_encoder,
             )
-            # After QR, return to this same detail view
             return Destination(
                 CardanoAddressDetailView,
                 view_args=dict(

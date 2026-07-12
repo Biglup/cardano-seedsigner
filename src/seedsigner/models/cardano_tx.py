@@ -16,6 +16,12 @@ Each request carries the master fingerprint (``xfp``) per signer so the device
 can match a required signer to the loaded seed whose ``Seed.get_fingerprint()``
 equals it. This is the same 4-byte BTC BIP-32 value the account export returns
 as ``master_fingerprint`` (see ``cardano_account.py``).
+
+Validation limits: ``XFP_LEN`` is the 4-byte BIP-32 master fingerprint length
+and ``TX_HASH_LEN`` the 32-byte UTXO transaction hash length.
+``MAX_PATH_COMPONENTS`` caps derivation paths at 10 entries (CIP-1852 paths
+have 5; the cap rejects abusive inputs) and ``MAX_PATH_COMPONENT`` caps each
+derivation index at 32 bits.
 """
 
 from dataclasses import dataclass, field
@@ -24,10 +30,10 @@ from typing import Any, Optional
 from cometa import CborReader, CborWriter, NetworkId
 
 
-XFP_LEN = 4                       # master fingerprint is 4 bytes (BTC BIP-32)
-TX_HASH_LEN = 32                  # UTXO transaction hash is 32 bytes
-MAX_PATH_COMPONENTS = 10          # CIP-1852 paths are 5; cap well above to reject abuse
-MAX_PATH_COMPONENT = 0xFFFFFFFF   # each derivation index fits in 32 bits
+XFP_LEN = 4
+TX_HASH_LEN = 32
+MAX_PATH_COMPONENTS = 10
+MAX_PATH_COMPONENT = 0xFFFFFFFF
 
 
 def _write_path(w: "CborWriter", path: list[int]) -> None:
@@ -64,15 +70,21 @@ class SigningInput:
     The device uses the derivation path to locate the signing key.
     The tx_hash + index identify the UTXO being spent.
 
-    A script-locked input (multisig / Plutus) has no single owning key — its
-    witnesses arrive via ``extra_signers`` — so ``xfp`` and ``path`` are
+    A script-locked input (multisig / Plutus) has no single owning key (its
+    witnesses arrive via ``extra_signers``), so ``xfp`` and ``path`` are
     optional. An input that does declare a path must also declare the xfp
     that owns it.
+
+    Fields:
+        tx_hash: 32-byte transaction hash of the spent UTXO.
+        index: output index within that transaction.
+        xfp: 4-byte master fingerprint; empty means script-locked.
+        path: derivation path (hardened component = value + 0x80000000).
     """
-    tx_hash: bytes                      # 32 bytes - transaction hash of the UTXO
-    index: int                          # output index within that transaction
-    xfp: bytes = b""                    # 4 bytes - master fingerprint ("" = script-locked)
-    path: Optional[list[int]] = None    # derivation path (hardened = val + 0x80000000)
+    tx_hash: bytes
+    index: int
+    xfp: bytes = b""
+    path: Optional[list[int]] = None
 
     def to_cbor(self, w: "CborWriter") -> None:
         _check_xfp(self.xfp, allow_empty=(self.path is None))
@@ -129,10 +141,15 @@ class ChangeOutput:
 
     `xfp` identifies which loaded seed owns this change path (needed when
     multiple seeds are resident). Empty bytes means unspecified.
+
+    Fields:
+        index: output index in the transaction body.
+        path: derivation path used to verify the address.
+        xfp: 4-byte master fingerprint of the seed that owns this change.
     """
-    index: int                  # output index in the transaction body
-    path: list[int]             # derivation path to verify the address
-    xfp: bytes = b""            # 4 bytes - master fingerprint (which seed owns this change)
+    index: int
+    path: list[int]
+    xfp: bytes = b""
 
     def to_cbor(self, w: "CborWriter") -> None:
         w.write_start_map(3)
@@ -166,9 +183,14 @@ class ChangeOutput:
 
 @dataclass
 class ExtraSigner:
-    """An additional signer required by the transaction (e.g. for minting policies)."""
-    xfp: bytes                  # 4 bytes - master fingerprint
-    path: list[int]             # derivation path
+    """An additional signer required by the transaction (e.g. for minting policies).
+
+    Fields:
+        xfp: 4-byte master fingerprint of the signing seed.
+        path: derivation path of the signing key.
+    """
+    xfp: bytes
+    path: list[int]
 
     def to_cbor(self, w: "CborWriter") -> None:
         w.write_start_map(2)
@@ -219,13 +241,16 @@ class CardanoSignRequest:
     from the path and, only if it matches, badges the collateral return as
     a verified own address. Absent or mismatched, the collateral return is
     shown as an external output (safe failure mode).
+
+    `request_id` is a UUID used to correlate request and response; `origin`
+    is the requesting wallet's name (e.g. "Eternl", "Lace").
     """
-    request_id: str                                  # UUID for tracking
-    origin: Optional[str]                            # wallet name (e.g. "Eternl", "Lace")
-    sign_data: bytes                                 # raw transaction body CBOR
-    inputs: list[SigningInput]                       # inputs that need signing
-    change_outputs: list[ChangeOutput]               # change outputs with paths to verify
-    network: NetworkId                               # intended network for this transaction
+    request_id: str
+    origin: Optional[str]
+    sign_data: bytes
+    inputs: list[SigningInput]
+    change_outputs: list[ChangeOutput]
+    network: NetworkId
     extra_signers: list[ExtraSigner] = field(default_factory=list)
     collateral_return_path: Optional[ExtraSigner] = None
 
@@ -393,7 +418,11 @@ class CardanoTxSignResponse:
 class CardanoParsedTx:
     """Holds the parsed cometa TransactionBody + verified change indices.
 
-    Views access cometa objects directly — no wrapper dataclasses.
+    Views access cometa objects directly; there are no wrapper dataclasses.
+    Beyond the primary sections, properties expose the remaining transaction
+    body fields (CBOR keys 3, 7, 8, 11, 14-17, 21-22) such as ttl,
+    auxiliary_data_hash, script_data_hash, required_signers, collateral
+    return and treasury/donation values.
 
     `collateral_return_verified` is True when the request's
     collateral_return_path derives to the body's collateral_return address.
@@ -482,7 +511,7 @@ class CardanoParsedTx:
     @property
     def has_failed_change_claims(self) -> bool:
         """True when the request declared change output(s) that did NOT verify
-        against this seed — a stronger signal than merely having no change
+        against this seed, a stronger signal than merely having no change
         (which is normal for send-all and multisig transactions): the host
         claimed an output was ours and the claim failed.
         """
@@ -550,8 +579,6 @@ class CardanoParsedTx:
     @property
     def has_reference_inputs(self):
         return self.reference_inputs is not None and len(self.reference_inputs) > 0
-
-    # --- Properties for remaining TX body fields (CBOR keys 3, 7, 8, 11, 14-17, 21-22) ---
 
     @property
     def ttl(self):
@@ -634,99 +661,89 @@ class CardanoParsedTx:
     def has_donation(self):
         return self.donation is not None
 
-    # --- Flat page list for sequential review ---
-
     def build_review_pages(self) -> list:
-        """Build a flat ordered list of all review pages in CBOR key order."""
+        """Build a flat ordered list of all review pages in CBOR key order.
+
+        Section to transaction body CBOR key: outputs 1, fee 2 (always
+        present), then the validity window shown as Valid From (key 8)
+        followed by Valid Until (key 3), certificates 4, withdrawals 5,
+        auxiliary data hash 7, mint 9, script data hash 11, collateral 13
+        (individual inputs shown only when total_collateral is absent),
+        required signers 14, network id 15, collateral return 16, total
+        collateral 17, reference inputs 18, voting procedures 19,
+        proposals 20, treasury 21, donation 22.
+        """
         pages = []
 
-        # Key 1: Outputs
         n = len(self.outputs)
         for i, output in enumerate(self.outputs):
             pages.append(ReviewPage("output", i, n, output))
 
-        # Key 2: Fee (always present)
         pages.append(ReviewPage("fee", 0, 1, self.fee))
 
-        # Validity window: Valid From (key 8) then Valid Until (key 3)
         if self.has_validity_interval_start:
             pages.append(ReviewPage("validity_start", 0, 1, self.validity_interval_start))
         if self.has_ttl:
             pages.append(ReviewPage("ttl", 0, 1, self.ttl))
 
-        # Key 4: Certificates
         if self.has_certificates:
             certs = list(self.certificates)
             for i, cert in enumerate(certs):
                 pages.append(ReviewPage("certificate", i, len(certs), cert))
 
-        # Key 5: Withdrawals
         if self.has_withdrawals:
             items = list(self.withdrawals.items())
             for i, item in enumerate(items):
                 pages.append(ReviewPage("withdrawal", i, len(items), item))
 
-        # Key 7: Auxiliary data hash
         if self.has_auxiliary_data_hash:
             pages.append(ReviewPage("aux_data_hash", 0, 1, self.auxiliary_data_hash))
 
-        # Key 9: Mint
         if self.has_minting:
             items = list(self.mint.items())
             for i, item in enumerate(items):
                 pages.append(ReviewPage("mint", i, len(items), item))
 
-        # Key 11: Script data hash
         if self.has_script_data_hash:
             pages.append(ReviewPage("script_data_hash", 0, 1, self.script_data_hash))
 
-        # Key 13: Collateral (only show individual inputs when total_collateral is absent)
         if self.has_collateral and not self.has_total_collateral:
             items = list(self.collateral)
             for i, inp in enumerate(items):
                 pages.append(ReviewPage("collateral", i, len(items), inp))
 
-        # Key 14: Required signers
         if self.has_required_signers:
             signers = list(self.required_signers)
             for i, signer in enumerate(signers):
                 pages.append(ReviewPage("required_signer", i, len(signers), signer))
 
-        # Key 15: Network ID
         if self.has_network_id_field:
             pages.append(ReviewPage("network_id", 0, 1, self.network_id_field))
 
-        # Key 16: Collateral return
         if self.has_collateral_return:
             pages.append(ReviewPage("collateral_return", 0, 1, self.collateral_return))
 
-        # Key 17: Total collateral
         if self.has_total_collateral:
             pages.append(ReviewPage("total_collateral", 0, 1, self.total_collateral))
 
-        # Key 18: Reference inputs
         if self.has_reference_inputs:
             items = list(self.reference_inputs)
             for i, inp in enumerate(items):
                 pages.append(ReviewPage("reference_input", i, len(items), inp))
 
-        # Key 19: Voting procedures
         if self.has_voting:
             items = list(self.voting_procedures.items())
             for i, item in enumerate(items):
                 pages.append(ReviewPage("voting", i, len(items), item))
 
-        # Key 20: Proposals
         if self.has_proposals:
             proposals = list(self.proposals)
             for i, proposal in enumerate(proposals):
                 pages.append(ReviewPage("proposal", i, len(proposals), proposal))
 
-        # Key 21: Treasury
         if self.has_treasury:
             pages.append(ReviewPage("treasury", 0, 1, self.treasury_value))
 
-        # Key 22: Donation
         if self.has_donation:
             pages.append(ReviewPage("donation", 0, 1, self.donation))
 
@@ -744,9 +761,12 @@ class ReviewPage:
 
 @dataclass
 class SigningPath:
-    """A derivation path for message signing."""
+    """A derivation path for message signing.
+
+    Hardened path components are encoded as value + 0x80000000.
+    """
     index: int
-    path: list[int]  # hardened = val + 0x80000000
+    path: list[int]
 
     def to_cbor(self, w: "CborWriter") -> None:
         w.write_start_map(2)

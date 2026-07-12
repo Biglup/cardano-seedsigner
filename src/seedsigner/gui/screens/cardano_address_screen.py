@@ -24,13 +24,22 @@ class CardanoAddressDetailScreen(ButtonListScreen):
     address_title: str = ""
 
     def __post_init__(self):
+        """Prepare the wrapped, highlight-annotated address display.
+
+        The bech32 prefix (addr1, addr_test1, stake1, stake_test1, drep1,
+        drep_test1, acct_xvk) plus a fixed tail count sets the head
+        highlight size, and the display string separates head, middle, and
+        tail with spaces. Lines are wrapped by character count from the
+        usable width, skipping a leading space at line boundaries. The
+        address block is vertically centered between the top nav and the
+        button area, whose top is approximated as canvas_height - 60.
+        """
         self.title = self.address_title
         self.is_bottom_list = True
         self.button_data = [ButtonOption(_("Show QR"))]
 
         super().__post_init__()
 
-        # Detect Cardano bech32 prefix for accent coloring
         addr = self.address
         prefixes = ("addr_test1", "addr1", "stake_test1", "stake1", "drep1", "drep_test1", "acct_xvk")
         prefix_len = 0
@@ -42,7 +51,6 @@ class CardanoAddressDetailScreen(ButtonListScreen):
         self._tail_n = 6
         self._head_n = prefix_len + self._tail_n
 
-        # Build the display string with spaces separating head/middle/tail
         head_n = self._head_n
         tail_n = self._tail_n
         if len(addr) > head_n + tail_n:
@@ -50,7 +58,6 @@ class CardanoAddressDetailScreen(ButtonListScreen):
         else:
             self._addr_display = addr
 
-        # Compute chars per line from available width
         from seedsigner.gui.renderer import Renderer
         renderer = Renderer.get_instance()
         content_margin = GUIConstants.EDGE_PADDING
@@ -60,7 +67,6 @@ class CardanoAddressDetailScreen(ButtonListScreen):
         self._chars_per_line = max(10, int(usable_width / char_w))
         self._char_w = char_w
 
-        # Split into lines
         self._addr_lines = []
         self._addr_line_gpos = []
         pos = 0
@@ -72,12 +78,10 @@ class CardanoAddressDetailScreen(ButtonListScreen):
             self._addr_lines.append(chunk)
             pos += len(chunk)
 
-        # Vertically center the address block between top nav and buttons
         line_height = 24
         total_text_height = len(self._addr_lines) * line_height
         top_y = self.top_nav.height
-        # buttons area starts roughly at canvas_height - button_height - padding
-        bottom_y = self.canvas_height - 60  # approximate button area top
+        bottom_y = self.canvas_height - 60
         available_height = bottom_y - top_y
         self._start_y = top_y + max(GUIConstants.COMPONENT_PADDING, (available_height - total_text_height) // 2)
 
@@ -90,8 +94,8 @@ class CardanoAddressDetailScreen(ButtonListScreen):
 
         center_x = self.canvas_width // 2
         display_len = len(self._addr_display)
-        head_n = self._head_n + 1  # +1 for space after head
-        tail_n = self._tail_n + 1  # +1 for space before tail
+        head_n = self._head_n + 1
+        tail_n = self._tail_n + 1
         line_height = 24
 
         y = self._start_y
@@ -101,7 +105,6 @@ class CardanoAddressDetailScreen(ButtonListScreen):
             line_w = self._char_w * len(text)
             x_cursor = int(center_x - line_w // 2)
 
-            # Split line into accent/non-accent segments
             segments = []
             seg_start = 0
             cur_accent = None

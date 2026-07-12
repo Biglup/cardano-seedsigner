@@ -18,7 +18,6 @@ class MintReviewView(BaseSequentialSectionView):
             if content:
                 content.append(("spacer", ""))
 
-            # Mint or Burn label
             if qty < 0:
                 content.append(("value_highlight_warn", "Burn"))
             elif qty == 0:
@@ -26,13 +25,11 @@ class MintReviewView(BaseSequentialSectionView):
             else:
                 content.append(("value_highlight_yes", "Mint"))
 
-            # Asset fingerprint
             content.append(("spacer_small", ""))
             fingerprint = _asset_fingerprint(policy_id, asset_name)
             fmt, hn, tn = _format_bech32(fingerprint)
             content.append(("hash_display", fmt, hn, tn))
 
-            # Quantity
             content.append(("spacer_small", ""))
             if qty < 0:
                 content.append(("value_large_warn", f"{qty:,}"))

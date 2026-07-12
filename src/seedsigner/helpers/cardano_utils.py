@@ -1,6 +1,9 @@
 """
 Cardano-specific utilities for key derivation, change output verification,
 and CIP-8 message signing address verification.
+
+``CREDENTIAL_SHORT_LABEL`` maps a credential kind to the short type label
+shown on the message signing overview screen.
 """
 
 
@@ -55,7 +58,6 @@ def drep_id_from_key_hash(key_hash: bytes) -> str:
     return DRep.new(DRepType.KEY_HASH, cred).to_cip129_string()
 
 
-# Short type label shown on the overview screen, keyed by credential kind.
 CREDENTIAL_SHORT_LABEL = {
     "payment": "Payment",
     "stake": "Stake",
@@ -270,7 +272,7 @@ def verify_change_outputs(sign_request, seed, body) -> list[int]:
     compares against the actual output addresses in the transaction body.
 
     If an output's address doesn't match the derived address (wrong network,
-    wrong keys, unsupported address type, etc.), it is not included — safe
+    wrong keys, unsupported address type, etc.), it is not included; safe
     failure mode: unverified outputs are treated as external (user sees
     inflated spending amount). An entry whose index falls outside the body's
     output list or whose path cannot be derived is skipped the same way
@@ -303,7 +305,7 @@ def verify_collateral_return(sign_request, seed, body) -> bool:
     The request's optional collateral_return_path declares the derivation
     path; the derived address must equal the collateral_return address and
     the declared xfp must match the selected seed. Absent field, absent
-    collateral_return, or any mismatch returns False — the collateral return
+    collateral_return, or any mismatch returns False; the collateral return
     is then displayed as an external output (safe failure mode).
     """
     crp = sign_request.collateral_return_path
@@ -325,7 +327,7 @@ def derive_owned_key_hashes(sign_request, seed) -> set:
     Since each hash is computed on-device from the seed itself, membership is
     cryptographic proof that a credential hash appearing in the transaction
     (certificates, withdrawals, required signers, voters) belongs to this
-    wallet — a host cannot make a foreign credential match by declaring
+    wallet; a host cannot make a foreign credential match by declaring
     extra paths. A declared path that cannot be derived contributes no hash
     and is skipped, so one malformed entry does not fail the request.
     """
@@ -371,6 +373,11 @@ def verify_message_signing_address(msg_request, seed) -> bool:
     For DRep credentials (28-byte raw key hash), compares directly against
     the derived key hash.
 
+    Parses the bytes as a standard Cardano address first; if that fails and
+    the value is 28 bytes, treats it as a bare DRep key hash. For base
+    addresses the payment credential comes from the signing path and the
+    stake credential from the same account (role 2, index 0).
+
     Returns True if the address matches or if no address is provided.
     Returns False if verification fails (wrong key, unknown address type).
     """
@@ -389,13 +396,11 @@ def verify_message_signing_address(msg_request, seed) -> bool:
     root_key = root_key_from_seed(seed)
     path = msg_request.required_signing_path.path
 
-    # Try standard Cardano address first
     try:
         addr = Address.from_bytes(msg_request.address_bytes)
         addr_type = AddressType(addr.type)
         network_id = addr.network_id
     except Exception:
-        # Not a standard address — try DRep credential (28-byte key hash)
         if len(msg_request.address_bytes) == 28:
             return _verify_drep_credential(root_key, path, msg_request.address_bytes)
         return False
@@ -420,7 +425,6 @@ def verify_message_signing_address(msg_request, seed) -> bool:
             return _payment_key_credential_matches(addr, derived_cred)
 
         if addr_type in BASE_TYPES:
-            # Payment credential from signing path + stake from same account
             stake_path = list(path[:3]) + [2, 0]
             stake_key = root_key.derive(stake_path)
             stake_cred = Credential.from_key_hash(

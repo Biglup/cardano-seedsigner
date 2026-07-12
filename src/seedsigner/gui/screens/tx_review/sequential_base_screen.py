@@ -39,6 +39,14 @@ class CardanoSequentialBaseScreen(BaseScreen):
     has_right: bool = True
 
     def __post_init__(self):
+        """Set up layout geometry, scroll state, and the blink thread.
+
+        scroll_unit is the pixel distance per scroll step. The screen
+        registers itself on the renderer when running under the screenshot
+        generator so scrolled states can be captured, and starts a blink
+        thread for the down chevron when the content overflows, hinting at
+        more content below.
+        """
         super().__post_init__()
 
         self.side_button_width = 20
@@ -52,21 +60,19 @@ class CardanoSequentialBaseScreen(BaseScreen):
         self.content_height = self.canvas_height - self.content_y - self.bottom_bar_height
 
         self.scroll_offset = 0
-        self.scroll_unit = 36  # pixels per scroll step
+        self.scroll_unit = 36
         self.max_scroll = 0
 
-        self._active_chevron = None  # "left" or "right" when pressed
-        self._active_scroll = None  # "up" or "down" when pressed
-        self._blink_state = False  # toggles each render for down chevron blink
-        self._reached_bottom = False  # stops blinking once user scrolled to bottom
+        self._active_chevron = None
+        self._active_scroll = None
+        self._blink_state = False
+        self._reached_bottom = False
 
         self._calculate_scroll()
 
-        # Allow screenshot generator to capture scrolled states
         if self.renderer.is_screenshot_generator:
             self.renderer._scrollable_screen = self
 
-        # Blink thread for the down chevron — hints at more content below
         if self.max_scroll > 0:
             self.threads.append(self._BlinkThread(self))
 
@@ -88,13 +94,15 @@ class CardanoSequentialBaseScreen(BaseScreen):
         )
 
     def _render_top_nav(self):
-        # Clear top nav area to prevent content bleed-through
+        """Draw the top nav: a full-width progress bar with the title centered below it.
+
+        The nav area is cleared first to prevent content bleed-through.
+        """
         self.renderer.draw.rectangle(
             (0, 0, self.canvas_width, self.top_nav_height),
             fill=GUIConstants.BACKGROUND_COLOR,
         )
 
-        # Progress bar — full width
         bar_height = 4
         bar_y = 0
         bar_x = 0
@@ -113,7 +121,6 @@ class CardanoSequentialBaseScreen(BaseScreen):
                 fill=GUIConstants.ACCENT_COLOR,
             )
 
-        # Title centered in top nav area (below progress bar)
         title_center_y = bar_y + bar_height + (self.top_nav_height - bar_height) // 2
         title_font = Fonts.get_font(
             GUIConstants.get_top_nav_title_font_name(),
@@ -149,7 +156,13 @@ class CardanoSequentialBaseScreen(BaseScreen):
         raise NotImplementedError
 
     def _render_scroll_indicators(self):
-        # Always clear the bottom bar to prevent content overflow
+        """Draw the bottom bar: scroll percentage centered between the up
+        chevron (at 1/4 screen width) and the down chevron (at 3/4).
+
+        The bar is always cleared first to prevent content overflow. A
+        chevron greys out at its scroll limit, and the down chevron blinks
+        between accent shades until the user first reaches the bottom.
+        """
         bar_top = self.canvas_height - self.bottom_bar_height
         self.renderer.draw.rectangle(
             (0, bar_top, self.canvas_width, self.canvas_height),
@@ -161,7 +174,6 @@ class CardanoSequentialBaseScreen(BaseScreen):
 
         mid_y = self.canvas_height - self.bottom_bar_height // 2
 
-        # Scroll percentage — centered between the two chevron positions
         pct = int(self.scroll_offset / self.max_scroll * 100) if self.max_scroll > 0 else 0
         pct_font = Fonts.get_font(
             GUIConstants.get_body_font_name(), GUIConstants.BODY_FONT_MIN_SIZE
@@ -176,7 +188,6 @@ class CardanoSequentialBaseScreen(BaseScreen):
 
         disabled_color = "#333333"
 
-        # Up chevron at 1/4 screen width — grey when at top
         cx = self.canvas_width // 4
         if self._active_scroll == "up":
             up_color = "#ffffff"
@@ -189,14 +200,12 @@ class CardanoSequentialBaseScreen(BaseScreen):
             fill=up_color,
         )
 
-        # Down chevron at 3/4 screen width — grey when at bottom
         cx = 3 * self.canvas_width // 4
         if self._active_scroll == "down":
             down_color = "#ffffff"
         elif self.scroll_offset >= self.max_scroll:
             down_color = disabled_color
         elif not self._reached_bottom:
-            # Blink between accent and light accent to hint at more content
             down_color = GUIConstants.ACCENT_TEXT_COLOR if self._blink_state else GUIConstants.ACCENT_COLOR
         else:
             down_color = GUIConstants.ACCENT_COLOR
@@ -225,6 +234,12 @@ class CardanoSequentialBaseScreen(BaseScreen):
                     s.renderer.show_image()
 
     def _run(self):
+        """Input loop.
+
+        Returns RET_CODE__LEFT_BUTTON or RET_CODE__RIGHT_BUTTON for chevron
+        navigation, and -1 when KEY1 (Back) is pressed. Up/down scroll the
+        content and briefly highlight the pressed scroll chevron.
+        """
         while True:
             with self.renderer.lock:
                 self._render()
@@ -266,4 +281,4 @@ class CardanoSequentialBaseScreen(BaseScreen):
                 time.sleep(0.15)
                 self._active_scroll = None
             elif user_input == HardwareButtonsConstants.KEY1:
-                return -1  # Back
+                return -1
