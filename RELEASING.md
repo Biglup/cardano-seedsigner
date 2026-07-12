@@ -5,7 +5,7 @@
 The version is declared once, in `src/seedsigner/__init__.py`:
 
 ```python
-__version__ = "0.1.0"
+__version__ = "0.0.1"
 ```
 
 Everything else derives from it: the device shows it on the screensaver
@@ -19,8 +19,8 @@ Everything else derives from it: the device shows it on the screensaver
 2. Tag the commit with a matching `v` prefix and push the tag:
 
    ```
-   git tag v0.1.0
-   git push origin v0.1.0
+   git tag v0.0.1
+   git push origin v0.0.1
    ```
 
 The tag push triggers `.github/workflows/release.yml`, which:
@@ -31,7 +31,7 @@ The tag push triggers `.github/workflows/release.yml`, which:
 3. Writes `SHA256SUMS`, GPG-signs each `.img` (detached `.img.asc`) and the
    checksums file (`SHA256SUMS.asc`).
 4. Publishes a GitHub Release with the images, signatures, checksums, and the
-   public key. A tag containing a hyphen (for example `v0.1.0-rc1`) is marked as
+   public key. A tag containing a hyphen (for example `v0.0.1-rc1`) is marked as
    a pre-release.
 
 A tag whose version already contains a hyphen builds a pre-release; use a plain
