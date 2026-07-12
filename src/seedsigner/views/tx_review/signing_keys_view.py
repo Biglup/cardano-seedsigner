@@ -22,13 +22,13 @@ def build_signing_key_content(seed, path) -> list:
     page's two fields."""
     from seedsigner.helpers.cardano_utils import (
         PURPOSE_MINTING,
-        PURPOSE_MULTISIG,
+        PURPOSE_CIP1854,
         path_purpose,
     )
     from seedsigner.models.cardano_account import format_derivation_path
 
     purpose = path_purpose(path)
-    purpose_tag = {PURPOSE_MULTISIG: "(Multisig)", PURPOSE_MINTING: "(Minting)"}.get(purpose)
+    purpose_tag = {PURPOSE_CIP1854: "(Multisig)", PURPOSE_MINTING: "(Minting)"}.get(purpose)
 
     return [
         ("hero_fields", [

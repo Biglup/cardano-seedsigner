@@ -42,11 +42,13 @@ from typing import Optional
 
 from cometa import CborReader, CborWriter
 
+from seedsigner.helpers.cardano_utils import (
+    HARDENED_OFFSET,
+    PURPOSE_CIP1852,
+    PURPOSE_CIP1854,
+    COIN_TYPE_ADA,
+)
 
-PURPOSE_CIP1852 = 1852
-PURPOSE_CIP1854 = 1854
-COIN_TYPE_ADA = 1815
-HARDENED_OFFSET = 0x80000000
 
 SUPPORTED_KEY_PURPOSES = (PURPOSE_CIP1852, PURPOSE_CIP1854)
 

@@ -12,6 +12,7 @@ as ADA.
 from cometa import Bech32, GovernanceActionType, PlutusLanguageVersion
 
 from seedsigner.gui.screens.tx_review import format_ada
+from seedsigner.helpers.cardano_utils import format_percent
 
 from .base import BaseSequentialSectionView
 from .certificate_view import _format_bech32, _add_anchor
@@ -216,10 +217,7 @@ class ProposalReviewView(BaseSequentialSectionView):
         if hasattr(val, "to_float"):
             if field_name in _COEFFICIENT_FIELDS:
                 return f"{float(val):g}"
-            pct = float(val) * 100
-            if pct == int(pct):
-                return f"{int(pct)}%"
-            return f"{pct:.2f}%"
+            return format_percent(val)
         if hasattr(val, "memory") and hasattr(val, "cpu_steps"):
             return f"mem:{val.memory:,} cpu:{val.cpu_steps:,}"
         if hasattr(val, "major") and hasattr(val, "minor"):
@@ -248,8 +246,7 @@ class ProposalReviewView(BaseSequentialSectionView):
             ]:
                 val = getattr(drep, name, None)
                 if val is not None:
-                    pct = float(val) * 100
-                    pct_str = f"{int(pct)}%" if pct == int(pct) else f"{pct:.2f}%"
+                    pct_str = format_percent(val)
                     lines.append(("spacer_small", ""))
                     lines.append(("value_highlight", f"{friendly}: {pct_str}"))
 
@@ -266,8 +263,7 @@ class ProposalReviewView(BaseSequentialSectionView):
             ]:
                 val = getattr(pool, name, None)
                 if val is not None:
-                    pct = float(val) * 100
-                    pct_str = f"{int(pct)}%" if pct == int(pct) else f"{pct:.2f}%"
+                    pct_str = format_percent(val)
                     lines.append(("spacer_small", ""))
                     lines.append(("value_highlight", f"{friendly}: {pct_str}"))
 
@@ -303,9 +299,7 @@ class ProposalReviewView(BaseSequentialSectionView):
     def _add_update_committee(self, lines, action):
         self._add_gov_action_id(lines, action.governance_action_id)
 
-        q = action.quorum
-        pct = float(q) * 100
-        q_str = f"{int(pct)}%" if pct == int(pct) else f"{pct:.2f}%"
+        q_str = format_percent(action.quorum)
         lines.append(("spacer", ""))
         lines.append(("label", "Quorum:"))
         lines.append(("spacer_small", ""))

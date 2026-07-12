@@ -1,14 +1,8 @@
 """Output section review view."""
 
+from seedsigner.helpers.cardano_utils import asset_fingerprint
+
 from .base import BaseSequentialSectionView
-
-
-def _asset_fingerprint(policy_id, asset_name) -> str:
-    """Compute CIP-14 asset fingerprint: bech32("asset", blake2b_160(policy_id || asset_name))."""
-    from cometa import Blake2bHash, Bech32
-    data = policy_id.to_bytes() + asset_name.to_bytes()
-    h = Blake2bHash.compute(data, hash_size=20)
-    return Bech32.encode("asset", h.to_bytes())
 
 
 def _extract_datum_info(output):
@@ -58,7 +52,7 @@ class OutputReviewView(BaseSequentialSectionView):
             tokens = {}
             for policy_id, asset_map in ma.items():
                 for asset_name, qty in asset_map.items():
-                    fingerprint = _asset_fingerprint(policy_id, asset_name)
+                    fingerprint = asset_fingerprint(policy_id, asset_name)
                     tokens[fingerprint] = qty
 
         datum_type, datum_hex = _extract_datum_info(output)

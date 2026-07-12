@@ -227,3 +227,36 @@ def test_review_pages_cover_every_transaction_body_accessor():
     covered = surfaced | excluded | rejected
     assert accessors <= covered, f"unaccounted body accessors: {accessors - covered}"
     assert covered <= accessors, f"stale accessor names: {covered - accessors}"
+
+
+class _Bytes:
+    def __init__(self, value):
+        self._value = value
+
+    def to_bytes(self):
+        return self._value
+
+
+class _Rational:
+    def __init__(self, value):
+        self._value = value
+
+    def __float__(self):
+        return self._value
+
+
+def test_asset_fingerprint_matches_cip14_vectors():
+    from seedsigner.helpers.cardano_utils import asset_fingerprint
+
+    policy = _Bytes(bytes.fromhex("7eae28af2208be856f7a119668ae52a49b73725e326dc16579dcc373"))
+    assert asset_fingerprint(policy, _Bytes(b"")) == "asset1rjklcrnsdzqp65wjgrg55sy9723kw09mlgvlc3"
+    assert asset_fingerprint(policy, _Bytes(bytes.fromhex("504154415445"))) == \
+        "asset13n25uv0yaf5kus35fm2k86cqy60z58d9xmde92"
+
+
+def test_format_percent_whole_and_fractional():
+    from seedsigner.helpers.cardano_utils import format_percent
+
+    assert format_percent(_Rational(0.05)) == "5%"
+    assert format_percent(_Rational(0.5)) == "50%"
+    assert format_percent(_Rational(0.0275)) == "2.75%"

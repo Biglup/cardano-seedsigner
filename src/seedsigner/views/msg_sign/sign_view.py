@@ -68,11 +68,12 @@ class CardanoMsgSignView(View):
         """
         from seedsigner.gui.screens.screen import WarningScreen
         from seedsigner.helpers.cardano_signing import build_cip8_sign_response
+        from seedsigner.helpers.cardano_utils import seed_fingerprint
 
         seed = self.controller.cardano_seed
         request = self.msg_request
 
-        if seed is not None and request.xfp and request.xfp != bytes.fromhex(seed.get_fingerprint()):
+        if seed is not None and request.xfp and request.xfp != seed_fingerprint(seed):
             self.run_screen(
                 WarningScreen,
                 title=_("Cannot Sign"),

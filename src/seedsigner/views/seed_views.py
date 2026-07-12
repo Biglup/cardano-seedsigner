@@ -1682,20 +1682,29 @@ class CardanoPaymentAddressExplorerView(View):
     def run(self):
         from cometa import Bip32PrivateKey, BaseAddress, Credential, mnemonic_to_entropy
         from seedsigner.gui.screens.tools_screens import ToolsAddressExplorerAddressListScreen
+        from seedsigner.helpers.cardano_utils import (
+            HARDENED_OFFSET,
+            PURPOSE_CIP1852,
+            COIN_TYPE_ADA,
+            ROLE_PAYMENT,
+            ROLE_STAKE,
+        )
 
         entropy = mnemonic_to_entropy(self.seed.mnemonic_list)
         passphrase_bytes = self.seed.passphrase.encode('utf-8') if self.seed.passphrase else b""
         root_key = Bip32PrivateKey.from_bip39_entropy(passphrase_bytes, entropy)
-        account = self.account_index | 0x80000000
+        account = self.account_index | HARDENED_OFFSET
 
-        stake_key = root_key.derive([1852 | 0x80000000, 1815 | 0x80000000, account, 2, 0])
+        stake_key = root_key.derive(
+            [PURPOSE_CIP1852 | HARDENED_OFFSET, COIN_TYPE_ADA | HARDENED_OFFSET, account, ROLE_STAKE, 0])
         stake_cred = Credential.from_key_hash(
             stake_key.get_public_key().to_ed25519_key().to_hash()
         )
 
         addresses = []
         for i in range(self.start_index, self.start_index + self.ADDRS_PER_PAGE):
-            payment_key = root_key.derive([1852 | 0x80000000, 1815 | 0x80000000, account, 0, i])
+            payment_key = root_key.derive(
+                [PURPOSE_CIP1852 | HARDENED_OFFSET, COIN_TYPE_ADA | HARDENED_OFFSET, account, ROLE_PAYMENT, i])
             payment_cred = Credential.from_key_hash(
                 payment_key.get_public_key().to_ed25519_key().to_hash()
             )
@@ -1763,8 +1772,15 @@ class CardanoStakeAddressView(View):
 
     def _derive_stake_address(self, root_key, index: int) -> str:
         from cometa import RewardAddress, Credential
-        account = self.account_index | 0x80000000
-        stake_key = root_key.derive([1852 | 0x80000000, 1815 | 0x80000000, account, 2, index])
+        from seedsigner.helpers.cardano_utils import (
+            HARDENED_OFFSET,
+            PURPOSE_CIP1852,
+            COIN_TYPE_ADA,
+            ROLE_STAKE,
+        )
+        account = self.account_index | HARDENED_OFFSET
+        stake_key = root_key.derive(
+            [PURPOSE_CIP1852 | HARDENED_OFFSET, COIN_TYPE_ADA | HARDENED_OFFSET, account, ROLE_STAKE, index])
         stake_cred = Credential.from_key_hash(
             stake_key.get_public_key().to_ed25519_key().to_hash()
         )
@@ -1855,8 +1871,15 @@ class CardanoDRepIdView(View):
 
     def _derive_drep_id(self, root_key, index: int) -> str:
         from cometa import DRep, DRepType, Credential
-        account = self.account_index | 0x80000000
-        drep_key = root_key.derive([1852 | 0x80000000, 1815 | 0x80000000, account, 3, index])
+        from seedsigner.helpers.cardano_utils import (
+            HARDENED_OFFSET,
+            PURPOSE_CIP1852,
+            COIN_TYPE_ADA,
+            ROLE_DREP,
+        )
+        account = self.account_index | HARDENED_OFFSET
+        drep_key = root_key.derive(
+            [PURPOSE_CIP1852 | HARDENED_OFFSET, COIN_TYPE_ADA | HARDENED_OFFSET, account, ROLE_DREP, index])
         drep_hash = drep_key.get_public_key().to_ed25519_key().to_hash()
         cred = Credential.from_key_hash(drep_hash)
         drep = DRep.new(DRepType.KEY_HASH, cred)

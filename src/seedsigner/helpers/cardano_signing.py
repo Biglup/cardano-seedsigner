@@ -13,6 +13,7 @@ signed here; the rest are left for another device/seed (partial witness set).
 
 from seedsigner.helpers.cardano_utils import (
     root_key_from_seed,
+    seed_fingerprint,
     verify_message_signing_address,
 )
 from seedsigner.models.cardano_tx import (
@@ -21,11 +22,6 @@ from seedsigner.models.cardano_tx import (
     CardanoMessageSignRequest,
     CardanoCip8SignResponse,
 )
-
-
-def _seed_fingerprint(seed) -> bytes:
-    """The seed's 4-byte BTC BIP-32 master fingerprint (matches request xfp values)."""
-    return bytes.fromhex(seed.get_fingerprint())
 
 
 def _dedupe_paths(paths: list[list[int]]) -> list[list[int]]:
@@ -50,7 +46,7 @@ def matching_signing_paths(request: CardanoSignRequest, seed) -> list[list[int]]
     Script-locked inputs carry no path (their witnesses arrive via
     ``extra_signers``) and are skipped.
     """
-    fingerprint = _seed_fingerprint(seed)
+    fingerprint = seed_fingerprint(seed)
     candidates = [si.path for si in request.inputs
                   if si.path is not None and si.xfp == fingerprint]
     candidates += [es.path for es in request.extra_signers if es.xfp == fingerprint]
@@ -194,7 +190,7 @@ def build_cip8_sign_response(seed, request: CardanoMessageSignRequest) -> Cardan
     a malicious host could obtain a signature bound to an address the user
     reviewed but signed with an unrelated key.
     """
-    if request.xfp and request.xfp != _seed_fingerprint(seed):
+    if request.xfp and request.xfp != seed_fingerprint(seed):
         raise ValueError("cip8 sign request xfp does not match the selected seed")
     if not request.address_bytes:
         raise ValueError("cip8 sign request is missing the address to bind to")

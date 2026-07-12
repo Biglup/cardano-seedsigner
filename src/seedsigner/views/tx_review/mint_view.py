@@ -1,7 +1,8 @@
 """Mint/burn section review view."""
 
+from seedsigner.helpers.cardano_utils import asset_fingerprint
+
 from .base import BaseSequentialSectionView
-from .output_view import _asset_fingerprint
 from .certificate_view import _format_bech32
 
 
@@ -26,7 +27,7 @@ class MintReviewView(BaseSequentialSectionView):
                 content.append(("value_highlight_yes", "Mint"))
 
             content.append(("spacer_small", ""))
-            fingerprint = _asset_fingerprint(policy_id, asset_name)
+            fingerprint = asset_fingerprint(policy_id, asset_name)
             fmt, hn, tn = _format_bech32(fingerprint)
             content.append(("hash_display", fmt, hn, tn))
 

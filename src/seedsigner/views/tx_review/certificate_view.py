@@ -3,6 +3,7 @@
 from cometa import Bech32
 
 from seedsigner.gui.screens.tx_review import format_ada
+from seedsigner.helpers.cardano_utils import format_percent
 
 from .base import BaseSequentialSectionView
 
@@ -121,11 +122,7 @@ class CertificateReviewView(BaseSequentialSectionView):
             self._add_pool(lines, p.operator_key_hash)
             self._add_amount_field(lines, "Pledge:", p.pledge)
             self._add_amount_field(lines, "Cost:", p.cost)
-            margin_pct = float(p.margin) * 100
-            if margin_pct == int(margin_pct):
-                margin_str = f"{int(margin_pct)}%"
-            else:
-                margin_str = f"{margin_pct:.2f}%"
+            margin_str = format_percent(p.margin)
             lines.append(("spacer", ""))
             lines.append(("label", "Margin:"))
             lines.append(("spacer_small", ""))

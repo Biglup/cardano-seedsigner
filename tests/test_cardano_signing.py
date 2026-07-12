@@ -33,12 +33,11 @@ import hashlib
 
 from cometa import Credential, EnterpriseAddress
 
-from seedsigner.helpers.cardano_utils import root_key_from_seed
+from seedsigner.helpers.cardano_utils import root_key_from_seed, seed_fingerprint
 from seedsigner.helpers.cardano_signing import (
     build_tx_sign_response,
     build_cip8_sign_response,
     matching_signing_paths,
-    _seed_fingerprint,
 )
 
 
@@ -71,7 +70,7 @@ def _tx_hash(body_cbor: bytes) -> bytes:
 def test_tx_witness_verifies(seed):
     """The witness verifies against its own vkey over the tx hash, and that
     vkey is exactly the key derived from PATH_0."""
-    fp = _seed_fingerprint(seed)
+    fp = seed_fingerprint(seed)
     req = CardanoSignRequest(
         request_id="r1", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=fp, path=PATH_0)],
@@ -95,7 +94,7 @@ def test_tx_witness_verifies(seed):
 def test_partial_witness_skips_mismatched_xfp(seed):
     """The OTHER_XFP extra signer belongs to a different seed, so only the
     matching input signer produces a witness."""
-    fp = _seed_fingerprint(seed)
+    fp = seed_fingerprint(seed)
     req = CardanoSignRequest(
         request_id="r2", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=fp, path=PATH_0)],
@@ -118,7 +117,7 @@ def test_no_matching_signer_yields_empty_witness_set(seed):
 
 
 def test_duplicate_paths_collapse_to_one_witness(seed):
-    fp = _seed_fingerprint(seed)
+    fp = seed_fingerprint(seed)
     req = CardanoSignRequest(
         request_id="r4", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[
@@ -133,7 +132,7 @@ def test_duplicate_paths_collapse_to_one_witness(seed):
 
 
 def test_two_distinct_signers_two_witnesses(seed):
-    fp = _seed_fingerprint(seed)
+    fp = seed_fingerprint(seed)
     req = CardanoSignRequest(
         request_id="r5", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=fp, path=PATH_0)],
@@ -158,7 +157,7 @@ def test_cip8_payment_uses_ledger_2field_format(seed):
     The COSE_Key kid is the address and the signature verifies over the
     Sig_structure."""
     import cbor2
-    fp = _seed_fingerprint(seed)
+    fp = seed_fingerprint(seed)
     addr_bytes = _enterprise_addr_bytes(seed, PATH_0)
     msg = b"I attest ownership of this address."
     req = CardanoMessageSignRequest(
@@ -208,7 +207,7 @@ def _drep_hash_bytes(seed):
 
 def test_cip8_sign_with_stake_key(seed):
     import cbor2
-    fp = _seed_fingerprint(seed)
+    fp = seed_fingerprint(seed)
     req = CardanoMessageSignRequest(
         request_id="stake", origin=None, message_payload=b"delegate",
         required_signing_path=SigningPath(index=0, path=PATH_STAKE),
@@ -228,7 +227,7 @@ def test_cip8_sign_with_drep_key(seed):
     no kid (label 4), COSE_Key kid equal to the key hash, and the signature
     must verify over the Sig_structure."""
     import cbor2
-    fp = _seed_fingerprint(seed)
+    fp = seed_fingerprint(seed)
     drep_hash = _drep_hash_bytes(seed)
     req = CardanoMessageSignRequest(
         request_id="drep", origin=None, message_payload=b"vote",
@@ -252,7 +251,7 @@ def test_cip8_sign_with_drep_key(seed):
 
 
 def test_cip8_requires_address(seed):
-    fp = _seed_fingerprint(seed)
+    fp = seed_fingerprint(seed)
     req = CardanoMessageSignRequest(
         request_id="m3", origin=None, message_payload=b"hi",
         required_signing_path=SigningPath(index=0, path=PATH_0),
@@ -265,7 +264,7 @@ def test_cip8_requires_address(seed):
 def test_cip8_rejects_address_key_mismatch(seed):
     """Address bound to PATH_0's key, but the signing path is PATH_STAKE; the
     signature would not correspond to the reviewed address. Must be rejected."""
-    fp = _seed_fingerprint(seed)
+    fp = seed_fingerprint(seed)
     req = CardanoMessageSignRequest(
         request_id="m4", origin=None, message_payload=b"hi",
         required_signing_path=SigningPath(index=0, path=PATH_STAKE),
@@ -277,7 +276,7 @@ def test_cip8_rejects_address_key_mismatch(seed):
 
 def test_signed_hash_equals_blake2b_of_sign_data(seed):
     """The device signs blake2b-256 of the exact bytes it received."""
-    fp = _seed_fingerprint(seed)
+    fp = seed_fingerprint(seed)
     req = CardanoSignRequest(
         request_id="r6", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=fp, path=PATH_0)],
@@ -297,9 +296,9 @@ def test_passphrase_seed_signs_with_distinct_key(seed):
     fingerprint, so the passphrase key differs from the no-passphrase key for
     the same path."""
     pp_seed = Seed(mnemonic=("abandon " * 11 + "about").split(), passphrase="pass123")
-    assert _seed_fingerprint(pp_seed) != _seed_fingerprint(seed)
+    assert seed_fingerprint(pp_seed) != seed_fingerprint(seed)
 
-    fp = _seed_fingerprint(pp_seed)
+    fp = seed_fingerprint(pp_seed)
     req = CardanoSignRequest(
         request_id="r7", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0, xfp=fp, path=PATH_0)],
@@ -324,7 +323,7 @@ def test_extra_signers_only_produces_partial_witness_set(seed):
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0)],
         change_outputs=[], network=NetworkId.MAINNET,
         extra_signers=[
-            ExtraSigner(xfp=_seed_fingerprint(seed), path=PATH_MULTISIG),
+            ExtraSigner(xfp=seed_fingerprint(seed), path=PATH_MULTISIG),
             ExtraSigner(xfp=OTHER_XFP, path=PATH_0),
         ],
     )
@@ -344,7 +343,7 @@ def test_script_locked_input_skipped_in_matching_paths(seed):
         request_id="ms-2", origin=None, sign_data=MINIMAL_TX_BODY_CBOR,
         inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0)],
         change_outputs=[], network=NetworkId.MAINNET,
-        extra_signers=[ExtraSigner(xfp=_seed_fingerprint(seed), path=PATH_MULTISIG)],
+        extra_signers=[ExtraSigner(xfp=seed_fingerprint(seed), path=PATH_MULTISIG)],
     )
     assert matching_signing_paths(request, seed) == [PATH_MULTISIG]
 
@@ -357,7 +356,7 @@ def test_cip8_sign_with_multisig_key(seed):
     request = CardanoMessageSignRequest(
         request_id="cip8-ms", origin=None, message_payload=b"multisig hello",
         required_signing_path=SigningPath(index=0, path=PATH_MULTISIG),
-        address_bytes=key_hash, xfp=_seed_fingerprint(seed),
+        address_bytes=key_hash, xfp=seed_fingerprint(seed),
     )
     response = build_cip8_sign_response(seed, request)
 

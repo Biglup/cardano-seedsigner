@@ -541,7 +541,7 @@ class CardanoParsedTx:
 
     @property
     def sending_tokens(self) -> dict:
-        from cometa import Blake2bHash, Bech32
+        from seedsigner.helpers.cardano_utils import asset_fingerprint
         tokens = {}
         for i, output in enumerate(self.outputs):
             if i not in self.verified_change_indices:
@@ -549,9 +549,7 @@ class CardanoParsedTx:
                 if ma:
                     for policy_id, asset_map in ma.items():
                         for asset_name, qty in asset_map.items():
-                            data = policy_id.to_bytes() + asset_name.to_bytes()
-                            h = Blake2bHash.compute(data, hash_size=20)
-                            key = Bech32.encode("asset", h.to_bytes())
+                            key = asset_fingerprint(policy_id, asset_name)
                             tokens[key] = tokens.get(key, 0) + qty
         return tokens
 

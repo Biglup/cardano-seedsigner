@@ -21,15 +21,51 @@ def root_key_from_seed(seed):
     return Bip32PrivateKey.from_bip39_entropy(passphrase_bytes, entropy)
 
 
+HARDENED_OFFSET = 0x80000000
+
+PURPOSE_CIP1852 = 1852
+PURPOSE_CIP1854 = 1854
+PURPOSE_MINTING = 1855
+
+COIN_TYPE_ADA = 1815
+
 ROLE_PAYMENT = 0
 ROLE_CHANGE = 1
 ROLE_STAKE = 2
 ROLE_DREP = 3
 
-PURPOSE_MULTISIG = 1854
-PURPOSE_MINTING = 1855
 
-HARDENED_OFFSET = 0x80000000
+def seed_fingerprint(seed) -> bytes:
+    """The seed's 4-byte BTC BIP-32 master fingerprint.
+
+    Matches the ``xfp`` values a host stamps on signing requests (from the
+    account export), so a request's signer can be tied back to a loaded seed.
+    """
+    return bytes.fromhex(seed.get_fingerprint())
+
+
+def asset_fingerprint(policy_id, asset_name) -> str:
+    """The CIP-14 asset fingerprint (``asset1...``) for a native token.
+
+    Computed as ``bech32("asset", blake2b_160(policy_id || asset_name))``.
+    """
+    from cometa import Blake2bHash, Bech32
+
+    data = policy_id.to_bytes() + asset_name.to_bytes()
+    h = Blake2bHash.compute(data, hash_size=20)
+    return Bech32.encode("asset", h.to_bytes())
+
+
+def format_percent(value) -> str:
+    """Render a rational value as a percentage string.
+
+    Whole percents drop the decimals (``5%``); fractional ones show two
+    places (``2.75%``).
+    """
+    pct = float(value) * 100
+    if pct == int(pct):
+        return f"{int(pct)}%"
+    return f"{pct:.2f}%"
 
 
 def path_purpose(path) -> int:
@@ -84,7 +120,7 @@ def classify_signing_credential(address_bytes, signing_path=None) -> str:
     from cometa import Address, AddressType
 
     purpose = path_purpose(signing_path)
-    if purpose == PURPOSE_MULTISIG:
+    if purpose == PURPOSE_CIP1854:
         return "multisig"
     if purpose == PURPOSE_MINTING:
         return "minting"
@@ -311,7 +347,7 @@ def verify_collateral_return(sign_request, seed, body) -> bool:
     crp = sign_request.collateral_return_path
     if crp is None or body.collateral_return is None:
         return False
-    if crp.xfp != bytes.fromhex(seed.get_fingerprint()):
+    if crp.xfp != seed_fingerprint(seed):
         return False
 
     root_key = root_key_from_seed(seed)
@@ -331,7 +367,7 @@ def derive_owned_key_hashes(sign_request, seed) -> set:
     extra paths. A declared path that cannot be derived contributes no hash
     and is skipped, so one malformed entry does not fail the request.
     """
-    fingerprint = bytes.fromhex(seed.get_fingerprint())
+    fingerprint = seed_fingerprint(seed)
 
     paths = set()
     for signing_input in sign_request.inputs:
