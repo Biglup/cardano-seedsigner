@@ -96,10 +96,23 @@ class QR:
         else:
             border_str = "3"
 
-        cmd = f"""qrencode -m {border_str} -s 3 -l L --foreground=000000 --background={background_color} -t PNG -o "/tmp/qrcode.png" "{str(data)}" """
-        rv = subprocess.call(cmd, shell=True)
+        cmd = [
+            "qrencode",
+            "-m", border_str,
+            "-s", "3",
+            "-l", "L",
+            "--foreground=000000",
+            f"--background={background_color}",
+            "-t", "PNG",
+            "-o", "/tmp/qrcode.png",
+            str(data),
+        ]
+        try:
+            rv = subprocess.call(cmd, shell=False)
+        except OSError:
+            rv = 1
 
-        # if qrencode fails, fall back to only encoder
+        # if qrencode fails or is not installed, fall back to only encoder
         if rv != 0:
             return self.qrimage(data,width,height,border)
         img = Image.open("/tmp/qrcode.png").resize((width,height), Image.Resampling.NEAREST).convert("RGBA")

@@ -18,11 +18,11 @@ class MintReviewView(BaseSequentialSectionView):
             if content:
                 content.append(("spacer", ""))
 
-            is_burn = qty < 0
-
             # Mint or Burn label
-            if is_burn:
+            if qty < 0:
                 content.append(("value_highlight_warn", "Burn"))
+            elif qty == 0:
+                content.append(("value_highlight", "Mint"))
             else:
                 content.append(("value_highlight_yes", "Mint"))
 
@@ -34,9 +34,10 @@ class MintReviewView(BaseSequentialSectionView):
 
             # Quantity
             content.append(("spacer_small", ""))
-            sign = "+" if qty > 0 else ""
-            if is_burn:
-                content.append(("value_large_warn", f"{sign}{qty:,}"))
+            if qty < 0:
+                content.append(("value_large_warn", f"{qty:,}"))
+            elif qty == 0:
+                content.append(("value_large", "0"))
             else:
                 content.append(("value_large_yes", f"+{qty:,}"))
 

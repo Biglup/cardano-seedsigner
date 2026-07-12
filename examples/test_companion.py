@@ -73,6 +73,26 @@ def test_cip8_message_signing_verifies(device, credential):
     assert response.request_id == request.request_id
 
 
+def test_cip8_self_consistent_signature_from_other_key_is_caught_by_pinning(device):
+    """verify_cose_sign1 only proves the signature matches the embedded key, so
+    a valid signature made with a different wallet key still passes it; the
+    key-hash pinning comparison is what rejects the substitution."""
+    wallet, _, _ = request_account(device, account_index=0, network=NetworkId.TESTNET)
+    path, address_bytes, _ = _credential_params(wallet, "stake")
+    request = CardanoMessageSignRequest(
+        request_id=new_request_id(), origin="Companion",
+        message_payload=b"Hello, Cardano!",
+        required_signing_path=SigningPath(index=0, path=path),
+        address_bytes=address_bytes,
+        xfp=wallet.master_fingerprint,
+    )
+    response_cbor = device.exchange(messages.UR_CIP8_SIG_REQ, request.to_cbor(), messages.UR_CIP8_SIG_RES)
+    response = messages.parse_response(messages.UR_CIP8_SIG_RES, response_cbor)
+
+    assert verify_cose_sign1(response.cose_sign1, response.cose_key)
+    assert cose_key_hash_hex(response.cose_key) != wallet.payment_key_hash_hex()
+
+
 def test_cip8_wrong_address_is_rejected_by_device(device):
     # Bind the message to a base address but ask the device to sign with the
     # STAKE path: the device must refuse (its address<->key guard), so the

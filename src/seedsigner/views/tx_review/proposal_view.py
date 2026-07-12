@@ -59,6 +59,8 @@ _LOVELACE_FIELDS = {
     "governance_action_deposit", "drep_deposit",
 }
 
+_COEFFICIENT_FIELDS = {"pool_pledge_influence", "ref_script_cost_per_byte"}
+
 
 class ProposalReviewView(BaseSequentialSectionView):
     section_title = "Proposal"
@@ -166,10 +168,17 @@ class ProposalReviewView(BaseSequentialSectionView):
         self._add_voting_thresholds(lines, ppu)
 
     def _format_param_value(self, field_name, val):
-        """Format a protocol parameter value for display."""
+        """Format a protocol parameter value for display.
+
+        Rational fields in _COEFFICIENT_FIELDS are plain coefficients, such
+        as multipliers or per-byte costs, shown as decimals; the remaining
+        rationals are rates shown as percentages.
+        """
         if field_name in _LOVELACE_FIELDS:
             return format_ada(val)
         if hasattr(val, "to_float"):
+            if field_name in _COEFFICIENT_FIELDS:
+                return f"{float(val):g}"
             pct = float(val) * 100
             if pct == int(pct):
                 return f"{int(pct)}%"
