@@ -45,14 +45,20 @@ You either solder the 40 GPIO pins or use solderless hammer headers, and the scr
 
 # Download and verify
 
-Get the image for your board from the [latest release](https://github.com/Biglup/cardano-seedsigner/releases/latest). Each release ships one image per board plus the files you need to verify it.
+Get the image for your board from the [latest release](https://github.com/Biglup/cardano-seedsigner/releases/latest). Each release ships one image per board plus the files you need to verify it. The table below is regenerated automatically on every release.
 
-| Board | Image |
-|-------|-------|
-| Pi Zero / Zero W | `cardano_seedsigner_os.<version>.pi0.img` |
-| Pi Zero 2 W | `cardano_seedsigner_os.<version>.pi02w.img` |
-| Pi 2 Model B | `cardano_seedsigner_os.<version>.pi2.img` |
-| Pi 3 / Pi 4 | `cardano_seedsigner_os.<version>.pi4.img` |
+<!-- BEGIN DOWNLOAD TABLE -->
+Latest release: **[v0.0.1](https://github.com/Biglup/cardano-seedsigner/releases/tag/v0.0.1)**
+
+| Board | Image | Signature |
+|-------|-------|-----------|
+| Pi Zero / Zero W | [cardano_seedsigner_os.v0.0.1.pi0.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_os.v0.0.1.pi0.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_os.v0.0.1.pi0.img.asc) |
+| Pi Zero 2 W | [cardano_seedsigner_os.v0.0.1.pi02w.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_os.v0.0.1.pi02w.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_os.v0.0.1.pi02w.img.asc) |
+| Pi 2 Model B | [cardano_seedsigner_os.v0.0.1.pi2.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_os.v0.0.1.pi2.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_os.v0.0.1.pi2.img.asc) |
+| Pi 3 / Pi 4 | [cardano_seedsigner_os.v0.0.1.pi4.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_os.v0.0.1.pi4.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_os.v0.0.1.pi4.img.asc) |
+| Checksums (all images) | [SHA256SUMS](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/SHA256SUMS) | [SHA256SUMS.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/SHA256SUMS.asc) |
+| Public key | [cardano_seedsigner_pubkey.gpg](https://github.com/Biglup/cardano-seedsigner/releases/download/v0.0.1/cardano_seedsigner_pubkey.gpg) | |
+<!-- END DOWNLOAD TABLE -->
 
 Running a prepared image means trusting whoever built it. The releases are signed so you can at least confirm the image is the one that was published, and the builds are reproducible so you can rebuild from source and compare hashes (see [Building a Full Image](#building-a-full-image)).
 
