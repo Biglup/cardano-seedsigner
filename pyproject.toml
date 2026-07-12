@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61", "wheel"]
 
 [project]
 authors = [{name = "Biglup Labs", email = "contact@biglup.com"}]
@@ -13,7 +13,7 @@ description = "Build an offline, airgapped Cardano signing device for less than 
 name = "cardano-seedsigner"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.1.0"
+dynamic = ["version"]
 
 [project.urls]
 "Bug Tracker" = "https://github.com/biglup/cardano-seedsigner/issues"
@@ -67,6 +67,9 @@ log_level = "DEBUG"
 
 [tool.setuptools]
 include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "seedsigner.__version__"}
 
 [tool.setuptools.package-data]
 "seedsigner.resources" = ["**"]

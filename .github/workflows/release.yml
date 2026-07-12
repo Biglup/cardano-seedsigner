@@ -1,0 +1,121 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-version:
+    name: verify tag matches package version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: check tag equals seedsigner.__version__
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' src/seedsigner/__init__.py)"
+          echo "tag=${tag} package=${version}"
+          if [ "${tag}" != "${version}" ]; then
+            echo "::error::Tag v${tag} does not match seedsigner.__version__ (${version}). Bump __version__ or retag."
+            exit 1
+          fi
+
+  build:
+    name: build images
+    needs: verify-version
+    uses: ./.github/workflows/build.yml
+    with:
+      os-ref: v0.0.1
+
+  release:
+    name: sign and publish
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    env:
+      HAS_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: download built images
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: collect images
+        run: |
+          mkdir -p release
+          find artifacts -name '*.img' -exec mv {} release/ \;
+          ls -la release
+
+      - name: write checksums
+        run: |
+          cd release
+          sha256sum *.img > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: set up isolated keyring
+        if: env.HAS_SIGNING_KEY == 'true'
+        run: |
+          gnupg_home="$(mktemp -d "${RUNNER_TEMP}/gnupg.XXXXXX")"
+          chmod 700 "${gnupg_home}"
+          echo "GNUPGHOME=${gnupg_home}" >> "${GITHUB_ENV}"
+
+      - name: import signing key
+        if: env.HAS_SIGNING_KEY == 'true'
+        env:
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+        run: |
+          printf '%s\n' "${GPG_SIGNING_KEY}" | gpg --batch --import
+          gpg --batch --list-secret-keys
+
+      - name: sign images and checksums
+        if: env.HAS_SIGNING_KEY == 'true'
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          umask 077
+          pp="${RUNNER_TEMP}/passphrase"
+          printf '%s' "${GPG_PASSPHRASE}" > "${pp}"
+          cd release
+          for img in *.img; do
+            gpg --batch --yes --pinentry-mode loopback --passphrase-file "${pp}" \
+              --armor --detach-sign --output "${img}.asc" "${img}"
+          done
+          gpg --batch --yes --pinentry-mode loopback --passphrase-file "${pp}" \
+            --armor --detach-sign --output SHA256SUMS.asc SHA256SUMS
+          shred -u "${pp}" 2>/dev/null || rm -f "${pp}"
+
+      - name: destroy keyring
+        if: always()
+        run: |
+          if [ -n "${GNUPGHOME:-}" ]; then
+            gpgconf --kill all 2>/dev/null || true
+            rm -rf "${GNUPGHOME}"
+          fi
+          rm -f "${RUNNER_TEMP}/passphrase" 2>/dev/null || true
+
+      - name: warn when unsigned
+        if: env.HAS_SIGNING_KEY != 'true'
+        run: echo "::warning::GPG_SIGNING_KEY secret is not set, publishing an unsigned release."
+
+      - name: include public key
+        run: |
+          if [ -f cardano_seedsigner_pubkey.gpg ]; then
+            cp cardano_seedsigner_pubkey.gpg release/
+          fi
+
+      - name: publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prerelease=""
+          case "${GITHUB_REF_NAME}" in *-*) prerelease="--prerelease";; esac
+          gh release create "${GITHUB_REF_NAME}" release/* \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes ${prerelease}
