@@ -10,7 +10,7 @@ from base import BaseTest, FlowTest, FlowStep
 from seedsigner.models.settings import Settings, SettingsConstants
 from seedsigner.models.seed import Seed
 from seedsigner.views.view import MainMenuView
-from seedsigner.views import seed_views, scan_views
+from seedsigner.views import seed_views, scan_views, cardano_export_views
 
 
 ABANDON_MNEMONIC = (
@@ -47,10 +47,10 @@ class TestCardanoAccountExportFlows(FlowTest):
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
             FlowStep(scan_views.ScanView, before_run=inject_account_request([0])),
-            FlowStep(seed_views.CardanoExportSelectSeedView, is_redirect=True),
-            FlowStep(seed_views.CardanoExportAccountKeyConsentView, is_redirect=True),
-            FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
-            FlowStep(seed_views.CardanoExportAccountKeyQRView),
+            FlowStep(cardano_export_views.CardanoExportSelectSeedView, is_redirect=True),
+            FlowStep(cardano_export_views.CardanoExportAccountKeyConsentView, is_redirect=True),
+            FlowStep(cardano_export_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
+            FlowStep(cardano_export_views.CardanoExportAccountKeyQRView),
         ])
 
     def test_export_multi_account_when_enabled(self):
@@ -61,11 +61,11 @@ class TestCardanoAccountExportFlows(FlowTest):
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
             FlowStep(scan_views.ScanView, before_run=inject_account_request([0, 1])),
-            FlowStep(seed_views.CardanoExportSelectSeedView, is_redirect=True),
-            FlowStep(seed_views.CardanoExportAccountKeyConsentView, is_redirect=True),
-            FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
-            FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
-            FlowStep(seed_views.CardanoExportAccountKeyQRView),
+            FlowStep(cardano_export_views.CardanoExportSelectSeedView, is_redirect=True),
+            FlowStep(cardano_export_views.CardanoExportAccountKeyConsentView, is_redirect=True),
+            FlowStep(cardano_export_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
+            FlowStep(cardano_export_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
+            FlowStep(cardano_export_views.CardanoExportAccountKeyQRView),
         ])
 
     def test_export_multi_account_gate_when_disabled(self):
@@ -75,8 +75,8 @@ class TestCardanoAccountExportFlows(FlowTest):
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
             FlowStep(scan_views.ScanView, before_run=inject_account_request([0, 1])),
-            FlowStep(seed_views.CardanoExportSelectSeedView, is_redirect=True),
-            FlowStep(seed_views.CardanoExportAccountKeyConsentView, screen_return_value=0),
+            FlowStep(cardano_export_views.CardanoExportSelectSeedView, is_redirect=True),
+            FlowStep(cardano_export_views.CardanoExportAccountKeyConsentView, screen_return_value=0),
             FlowStep(MainMenuView),
         ])
 
@@ -88,10 +88,10 @@ class TestCardanoAccountExportFlows(FlowTest):
             initial_destination_view_args=dict(seed_num=0),
             sequence=[
                 FlowStep(seed_views.SeedOptionsView, button_data_selection=seed_views.SeedOptionsView.EXPORT_ACCOUNT_KEY),
-                FlowStep(seed_views.CardanoExportAccountKeyView, button_data_selection=seed_views.CardanoExportAccountKeyView.SINGLE_SIG),
-                FlowStep(seed_views.CardanoExportAccountKeySelectView, screen_return_value=0),
-                FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
-                FlowStep(seed_views.CardanoExportAccountKeyQRView),
+                FlowStep(cardano_export_views.CardanoExportAccountKeyView, button_data_selection=cardano_export_views.CardanoExportAccountKeyView.SINGLE_SIG),
+                FlowStep(cardano_export_views.CardanoExportAccountKeySelectView, screen_return_value=0),
+                FlowStep(cardano_export_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
+                FlowStep(cardano_export_views.CardanoExportAccountKeyQRView),
             ],
         )
 
@@ -103,10 +103,10 @@ class TestCardanoAccountExportFlows(FlowTest):
             initial_destination_view_args=dict(seed_num=0),
             sequence=[
                 FlowStep(seed_views.SeedOptionsView, button_data_selection=seed_views.SeedOptionsView.EXPORT_ACCOUNT_KEY),
-                FlowStep(seed_views.CardanoExportAccountKeyView, button_data_selection=seed_views.CardanoExportAccountKeyView.SINGLE_SIG),
-                FlowStep(seed_views.CardanoExportAccountKeySelectView, screen_return_value=3),
-                FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
-                FlowStep(seed_views.CardanoExportAccountKeyQRView),
+                FlowStep(cardano_export_views.CardanoExportAccountKeyView, button_data_selection=cardano_export_views.CardanoExportAccountKeyView.SINGLE_SIG),
+                FlowStep(cardano_export_views.CardanoExportAccountKeySelectView, screen_return_value=3),
+                FlowStep(cardano_export_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
+                FlowStep(cardano_export_views.CardanoExportAccountKeyQRView),
             ],
         )
 
@@ -140,10 +140,10 @@ class TestCardano1854AccountExportFlows(FlowTest):
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SCAN),
             FlowStep(scan_views.ScanView, before_run=inject_account_request_1854([0])),
-            FlowStep(seed_views.CardanoExportSelectSeedView, is_redirect=True),
-            FlowStep(seed_views.CardanoExportAccountKeyConsentView, is_redirect=True),
-            FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
-            FlowStep(seed_views.CardanoExportAccountKeyQRView),
+            FlowStep(cardano_export_views.CardanoExportSelectSeedView, is_redirect=True),
+            FlowStep(cardano_export_views.CardanoExportAccountKeyConsentView, is_redirect=True),
+            FlowStep(cardano_export_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
+            FlowStep(cardano_export_views.CardanoExportAccountKeyQRView),
         ])
 
     def test_export_1854_menu_flow(self):
@@ -154,9 +154,9 @@ class TestCardano1854AccountExportFlows(FlowTest):
             initial_destination_view_args=dict(seed_num=0),
             sequence=[
                 FlowStep(seed_views.SeedOptionsView, button_data_selection=seed_views.SeedOptionsView.EXPORT_ACCOUNT_KEY),
-                FlowStep(seed_views.CardanoExportAccountKeyView, button_data_selection=seed_views.CardanoExportAccountKeyView.MULTI_SIG),
-                FlowStep(seed_views.CardanoExportAccountKeySelectView, screen_return_value=0),
-                FlowStep(seed_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
-                FlowStep(seed_views.CardanoExportAccountKeyQRView),
+                FlowStep(cardano_export_views.CardanoExportAccountKeyView, button_data_selection=cardano_export_views.CardanoExportAccountKeyView.MULTI_SIG),
+                FlowStep(cardano_export_views.CardanoExportAccountKeySelectView, screen_return_value=0),
+                FlowStep(cardano_export_views.CardanoExportAccountKeyDetailsView, screen_return_value=0),
+                FlowStep(cardano_export_views.CardanoExportAccountKeyQRView),
             ],
         )

@@ -104,7 +104,7 @@ class ScanView(View):
                 return Destination(SettingsIngestSettingsQRView, view_args=dict(data=data))
 
             elif self.decoder.is_cardano_account_request:
-                from seedsigner.views.seed_views import CardanoExportSelectSeedView
+                from seedsigner.views.cardano_export_views import CardanoExportSelectSeedView
                 try:
                     self.controller.cardano_account_request = self.decoder.get_cardano_account_request()
                 except Exception as e:
@@ -119,7 +119,7 @@ class ScanView(View):
                 return Destination(CardanoExportSelectSeedView, skip_current_view=True)
 
             elif self.decoder.is_cardano_tx_sign_request:
-                from seedsigner.views.seed_views import CardanoTxSelectSeedView
+                from seedsigner.views.cardano_export_views import CardanoTxSelectSeedView
                 try:
                     self.controller.cardano_tx_sign_request = self.decoder.get_cardano_tx_sign_request()
                 except Exception as e:
@@ -134,7 +134,7 @@ class ScanView(View):
                 return Destination(CardanoTxSelectSeedView, skip_current_view=True)
 
             elif self.decoder.is_cardano_cip8_sign_request:
-                from seedsigner.views.seed_views import CardanoMsgSelectSeedView
+                from seedsigner.views.cardano_export_views import CardanoMsgSelectSeedView
                 try:
                     self.controller.cardano_cip8_sign_request = self.decoder.get_cardano_cip8_sign_request()
                 except Exception as e:
