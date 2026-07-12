@@ -7,18 +7,110 @@
 
 # Cardano SeedSigner
 
-Use an air-gapped Raspberry Pi Zero to sign for Cardano transactions
+Use an air-gapped Raspberry Pi Zero to sign Cardano transactions and messages.
+
+[![Latest release](https://img.shields.io/github/v/release/Biglup/cardano-seedsigner?sort=semver&label=latest%20release)](https://github.com/Biglup/cardano-seedsigner/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/Biglup/cardano-seedsigner)](https://github.com/Biglup/cardano-seedsigner/blob/main/LICENSE)
 
 # Project Summary
 
-The goal of Cardano SeedSigner is to reduce the cost and operational complexity of using Cardano wallets. To achieve this, SeedSigner enables users to build a verifiably air-gapped, stateless Cardano signing device using inexpensive, widely available hardware components—typically costing less than $50.
+Cardano SeedSigner lowers the cost and the operational complexity of holding Cardano keys offline. You build a stateless, air-gapped signing device out of cheap and widely available parts, usually for less than $50, and it never touches a network or writes a secret to disk.
 
-Cardano SeedSigner supports trustless private key generation and secure transaction authorization by relying exclusively on an offline execution model and a QR-based data exchange mechanism. This design eliminates network connectivity and persistent secret storage, allowing users to sign Cardano transactions and messages without exposing private key material to online systems.
+Keys are generated and transactions are authorized entirely offline. Data in and out goes through QR codes, so there is no USB, no Bluetooth and no networking involved at any point, and private key material never leaves the device.
 
-Additional information about the SeedSigner project is available at https://seedsigner.com
+There is more about the upstream project at https://seedsigner.com. Cardano SeedSigner is a fork and derivative work based on SeedSigner (https://github.com/SeedSigner/seedsigner), adapted for Cardano.
 
-Cardano SeedSigner is a forked and derivative work based on the original SeedSigner project developed by the SeedSigner contributors and available at
-https://github.com/SeedSigner/seedsigner
+# What it does
+
+- Generate a BIP-39 seed phrase (12, 15 or 24 words) from dice rolls or camera entropy
+- Load a seed instantly from a SeedQR or CompactSeedQR
+- Export an account public key so a watch-only wallet can derive and track addresses
+- Review and sign Cardano transactions received as animated QR codes (UR)
+- Sign CIP-8 messages for a payment address, a stake address or a DRep credential
+- Explore the payment addresses, the stake address and the DRep ID of a loaded seed
+- Multisig signing following CIP-1854
+- Mainnet and preprod/testnet
+
+The device is stateless and holds nothing between reboots. Once the splash screen shows you can pull the microSD card out, since everything runs from RAM.
+
+# Hardware
+
+The parts list is the same as a standard SeedSigner build:
+
+- Raspberry Pi Zero. The v1.3 has no wireless chip at all, which is what you want, but the Zero W, Zero 2 W and Pi 2/3/4 work too
+- Waveshare 1.3 inch 240x240 pixel LCD HAT
+- A Pi Zero compatible camera, an OV5647 based 5MP module works well
+
+You either solder the 40 GPIO pins or use solderless hammer headers, and the screen has to be exactly 240x240.
+
+# Download and verify
+
+Get the image for your board from the [latest release](https://github.com/Biglup/cardano-seedsigner/releases/latest). Each release ships one image per board plus the files you need to verify it.
+
+| Board | Image |
+|-------|-------|
+| Pi Zero / Zero W | `cardano_seedsigner_os.<version>.pi0.img` |
+| Pi Zero 2 W | `cardano_seedsigner_os.<version>.pi02w.img` |
+| Pi 2 Model B | `cardano_seedsigner_os.<version>.pi2.img` |
+| Pi 3 / Pi 4 | `cardano_seedsigner_os.<version>.pi4.img` |
+
+Running a prepared image means trusting whoever built it. The releases are signed so you can at least confirm the image is the one that was published, and the builds are reproducible so you can rebuild from source and compare hashes (see [Building a Full Image](#building-a-full-image)).
+
+## Verify the signature
+
+Every release includes `SHA256SUMS` (the image hashes), `SHA256SUMS.asc` (a signature over it), a detached `.img.asc` for each image, and `cardano_seedsigner_pubkey.gpg` (the public key).
+
+1. Fetch the signing key from Keybase, or import the `cardano_seedsigner_pubkey.gpg` shipped with the release:
+
+   ```
+   gpg --fetch-keys https://keybase.io/angelcastillob/pgp_keys.asc
+   ```
+
+2. Confirm the key fingerprint matches the one published at https://keybase.io/angelcastillob:
+
+   ```
+   gpg --fingerprint
+   ```
+
+   It should read `D8DA 9735 E65D 412F E8ED  2038 48A1 F6D6 07ED E9F9`.
+
+3. Check the signature over the checksums file:
+
+   ```
+   gpg --verify SHA256SUMS.asc SHA256SUMS
+   ```
+
+   You are looking for `Good signature`.
+
+4. Check the image against the checksums:
+
+   ```
+   sha256sum --ignore-missing --check SHA256SUMS
+   ```
+
+   Your image should print `OK`.
+
+Each image also carries its own detached signature if you would rather verify it directly:
+
+```
+gpg --verify cardano_seedsigner_os.<version>.<board>.img.asc cardano_seedsigner_os.<version>.<board>.img
+```
+
+This only shows the image was signed by the holder of that key, so it is worth checking the fingerprint out of band, and it is only as good as the private key not being compromised.
+
+## Write it to the microSD card
+
+Any of these work:
+
+- Balena Etcher (Windows, macOS, Linux), verifies the write for you
+- Raspberry Pi Imager (Windows, macOS, Linux), also verifies
+- `dd`, on Linux or macOS if you are comfortable with it:
+
+  ```
+  sudo dd if=cardano_seedsigner_os.<version>.<board>.img of=/dev/sdX bs=4M status=progress && sync
+  ```
+
+  Make sure `/dev/sdX` is the card and not one of your own disks.
 
 # SeedSigner OS
 
@@ -28,7 +120,7 @@ This repository contains the Cardano SeedSigner **application**. The operating s
 
 Cardano SeedSigner OS is a [Buildroot](https://www.buildroot.org)-based Linux image, hardened and stripped down to the bare minimum needed to run the signing application. It is an order of magnitude smaller than Raspberry Pi OS and:
 
-- Boots 100% from RAM — once the splash screen appears, the microSD card can be removed
+- Boots 100% from RAM, so once the splash screen appears the microSD card can be removed
 - Ships as a single read-only image (kernel + filesystem) on one FAT32 partition
 - Removes networking, Bluetooth, USB, serial, I2C, SWAP, and PWM kernel modules
 - Has no HDMI or serial TTL support, and no software for any wireless or networking chips
@@ -54,7 +146,7 @@ The Tools menu includes mock transaction and message data for rapid prototyping 
 
 ## Iterating on real hardware
 
-For faster iteration on a real device, build a **dev image** once — it bakes in all dependencies but loads the application source from the SD card's FAT partition:
+For faster iteration on a real device, build a **dev image** once. It bakes in all dependencies but loads the application source from the SD card's FAT partition:
 
 ```bash
 ./scripts/build-dev-image.sh pi0     # or pi02w | pi2 | pi4
@@ -66,7 +158,7 @@ Edit code, re-copy `src/`, and reboot the Pi to test.
 
 # Building a Full Image
 
-To build a bootable, production SD card image (requires Docker, ~20–30 GB of disk space, and roughly an hour on first run):
+To build a bootable, production SD card image (requires Docker, 20 to 30 GB of free disk space, and roughly an hour on the first run):
 
 ```bash
 ./scripts/build-image.sh pi0         # or pi02w | pi2 | pi4
@@ -78,10 +170,10 @@ The script clones [cardano-seedsigner-os](https://github.com/Biglup/cardano-seed
 sudo dd if=../cardano-seedsigner-os/images/cardano_seedsigner_os.<tag>.<board>.img of=/dev/sdX bs=4M status=progress && sync
 ```
 
-See the [OS repository's build documentation](https://github.com/Biglup/cardano-seedsigner-os/blob/main/docs/building.md) for board configs and reproducible-build details.
+The build is reproducible, so you can build the image yourself and compare its `sha256sum` against the one published in the release to confirm they match. See the [OS repository's build documentation](https://github.com/Biglup/cardano-seedsigner-os/blob/main/docs/building.md) for board configs and reproducible-build details.
 
 # Attribution and License Notice
 
-This project builds upon the [SeedSigner](https://github.com/SeedSigner/seedsigner) codebase, architecture, and design principles, extending them to support the Cardano blockchain while preserving the original project’s air-gapped security model and hardware abstractions.
+This project builds upon the [SeedSigner](https://github.com/SeedSigner/seedsigner) codebase, architecture, and design principles, extending them to support the Cardano blockchain while preserving the original project's air-gapped security model and hardware abstractions.
 
 The original SeedSigner project is licensed under the MIT License, and this project complies fully with the terms of that license. All applicable copyright notices, license text, and attribution are retained in accordance with MIT licensing requirements. No endorsement by the original SeedSigner authors is implied.
