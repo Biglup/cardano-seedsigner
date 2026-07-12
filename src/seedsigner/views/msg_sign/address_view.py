@@ -54,7 +54,7 @@ class CardanoMsgAddressView(View):
     def _handle_navigation(self, result):
         from .payload_view import CardanoMsgPayloadView
 
-        if result == RET_CODE__BACK_BUTTON or result == -1:
+        if result == RET_CODE__BACK_BUTTON:
             return Destination(BackStackView)
 
         if result == RET_CODE__LEFT_BUTTON:

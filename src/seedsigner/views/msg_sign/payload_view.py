@@ -91,7 +91,7 @@ class CardanoMsgPayloadView(View):
         from .address_view import CardanoMsgAddressView
         from .signing_key_view import CardanoMsgSigningKeyView
 
-        if result == RET_CODE__BACK_BUTTON or result == -1:
+        if result == RET_CODE__BACK_BUTTON:
             return Destination(BackStackView)
 
         if result == RET_CODE__LEFT_BUTTON:

@@ -98,7 +98,7 @@ class BaseSequentialSectionView(View):
 
         is_last_page = self.global_index >= total_pages - 1
 
-        if result == RET_CODE__BACK_BUTTON or result == -1:
+        if result == RET_CODE__BACK_BUTTON:
             return Destination(BackStackView)
 
         if result == RET_CODE__LEFT_BUTTON:

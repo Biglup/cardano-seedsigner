@@ -50,7 +50,7 @@ class CardanoMsgSigningKeyView(View):
     def _handle_navigation(self, result):
         from .sign_view import CardanoMsgSignView
 
-        if result == RET_CODE__BACK_BUTTON or result == -1:
+        if result == RET_CODE__BACK_BUTTON:
             return Destination(BackStackView)
 
         if result == RET_CODE__LEFT_BUTTON:

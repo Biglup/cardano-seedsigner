@@ -1,6 +1,6 @@
 """Certificate section review view."""
 
-from cometa import Bech32
+from cometa import Bech32, CertificateType
 
 from seedsigner.gui.screens.tx_review import format_ada, Line
 from seedsigner.helpers.cardano_utils import format_percent
@@ -105,138 +105,179 @@ class CertificateReviewView(BaseSequentialSectionView):
         lines.append(Line.spacer_small())
         lines.append(Line.value_highlight(friendly_name))
 
-        if ct.name == "STAKE_REGISTRATION":
-            self._add_stake_credential(lines, cert.to_stake_registration().credential)
-
-        elif ct.name == "STAKE_DEREGISTRATION":
-            self._add_stake_credential(lines, cert.to_stake_deregistration().credential)
-
-        elif ct.name == "STAKE_DELEGATION":
-            sd = cert.to_stake_delegation()
-            self._add_stake_credential(lines, sd.credential)
-            self._add_pool(lines, sd.pool_key_hash)
-
-        elif ct.name == "POOL_REGISTRATION":
-            pr = cert.to_pool_registration()
-            p = pr.params
-            self._add_pool(lines, p.operator_key_hash)
-            self._add_amount_field(lines, "Pledge:", p.pledge)
-            self._add_amount_field(lines, "Cost:", p.cost)
-            margin_str = format_percent(p.margin)
-            lines.append(Line.spacer())
-            lines.append(Line.label("Margin:"))
-            lines.append(Line.spacer_small())
-            lines.append(Line.value_highlight(margin_str))
-            self._add_bech32_hash(lines, "VRF Key:", p.vrf_vk_hash, "vrf_vk")
-            self._add_bech32_display(lines, "Reward Account:", str(p.reward_account))
-            if len(p.owners) > 0:
-                lines.append(Line.spacer())
-                lines.append(Line.label(f"Owners ({len(p.owners)}):"))
-                for owner in p.owners:
-                    bech32_str = Bech32.encode("stake_vkh", owner.to_bytes())
-                    fmt, hn, tn = _format_bech32(bech32_str)
-                    lines.append(Line.spacer())
-                    lines.append(Line.hash(fmt, hn, tn))
-            if len(p.relays) > 0:
-                lines.append(Line.spacer())
-                lines.append(Line.label(f"Relays ({len(p.relays)}):"))
-                for relay in p.relays:
-                    lines.append(Line.spacer())
-                    self._add_relay(lines, relay)
-            if p.metadata:
-                lines.append(Line.spacer())
-                lines.append(Line.label("Metadata URL:"))
-                lines.append(Line.spacer_small())
-                lines.append(Line.value_highlight(str(p.metadata.url)))
-                lines.append(Line.spacer())
-                lines.append(Line.label("Metadata Hash:"))
-                lines.append(Line.spacer_small())
-                meta_hash = p.metadata.hash.to_hex()
-                fmt = _format_hex_display(meta_hash)
-                lines.append(Line.hash(fmt, 8, 8))
-
-        elif ct.name == "POOL_RETIREMENT":
-            pr = cert.to_pool_retirement()
-            self._add_pool(lines, pr.pool_key_hash)
-            lines.append(Line.spacer())
-            lines.append(Line.label("Epoch:"))
-            lines.append(Line.spacer_small())
-            lines.append(Line.value_highlight(str(pr.epoch)))
-
-        elif ct.name == "REGISTRATION":
-            r = cert.to_registration()
-            self._add_stake_credential(lines, r.credential)
-            self._add_amount_field(lines, "Deposit:", r.deposit)
-
-        elif ct.name == "UNREGISTRATION":
-            u = cert.to_unregistration()
-            self._add_stake_credential(lines, u.credential)
-            self._add_amount_field(lines, "Deposit:", u.deposit)
-
-        elif ct.name == "VOTE_DELEGATION":
-            vd = cert.to_vote_delegation()
-            self._add_stake_credential(lines, vd.credential)
-            self._add_drep(lines, vd.drep)
-
-        elif ct.name == "STAKE_VOTE_DELEGATION":
-            svd = cert.to_stake_vote_delegation()
-            self._add_stake_credential(lines, svd.credential)
-            self._add_pool(lines, svd.pool_key_hash)
-            self._add_drep(lines, svd.drep)
-
-        elif ct.name == "STAKE_REGISTRATION_DELEGATION":
-            srd = cert.to_stake_registration_delegation()
-            self._add_stake_credential(lines, srd.credential)
-            self._add_pool(lines, srd.pool_key_hash)
-            self._add_amount_field(lines, "Deposit:", srd.deposit)
-
-        elif ct.name == "VOTE_REGISTRATION_DELEGATION":
-            vrd = cert.to_vote_registration_delegation()
-            self._add_stake_credential(lines, vrd.credential)
-            self._add_drep(lines, vrd.drep)
-            self._add_amount_field(lines, "Deposit:", vrd.deposit)
-
-        elif ct.name == "STAKE_VOTE_REGISTRATION_DELEGATION":
-            svrd = cert.to_stake_vote_registration_delegation()
-            self._add_stake_credential(lines, svrd.credential)
-            self._add_pool(lines, svrd.pool_key_hash)
-            self._add_drep(lines, svrd.drep)
-            self._add_amount_field(lines, "Deposit:", svrd.deposit)
-
-        elif ct.name == "AUTH_COMMITTEE_HOT":
-            ach = cert.to_auth_committee_hot()
-            self._add_bech32_credential(lines, "Cold:", ach.committee_cold_credential, "cc_cold")
-            self._add_bech32_credential(lines, "Hot:", ach.committee_hot_credential, "cc_hot")
-
-        elif ct.name == "RESIGN_COMMITTEE_COLD":
-            rcc = cert.to_resign_committee_cold()
-            self._add_bech32_credential(lines, "Cold:", rcc.committee_cold_credential, "cc_cold")
-            if rcc.anchor:
-                _add_anchor(lines, rcc.anchor)
-
-        elif ct.name == "DREP_REGISTRATION":
-            rd = cert.to_register_drep()
-            self._add_drep_credential(lines, rd.credential)
-            self._add_amount_field(lines, "Deposit:", rd.deposit)
-            if rd.anchor:
-                _add_anchor(lines, rd.anchor)
-
-        elif ct.name == "DREP_UNREGISTRATION":
-            ud = cert.to_unregister_drep()
-            self._add_drep_credential(lines, ud.credential)
-            self._add_amount_field(lines, "Deposit:", ud.deposit)
-
-        elif ct.name == "UPDATE_DREP":
-            ud = cert.to_update_drep()
-            self._add_drep_credential(lines, ud.credential)
-            if ud.anchor:
-                _add_anchor(lines, ud.anchor)
-
-        else:
+        builder = self._CERT_BUILDERS.get(ct)
+        if builder is None:
             lines.append(Line.spacer())
             lines.append(Line.value_text(f"Type value: {ct.value}"))
+        else:
+            builder(self, lines, cert)
 
         return lines
+
+    def _build_stake_registration(self, lines, cert):
+        """Stake credential of a pre-Conway stake registration."""
+        self._add_stake_credential(lines, cert.to_stake_registration().credential)
+
+    def _build_stake_deregistration(self, lines, cert):
+        """Stake credential of a pre-Conway stake deregistration."""
+        self._add_stake_credential(lines, cert.to_stake_deregistration().credential)
+
+    def _build_stake_delegation(self, lines, cert):
+        """Stake credential and target pool of a stake delegation."""
+        sd = cert.to_stake_delegation()
+        self._add_stake_credential(lines, sd.credential)
+        self._add_pool(lines, sd.pool_key_hash)
+
+    def _build_pool_registration(self, lines, cert):
+        """Full pool parameters: operator, pledge, cost, margin, VRF key,
+        reward account, owners, relays, and optional metadata."""
+        pr = cert.to_pool_registration()
+        p = pr.params
+        self._add_pool(lines, p.operator_key_hash)
+        self._add_amount_field(lines, "Pledge:", p.pledge)
+        self._add_amount_field(lines, "Cost:", p.cost)
+        margin_str = format_percent(p.margin)
+        lines.append(Line.spacer())
+        lines.append(Line.label("Margin:"))
+        lines.append(Line.spacer_small())
+        lines.append(Line.value_highlight(margin_str))
+        self._add_bech32_hash(lines, "VRF Key:", p.vrf_vk_hash, "vrf_vk")
+        self._add_bech32_display(lines, "Reward Account:", str(p.reward_account))
+        if len(p.owners) > 0:
+            lines.append(Line.spacer())
+            lines.append(Line.label(f"Owners ({len(p.owners)}):"))
+            for owner in p.owners:
+                bech32_str = Bech32.encode("stake_vkh", owner.to_bytes())
+                fmt, hn, tn = _format_bech32(bech32_str)
+                lines.append(Line.spacer())
+                lines.append(Line.hash(fmt, hn, tn))
+        if len(p.relays) > 0:
+            lines.append(Line.spacer())
+            lines.append(Line.label(f"Relays ({len(p.relays)}):"))
+            for relay in p.relays:
+                lines.append(Line.spacer())
+                self._add_relay(lines, relay)
+        if p.metadata:
+            lines.append(Line.spacer())
+            lines.append(Line.label("Metadata URL:"))
+            lines.append(Line.spacer_small())
+            lines.append(Line.value_highlight(str(p.metadata.url)))
+            lines.append(Line.spacer())
+            lines.append(Line.label("Metadata Hash:"))
+            lines.append(Line.spacer_small())
+            meta_hash = p.metadata.hash.to_hex()
+            fmt = _format_hex_display(meta_hash)
+            lines.append(Line.hash(fmt, 8, 8))
+
+    def _build_pool_retirement(self, lines, cert):
+        """Pool and the epoch at which it retires."""
+        pr = cert.to_pool_retirement()
+        self._add_pool(lines, pr.pool_key_hash)
+        lines.append(Line.spacer())
+        lines.append(Line.label("Epoch:"))
+        lines.append(Line.spacer_small())
+        lines.append(Line.value_highlight(str(pr.epoch)))
+
+    def _build_registration(self, lines, cert):
+        """Stake credential and deposit of a Conway registration."""
+        r = cert.to_registration()
+        self._add_stake_credential(lines, r.credential)
+        self._add_amount_field(lines, "Deposit:", r.deposit)
+
+    def _build_unregistration(self, lines, cert):
+        """Stake credential and returned deposit of a Conway unregistration."""
+        u = cert.to_unregistration()
+        self._add_stake_credential(lines, u.credential)
+        self._add_amount_field(lines, "Deposit:", u.deposit)
+
+    def _build_vote_delegation(self, lines, cert):
+        """Stake credential and the DRep it delegates its vote to."""
+        vd = cert.to_vote_delegation()
+        self._add_stake_credential(lines, vd.credential)
+        self._add_drep(lines, vd.drep)
+
+    def _build_stake_vote_delegation(self, lines, cert):
+        """Stake credential delegating to both a pool and a DRep."""
+        svd = cert.to_stake_vote_delegation()
+        self._add_stake_credential(lines, svd.credential)
+        self._add_pool(lines, svd.pool_key_hash)
+        self._add_drep(lines, svd.drep)
+
+    def _build_stake_registration_delegation(self, lines, cert):
+        """Registration combined with pool delegation and its deposit."""
+        srd = cert.to_stake_registration_delegation()
+        self._add_stake_credential(lines, srd.credential)
+        self._add_pool(lines, srd.pool_key_hash)
+        self._add_amount_field(lines, "Deposit:", srd.deposit)
+
+    def _build_vote_registration_delegation(self, lines, cert):
+        """Registration combined with vote delegation and its deposit."""
+        vrd = cert.to_vote_registration_delegation()
+        self._add_stake_credential(lines, vrd.credential)
+        self._add_drep(lines, vrd.drep)
+        self._add_amount_field(lines, "Deposit:", vrd.deposit)
+
+    def _build_stake_vote_registration_delegation(self, lines, cert):
+        """Registration combined with pool and vote delegation and its deposit."""
+        svrd = cert.to_stake_vote_registration_delegation()
+        self._add_stake_credential(lines, svrd.credential)
+        self._add_pool(lines, svrd.pool_key_hash)
+        self._add_drep(lines, svrd.drep)
+        self._add_amount_field(lines, "Deposit:", svrd.deposit)
+
+    def _build_auth_committee_hot(self, lines, cert):
+        """Committee cold and hot credentials being authorized."""
+        ach = cert.to_auth_committee_hot()
+        self._add_bech32_credential(lines, "Cold:", ach.committee_cold_credential, "cc_cold")
+        self._add_bech32_credential(lines, "Hot:", ach.committee_hot_credential, "cc_hot")
+
+    def _build_resign_committee_cold(self, lines, cert):
+        """Resigning committee cold credential and optional anchor."""
+        rcc = cert.to_resign_committee_cold()
+        self._add_bech32_credential(lines, "Cold:", rcc.committee_cold_credential, "cc_cold")
+        if rcc.anchor:
+            _add_anchor(lines, rcc.anchor)
+
+    def _build_drep_registration(self, lines, cert):
+        """DRep credential, deposit, and optional anchor."""
+        rd = cert.to_register_drep()
+        self._add_drep_credential(lines, rd.credential)
+        self._add_amount_field(lines, "Deposit:", rd.deposit)
+        if rd.anchor:
+            _add_anchor(lines, rd.anchor)
+
+    def _build_drep_unregistration(self, lines, cert):
+        """DRep credential and returned deposit."""
+        ud = cert.to_unregister_drep()
+        self._add_drep_credential(lines, ud.credential)
+        self._add_amount_field(lines, "Deposit:", ud.deposit)
+
+    def _build_update_drep(self, lines, cert):
+        """DRep credential and optional updated anchor."""
+        ud = cert.to_update_drep()
+        self._add_drep_credential(lines, ud.credential)
+        if ud.anchor:
+            _add_anchor(lines, ud.anchor)
+
+    _CERT_BUILDERS = {
+        CertificateType.STAKE_REGISTRATION: _build_stake_registration,
+        CertificateType.STAKE_DEREGISTRATION: _build_stake_deregistration,
+        CertificateType.STAKE_DELEGATION: _build_stake_delegation,
+        CertificateType.POOL_REGISTRATION: _build_pool_registration,
+        CertificateType.POOL_RETIREMENT: _build_pool_retirement,
+        CertificateType.REGISTRATION: _build_registration,
+        CertificateType.UNREGISTRATION: _build_unregistration,
+        CertificateType.VOTE_DELEGATION: _build_vote_delegation,
+        CertificateType.STAKE_VOTE_DELEGATION: _build_stake_vote_delegation,
+        CertificateType.STAKE_REGISTRATION_DELEGATION: _build_stake_registration_delegation,
+        CertificateType.VOTE_REGISTRATION_DELEGATION: _build_vote_registration_delegation,
+        CertificateType.STAKE_VOTE_REGISTRATION_DELEGATION: _build_stake_vote_registration_delegation,
+        CertificateType.AUTH_COMMITTEE_HOT: _build_auth_committee_hot,
+        CertificateType.RESIGN_COMMITTEE_COLD: _build_resign_committee_cold,
+        CertificateType.DREP_REGISTRATION: _build_drep_registration,
+        CertificateType.DREP_UNREGISTRATION: _build_drep_unregistration,
+        CertificateType.UPDATE_DREP: _build_update_drep,
+    }
 
     def _add_bech32_display(self, lines, label, bech32_str):
         """Add a bech32 identifier with label and prefix-aware highlighting."""
