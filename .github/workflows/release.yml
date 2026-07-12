@@ -36,6 +36,7 @@ jobs:
     name: sign and publish
     needs: build
     runs-on: ubuntu-latest
+    environment: release
     env:
       HAS_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY != '' }}
     steps:
@@ -58,26 +59,46 @@ jobs:
           sha256sum *.img > SHA256SUMS
           cat SHA256SUMS
 
+      - name: set up isolated keyring
+        if: env.HAS_SIGNING_KEY == 'true'
+        run: |
+          gnupg_home="$(mktemp -d "${RUNNER_TEMP}/gnupg.XXXXXX")"
+          chmod 700 "${gnupg_home}"
+          echo "GNUPGHOME=${gnupg_home}" >> "${GITHUB_ENV}"
+
       - name: import signing key
         if: env.HAS_SIGNING_KEY == 'true'
         env:
           GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
         run: |
-          echo "${GPG_SIGNING_KEY}" | gpg --batch --import
-          gpg --list-secret-keys --keyid-format long
+          printf '%s\n' "${GPG_SIGNING_KEY}" | gpg --batch --import
+          gpg --batch --list-secret-keys
 
       - name: sign images and checksums
         if: env.HAS_SIGNING_KEY == 'true'
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
+          umask 077
+          pp="${RUNNER_TEMP}/passphrase"
+          printf '%s' "${GPG_PASSPHRASE}" > "${pp}"
           cd release
           for img in *.img; do
-            gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE}" \
+            gpg --batch --yes --pinentry-mode loopback --passphrase-file "${pp}" \
               --armor --detach-sign --output "${img}.asc" "${img}"
           done
-          gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE}" \
+          gpg --batch --yes --pinentry-mode loopback --passphrase-file "${pp}" \
             --armor --detach-sign --output SHA256SUMS.asc SHA256SUMS
+          shred -u "${pp}" 2>/dev/null || rm -f "${pp}"
+
+      - name: destroy keyring
+        if: always()
+        run: |
+          if [ -n "${GNUPGHOME:-}" ]; then
+            gpgconf --kill all 2>/dev/null || true
+            rm -rf "${GNUPGHOME}"
+          fi
+          rm -f "${RUNNER_TEMP}/passphrase" 2>/dev/null || true
 
       - name: warn when unsigned
         if: env.HAS_SIGNING_KEY != 'true'

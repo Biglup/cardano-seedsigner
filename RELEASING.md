@@ -56,6 +56,13 @@ exist).
 The private key lives only as an encrypted GitHub Actions secret; it is never
 committed. The public key is committed so anyone can verify a release.
 
+The secrets are scoped to a protected `release` environment rather than the
+whole repository. Only the `release` job declares `environment: release`, so no
+other workflow (for example `build.yml`, which runs on every push to `main`)
+can read them, and a required reviewer must approve the run before the key is
+exposed. This means a merged change or a pushed tag cannot exfiltrate the key
+without a human approving the release.
+
 One-time maintainer setup:
 
 1. Generate a signing key (Ed25519 or RSA 4096):
@@ -64,8 +71,13 @@ One-time maintainer setup:
    gpg --full-generate-key
    ```
 
-2. Add the private key as the repository secret `GPG_SIGNING_KEY` (Settings ->
-   Secrets and variables -> Actions), and the key passphrase as `GPG_PASSPHRASE`:
+2. Create the environment: Settings -> Environments -> New environment, named
+   `release`. Under its protection rules, add yourself (and any co-maintainers)
+   as a required reviewer.
+
+3. Add the private key and passphrase as secrets of the `release` environment
+   (not repository secrets): `GPG_SIGNING_KEY` and `GPG_PASSPHRASE`. Export the
+   armored private key with:
 
    ```
    gpg --armor --export-secret-keys <KEY_ID>
@@ -73,15 +85,21 @@ One-time maintainer setup:
 
    Paste the full armored block as the `GPG_SIGNING_KEY` value.
 
-3. Export the public key and commit it to the repository root as
+4. Export the public key and commit it to the repository root as
    `cardano_seedsigner_pubkey.gpg`:
 
    ```
    gpg --export <KEY_ID> > cardano_seedsigner_pubkey.gpg
    ```
 
+Also restrict who can push tags and create releases (Settings -> branch and tag
+protection), so only trusted maintainers can trigger the release run at all.
+
 If `GPG_SIGNING_KEY` is not set, the release still builds and publishes but is
-left unsigned and the run emits a warning.
+left unsigned and the run emits a warning. The runner imports the key into a
+throwaway keyring under the runner temp directory, passes the passphrase through
+a file that never touches the command line, keeps all key material out of the
+build workspace and release assets, and destroys the keyring when the job ends.
 
 ## Verifying a release
 
