@@ -87,7 +87,7 @@ class CardanoMsgOverviewView(View):
 
         return Destination(
             CardanoMsgAddressView,
-            view_args=dict(msg_request=self.msg_request, page_index=0),
+            view_args=dict(msg_request=self.msg_request),
         )
 
     def _show_rejection(self, DireWarningScreen, GUIConstants, TextArea,

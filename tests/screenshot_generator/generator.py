@@ -192,8 +192,8 @@ def _build_cardano_screenshot_configs():
             required_signing_path=msg_request.required_signing_path,
             address_bytes=None,
         ))),
-        ScreenshotConfig(CardanoMsgAddressView, dict(msg_request=msg_request, page_index=0), scroll_all=True),
-        ScreenshotConfig(CardanoMsgPayloadView, dict(msg_request=msg_request, page_index=1), scroll_all=True),
+        ScreenshotConfig(CardanoMsgAddressView, dict(msg_request=msg_request), scroll_all=True),
+        ScreenshotConfig(CardanoMsgPayloadView, dict(msg_request=msg_request), scroll_all=True),
         ScreenshotConfig(CardanoMsgSigningKeyView, dict(msg_request=msg_request)),
         ScreenshotConfig(CardanoMsgSignView, dict(msg_request=msg_request)),
     ]

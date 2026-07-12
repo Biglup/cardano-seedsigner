@@ -1480,52 +1480,6 @@ class SeedAddressVerificationSuccessScreen(LargeIconStatusScreen):
 
 
 @dataclass
-class LoadMultisigWalletDescriptorScreen(ButtonListScreen):
-    def __post_init__(self):
-        self.title = _("Multisig Verification")
-        self.is_bottom_list = True
-        super().__post_init__()
-
-        self.components.append(TextArea(
-            text=_("Load your multisig wallet descriptor to verify your receive/self-transfer or change address."),
-            screen_y=self.top_nav.height,
-            height=self.buttons[0].screen_y - self.top_nav.height,
-        ))
-
-
-
-@dataclass
-class MultisigWalletDescriptorScreen(ButtonListScreen):
-    policy: str = None
-    fingerprints: List[str] = None
-
-    def __post_init__(self):
-        self.title = _("Descriptor Loaded")
-        self.is_bottom_list = True
-        super().__post_init__()
-
-        self.components.append(IconTextLine(
-            # TRANSLATOR_NOTE: Label for the multisig wallet's signing policy (e.g. 2-of-3)
-            label_text=_("Policy"),
-            value_text=self.policy,
-            font_size=20,
-            screen_y=self.top_nav.height,
-            is_text_centered=True,
-        ))
-
-        self.components.append(IconTextLine(
-            label_text=_("Signing Keys"),
-            value_text=" ".join(self.fingerprints),
-            font_size=24,
-            font_name=GUIConstants.FIXED_WIDTH_EMPHASIS_FONT_NAME,
-            screen_y=self.components[-1].screen_y + self.components[-1].height + 2*GUIConstants.COMPONENT_PADDING,
-            is_text_centered=True,
-            auto_line_break=True,
-        ))
-
-
-
-@dataclass
 class SeedSignMessageConfirmMessageScreen(ButtonListScreen):
     page_num: int = None
 

@@ -26,10 +26,9 @@ def _is_printable_ascii(data: bytes) -> bool:
 class CardanoMsgPayloadView(View):
     """Shows the message payload as ASCII text, JSON, or hex."""
 
-    def __init__(self, msg_request: CardanoMessageSignRequest, page_index: int = 1):
+    def __init__(self, msg_request: CardanoMessageSignRequest):
         super().__init__()
         self.msg_request = msg_request
-        self.page_index = page_index
 
     def run(self):
         from seedsigner.gui.screens.tx_review import CardanoCertificateSequentialScreen
@@ -95,7 +94,7 @@ class CardanoMsgPayloadView(View):
         if result == RET_CODE__LEFT_BUTTON:
             return Destination(
                 CardanoMsgAddressView,
-                view_args=dict(msg_request=self.msg_request, page_index=0),
+                view_args=dict(msg_request=self.msg_request),
                 skip_current_view=True,
             )
 

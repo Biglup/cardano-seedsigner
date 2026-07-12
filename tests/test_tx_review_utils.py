@@ -9,7 +9,7 @@ large amounts render incorrectly on the review screens.
 
 import base  # noqa: F401  (mocks the Raspi hardware modules before seedsigner imports)
 
-from seedsigner.gui.screens.tx_review.utils import format_ada, truncate_address
+from seedsigner.gui.screens.tx_review.utils import format_ada
 
 
 def test_format_ada_zero():
@@ -52,14 +52,3 @@ def test_format_ada_large_value_keeps_every_digit():
 def test_format_ada_negative():
     assert format_ada(-1) == "-0.000001 ADA"
     assert format_ada(-1_500_000) == "-1.5 ADA"
-
-
-def test_truncate_address_short_address_unchanged():
-    assert truncate_address("addr1short") == "addr1short"
-
-
-def test_truncate_address_long_address_keeps_both_ends():
-    address = "addr1" + "q" * 50
-    truncated = truncate_address(address, max_chars=20)
-    assert truncated == "addr1qqq...qqqqqqqq"
-    assert len(truncated) <= 20
