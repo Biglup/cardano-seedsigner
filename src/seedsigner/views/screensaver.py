@@ -149,7 +149,7 @@ class OpeningSplashScreen(LogoScreen):
 
         if not self.renderer.is_screenshot_generator:
             self.renderer.show_image()
-            time.sleep(2)
+            time.sleep(4)
 
 
 
