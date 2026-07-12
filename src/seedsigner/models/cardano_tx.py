@@ -372,7 +372,7 @@ class CardanoTxSignResponse:
     @classmethod
     def _from_cbor(cls, data: bytes) -> "CardanoTxSignResponse":
         r = CborReader.from_bytes(data)
-        request_id = ""
+        request_id = None
         vkey_witness_set = None
         for _ in range(r.read_map_len()):
             key = r.read_uint()
@@ -383,6 +383,8 @@ class CardanoTxSignResponse:
             else:
                 r.skip_value()
         r.read_map_end()
+        if request_id is None:
+            raise ValueError("cardano-tx-sig-res missing request_id (key 1)")
         if vkey_witness_set is None:
             raise ValueError("cardano-tx-sig-res missing vkey_witness_set (key 2)")
         return cls(request_id=request_id, vkey_witness_set=vkey_witness_set)
@@ -534,7 +536,8 @@ class CardanoParsedTx:
 
     @property
     def has_voting(self):
-        return self.voting_procedures is not None
+        return (self.voting_procedures is not None
+                and len(self.voting_procedures.get_voters()) > 0)
 
     @property
     def has_proposals(self):
@@ -903,7 +906,7 @@ class CardanoCip8SignResponse:
     @classmethod
     def _from_cbor(cls, data: bytes) -> "CardanoCip8SignResponse":
         r = CborReader.from_bytes(data)
-        request_id = ""
+        request_id = None
         cose_sign1 = cose_key = None
         for _ in range(r.read_map_len()):
             key = r.read_uint()
@@ -916,6 +919,8 @@ class CardanoCip8SignResponse:
             else:
                 r.skip_value()
         r.read_map_end()
+        if request_id is None:
+            raise ValueError("cardano-cip8-sig-res missing request_id (key 1)")
         if cose_sign1 is None:
             raise ValueError("cardano-cip8-sig-res missing cose_sign1 (key 2)")
         if cose_key is None:

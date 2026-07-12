@@ -19,7 +19,7 @@ CDDL
     CardanoAccountRequest = {
         1: tstr,            ; request_id (UUID, echoed in the response)
       ? 2: tstr,            ; origin (wallet name, e.g. "Eternl")
-        3: [* uint],        ; account_indices (one or more)
+        3: [* uint],        ; account_indices (one or more, each below 2^31)
       ? 4: uint             ; key_purpose (default 1852 = CIP-1852)
     }
 
@@ -117,6 +117,10 @@ class CardanoAccountRequest:
             raise ValueError("cardano-account-req missing request_id (key 1)")
         if not account_indices:
             raise ValueError("cardano-account-req missing/empty account_indices (key 3)")
+        for index in account_indices:
+            if index >= HARDENED_OFFSET:
+                raise ValueError(
+                    f"cardano-account-req account_index out of range (>= 2**31): {index}")
         if key_purpose not in SUPPORTED_KEY_PURPOSES:
             raise ValueError(f"cardano-account-req unsupported key_purpose: {key_purpose}")
 

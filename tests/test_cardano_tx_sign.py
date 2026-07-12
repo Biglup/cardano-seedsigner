@@ -97,6 +97,15 @@ def test_tx_response_missing_witness_raises():
         CardanoTxSignResponse.from_cbor(w.encode())
 
 
+def test_tx_response_missing_request_id_raises():
+    w = CborWriter()
+    w.write_start_map(1)
+    w.write_int(2)
+    w.write_bytes(b"\xa1\x00\x80")
+    with pytest.raises(ValueError):
+        CardanoTxSignResponse.from_cbor(w.encode())
+
+
 def test_cip8_request_roundtrip_minimal():
     req = CardanoMessageSignRequest(
         request_id="m-1",
@@ -158,6 +167,17 @@ def test_cip8_response_missing_sign1_raises():
     w.write_start_map(2)
     w.write_int(1)
     w.write_str("m-1")
+    w.write_int(3)
+    w.write_bytes(b"\xa4")
+    with pytest.raises(ValueError):
+        CardanoCip8SignResponse.from_cbor(w.encode())
+
+
+def test_cip8_response_missing_request_id_raises():
+    w = CborWriter()
+    w.write_start_map(2)
+    w.write_int(2)
+    w.write_bytes(b"\x84")
     w.write_int(3)
     w.write_bytes(b"\xa4")
     with pytest.raises(ValueError):
@@ -376,11 +396,27 @@ BODY_CBOR_ONE_OUTPUT = bytes.fromhex(
     "02" "1a0002bf20"
 )
 
+BODY_CBOR_EMPTY_VOTING = bytes.fromhex(
+    "a4"
+    "00" "81" "82" "5820" + "00" * 32 + "00"
+    "01" "81" "82" "581d61" + "11" * 28 + "1a000f4240"
+    "02" "1a0002bf20"
+    "13" "a0"
+)
 
-def _parsed_tx(verified_change_indices):
+BODY_CBOR_ONE_VOTE = bytes.fromhex(
+    "a4"
+    "00" "81" "82" "5820" + "00" * 32 + "00"
+    "01" "81" "82" "581d61" + "11" * 28 + "1a000f4240"
+    "02" "1a0002bf20"
+    "13" "a1" "8200581c" + "22" * 28 + "a1" "825820" + "33" * 32 + "00" "8201f6"
+)
+
+
+def _parsed_tx(verified_change_indices, sign_data=BODY_CBOR_ONE_OUTPUT):
     from seedsigner.models.cardano_tx import CardanoParsedTx
     req = CardanoSignRequest(
-        request_id="w-1", origin=None, sign_data=BODY_CBOR_ONE_OUTPUT,
+        request_id="w-1", origin=None, sign_data=sign_data,
         inputs=[], change_outputs=[], network=NetworkId.MAINNET,
     )
     return CardanoParsedTx(req, verified_change_indices=verified_change_indices)
@@ -395,6 +431,17 @@ def test_unverified_outputs_flag_fires_when_no_change_verified():
 def test_unverified_outputs_flag_clear_when_change_verified():
     parsed = _parsed_tx([0])
     assert not parsed.has_unverified_outputs
+
+
+def test_has_voting_false_for_empty_voting_procedures():
+    parsed = _parsed_tx([], sign_data=BODY_CBOR_EMPTY_VOTING)
+    assert parsed.voting_procedures is not None
+    assert not parsed.has_voting
+
+
+def test_has_voting_true_for_nonempty_voting_procedures():
+    parsed = _parsed_tx([], sign_data=BODY_CBOR_ONE_VOTE)
+    assert parsed.has_voting
 
 
 def test_signing_input_encode_path_without_xfp_raises():
