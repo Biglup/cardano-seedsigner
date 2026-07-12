@@ -575,6 +575,83 @@ class TestCardanoSignFlows(FlowTest):
             initial_destination_view_args=dict(msg_request=request),
         )
 
+    PATH_DREP = [1852 + H, 1815 + H, 0 + H, 3, 0]
+
+    def _key_hash_bytes(self, seed, path):
+        from seedsigner.helpers.cardano_utils import root_key_from_seed
+        key = root_key_from_seed(seed).derive(path)
+        return key.get_public_key().to_ed25519_key().to_hash().to_bytes()
+
+    def _run_overview_rejects(self, request):
+        from unittest.mock import patch
+
+        with patch.object(CardanoMsgOverviewView, "_show_rejection") as mock_rejection:
+            self.run_sequence(
+                [
+                    FlowStep(CardanoMsgOverviewView, is_redirect=True),
+                    FlowStep(_MainMenuView),
+                ],
+                initial_destination_view_args=dict(msg_request=request),
+            )
+        assert mock_rejection.call_args.kwargs["title"] == "Address Mismatch"
+
+    def test_msg_overview_address_mismatch_rejected(self):
+        from seedsigner.models.cardano_tx import CardanoMessageSignRequest, SigningPath
+
+        self._load_seed()
+        seed = self.controller.storage.seeds[0]
+        other_path = [1852 + H, 1815 + H, 0 + H, 0, 1]
+        request = CardanoMessageSignRequest(
+            request_id="addr-mismatch", origin="Lace", message_payload=b"hi",
+            required_signing_path=SigningPath(index=0, path=other_path),
+            address_bytes=self._enterprise_addr_bytes(seed),
+            xfp=bytes.fromhex(seed.get_fingerprint()),
+        )
+        self.controller.cardano_seed = seed
+        self.controller.cardano_cip8_sign_request = request
+
+        self._run_overview_rejects(request)
+
+    def test_msg_overview_owned_drep_key_hash_proceeds(self):
+        from seedsigner.models.cardano_tx import CardanoMessageSignRequest, SigningPath
+        from seedsigner.views.msg_sign.address_view import CardanoMsgAddressView
+
+        self._load_seed()
+        seed = self.controller.storage.seeds[0]
+        request = CardanoMessageSignRequest(
+            request_id="drep-owned", origin="Lace", message_payload=b"vote",
+            required_signing_path=SigningPath(index=0, path=self.PATH_DREP),
+            address_bytes=self._key_hash_bytes(seed, self.PATH_DREP),
+            xfp=bytes.fromhex(seed.get_fingerprint()),
+        )
+        self.controller.cardano_seed = seed
+        self.controller.cardano_cip8_sign_request = request
+
+        self.run_sequence(
+            [
+                FlowStep(CardanoMsgOverviewView, screen_return_value=0),
+                FlowStep(CardanoMsgAddressView),
+            ],
+            initial_destination_view_args=dict(msg_request=request),
+        )
+
+    def test_msg_overview_mismatched_drep_key_hash_rejected(self):
+        from seedsigner.models.cardano_tx import CardanoMessageSignRequest, SigningPath
+
+        self._load_seed()
+        seed = self.controller.storage.seeds[0]
+        other_drep_path = [1852 + H, 1815 + H, 0 + H, 3, 1]
+        request = CardanoMessageSignRequest(
+            request_id="drep-mismatch", origin="Lace", message_payload=b"vote",
+            required_signing_path=SigningPath(index=0, path=self.PATH_DREP),
+            address_bytes=self._key_hash_bytes(seed, other_drep_path),
+            xfp=bytes.fromhex(seed.get_fingerprint()),
+        )
+        self.controller.cardano_seed = seed
+        self.controller.cardano_cip8_sign_request = request
+
+        self._run_overview_rejects(request)
+
     def test_extra_signers_only_multisig_tx_signs(self):
         from seedsigner.gui.screens.tx_review import RET_CODE__RIGHT_BUTTON
         from seedsigner.models.cardano_tx import CardanoSignRequest, SigningInput, ExtraSigner

@@ -274,6 +274,10 @@ def verify_change_outputs(sign_request, seed, body) -> list[int]:
     inflated spending amount). An entry whose index falls outside the body's
     output list is skipped the same way rather than failing the request.
 
+    Base addresses are verified against the account's standard stake key
+    (role 2, index 0), so a base address using a non-default stake index is
+    treated as unverified.
+
     Returns a list of output indices that are verified as change.
     """
     root_key = root_key_from_seed(seed)
@@ -350,9 +354,12 @@ def verify_message_signing_address(msg_request, seed) -> bool:
     """Verify that the signing path matches the address in a CIP-8 request.
 
     For base/enterprise addresses, derives the payment key from the signing
-    path and verifies it matches the payment credential in the address. A
-    base address with a script stake part is matched on its payment
-    credential alone, since the stake script is not derivable from the seed.
+    path and verifies it matches the payment credential in the address. Base
+    addresses are verified against the account's standard stake key (role 2,
+    index 0), so a base address using a non-default stake index is treated
+    as unverified. A base address with a script stake part is matched on its
+    payment credential alone, since the stake script is not derivable from
+    the seed.
     For reward addresses, derives the staking key and verifies the stake
     credential.
     For DRep credentials (28-byte raw key hash), compares directly against
