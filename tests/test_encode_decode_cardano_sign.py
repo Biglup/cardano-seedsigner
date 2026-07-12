@@ -277,3 +277,13 @@ def test_getter_on_incomplete_ur_raises_value_error():
     assert not decoder.is_complete
     with pytest.raises(ValueError):
         decoder.get_cardano_tx_sign_request()
+
+
+def test_detection_is_driven_by_qrtype():
+    """Every Cardano QRType routes through the QRType-derived detection table:
+    a first fragment for `UR:<TYPE>/...` detects back to that same QRType."""
+    from seedsigner.models.decode_qr import UR_DECODER_QR_TYPES
+
+    for qr_type in UR_DECODER_QR_TYPES:
+        fragment = f"UR:{qr_type.upper()}/1-1/dummy"
+        assert DecodeQR.detect_segment_type(fragment) == qr_type

@@ -25,6 +25,15 @@ UR_DECODER_QR_TYPES = [
     QRType.CARDANO_CIP8_SIG_RESPONSE,
 ]
 
+CARDANO_UR_DETECTORS = {
+    qr_type: re.compile(f"^UR:{qr_type.upper()}/", re.IGNORECASE)
+    for qr_type in UR_DECODER_QR_TYPES
+}
+"""Maps each Cardano QRType to a compiled first-fragment detector regex.
+
+The UR type string is the single source: the anchored, slash-terminated
+pattern is built from it so a new Cardano UR type needs no separate regex."""
+
 
 class DecodeQRStatus(IntEnum):
     """
@@ -273,23 +282,9 @@ class DecodeQR:
             logger.debug(f"segment string length: {len(s)}")
 
             # Cardano UR types
-            if re.search("^UR:CARDANO-ACCOUNT-REQ/", s, re.IGNORECASE):
-                return QRType.CARDANO_ACCOUNT_REQUEST
-
-            elif re.search("^UR:CARDANO-ACCOUNT/", s, re.IGNORECASE):
-                return QRType.CARDANO_ACCOUNT
-
-            elif re.search("^UR:CARDANO-TX-SIG-REQ/", s, re.IGNORECASE):
-                return QRType.CARDANO_TX_SIG_REQUEST
-
-            elif re.search("^UR:CARDANO-TX-SIG-RES/", s, re.IGNORECASE):
-                return QRType.CARDANO_TX_SIG_RESPONSE
-
-            elif re.search("^UR:CARDANO-CIP8-SIG-REQ/", s, re.IGNORECASE):
-                return QRType.CARDANO_CIP8_SIG_REQUEST
-
-            elif re.search("^UR:CARDANO-CIP8-SIG-RES/", s, re.IGNORECASE):
-                return QRType.CARDANO_CIP8_SIG_RESPONSE
+            for qr_type, detector in CARDANO_UR_DETECTORS.items():
+                if detector.search(s):
+                    return qr_type
 
             # Seed
             if re.search(r'\d{48,96}', s):
