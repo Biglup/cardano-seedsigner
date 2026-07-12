@@ -86,6 +86,18 @@ def path_role(path) -> int:
     return None
 
 
+def account_stake_path(path):
+    """The account's standard stake key path for `path` (CIP-1852 role 2,
+    index 0).
+
+    Keeps the purpose/coin-type/account prefix of `path` and appends the
+    fixed staking components (``ROLE_STAKE``, ``0``), so a base address is
+    always verified against the account's default stake key. A base address
+    using a non-default stake index therefore does not verify.
+    """
+    return list(path[:3]) + [ROLE_STAKE, 0]
+
+
 def drep_id_from_key_hash(key_hash: bytes) -> str:
     """The CIP-129 DRep ID (``drep1...``) for a 28-byte DRep key hash."""
     from cometa import Blake2bHash, Credential, DRep, DRepType
@@ -239,6 +251,63 @@ def _payment_key_credential_matches(addr, derived_payment_cred) -> bool:
         return False
 
 
+def _derived_credential(root_key, path):
+    """The key-hash :class:`Credential` derived from `path` under `root_key`.
+
+    Hashes the derived Ed25519 public key to a Blake2b-224 key hash and wraps
+    it as a key-hash credential, the payment/stake credential form used when
+    rebuilding an address for ownership comparison.
+    """
+    from cometa import Credential
+
+    key = root_key.derive(path)
+    return Credential.from_key_hash(key.get_public_key().to_ed25519_key().to_hash())
+
+
+def _rebuilt_address_matches(root_key, path, network_id, addr, addr_type, target):
+    """Whether the key-credential address rebuilt from `path` equals `target`.
+
+    Dispatches on the CIP-19 address type: an all-key base address takes its
+    payment credential from `path` and its stake credential from the
+    account's standard stake key (:func:`account_stake_path`); an enterprise
+    key address uses the payment credential only; both are rebuilt at
+    `network_id` and compared to `target` as strings. A base address whose
+    stake part is a script cannot be rebuilt (the script is not derivable),
+    so it is matched on its payment credential alone, after confirming the
+    address's network id equals `network_id`.
+
+    Returns ``None`` for any other address type, leaving the outcome to the
+    caller. Fail-safe: a derivation or comparison failure returns False.
+    """
+    from cometa import AddressType, BaseAddress, EnterpriseAddress
+
+    handled = {
+        AddressType.BASE_PAYMENT_KEY_STAKE_KEY,
+        AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT,
+        AddressType.ENTERPRISE_KEY,
+    }
+    if addr_type not in handled:
+        return None
+
+    try:
+        payment_cred = _derived_credential(root_key, path)
+
+        if addr_type == AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT:
+            if addr.network_id != network_id:
+                return False
+            return _payment_key_credential_matches(addr, payment_cred)
+
+        if addr_type == AddressType.BASE_PAYMENT_KEY_STAKE_KEY:
+            stake_cred = _derived_credential(root_key, account_stake_path(path))
+            derived_addr = BaseAddress.from_credentials(network_id, payment_cred, stake_cred)
+            return str(derived_addr) == target
+
+        derived_addr = EnterpriseAddress.from_credentials(network_id, payment_cred)
+        return str(derived_addr) == target
+    except Exception:
+        return False
+
+
 def _derived_address_matches(root_key, path, network_id, actual_addr) -> bool:
     """Whether the address derived from `path` equals `actual_addr`.
 
@@ -250,20 +319,7 @@ def _derived_address_matches(root_key, path, network_id, actual_addr) -> bool:
     (pointer, reward, script-payment, byron), a parse failure, or a path
     that cannot be derived returns False.
     """
-    from cometa import (
-        Address,
-        AddressType,
-        BaseAddress,
-        EnterpriseAddress,
-        Credential,
-    )
-
-    BASE_TYPES = {
-        AddressType.BASE_PAYMENT_KEY_STAKE_KEY,
-    }
-    ENTERPRISE_TYPES = {
-        AddressType.ENTERPRISE_KEY,
-    }
+    from cometa import Address, AddressType
 
     try:
         parsed = Address.from_string(actual_addr)
@@ -271,33 +327,9 @@ def _derived_address_matches(root_key, path, network_id, actual_addr) -> bool:
     except Exception:
         return False
 
-    try:
-        key = root_key.derive(path)
-        payment_cred = Credential.from_key_hash(
-            key.get_public_key().to_ed25519_key().to_hash()
-        )
-
-        if addr_type in BASE_TYPES:
-            stake_path = list(path[:3]) + [2, 0]
-            stake_key = root_key.derive(stake_path)
-            stake_cred = Credential.from_key_hash(
-                stake_key.get_public_key().to_ed25519_key().to_hash()
-            )
-            derived_addr = BaseAddress.from_credentials(network_id, payment_cred, stake_cred)
-            return str(derived_addr) == actual_addr
-
-        if addr_type == AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT:
-            if parsed.network_id != network_id:
-                return False
-            return _payment_key_credential_matches(parsed, payment_cred)
-
-        if addr_type in ENTERPRISE_TYPES:
-            derived_addr = EnterpriseAddress.from_credentials(network_id, payment_cred)
-            return str(derived_addr) == actual_addr
-    except Exception:
-        return False
-
-    return False
+    return bool(
+        _rebuilt_address_matches(root_key, path, network_id, parsed, addr_type, actual_addr)
+    )
 
 
 def verify_change_outputs(sign_request, seed, body) -> list[int]:
@@ -417,14 +449,7 @@ def verify_message_signing_address(msg_request, seed) -> bool:
     Returns True if the address matches or if no address is provided.
     Returns False if verification fails (wrong key, unknown address type).
     """
-    from cometa import (
-        Address,
-        AddressType,
-        BaseAddress,
-        EnterpriseAddress,
-        RewardAddress,
-        Credential,
-    )
+    from cometa import Address, AddressType, RewardAddress
 
     if msg_request.address_bytes is None:
         return True
@@ -441,44 +466,18 @@ def verify_message_signing_address(msg_request, seed) -> bool:
             return _verify_drep_credential(root_key, path, msg_request.address_bytes)
         return False
 
-    BASE_TYPES = {
-        AddressType.BASE_PAYMENT_KEY_STAKE_KEY,
-    }
-    ENTERPRISE_TYPES = {
-        AddressType.ENTERPRISE_KEY,
-    }
-    REWARD_TYPES = {
-        AddressType.REWARD_KEY,
-    }
+    result = _rebuilt_address_matches(root_key, path, network_id, addr, addr_type, str(addr))
+    if result is not None:
+        return result
 
-    try:
-        key = root_key.derive(path)
-        derived_cred = Credential.from_key_hash(
-            key.get_public_key().to_ed25519_key().to_hash()
-        )
-
-        if addr_type == AddressType.BASE_PAYMENT_KEY_STAKE_SCRIPT:
-            return _payment_key_credential_matches(addr, derived_cred)
-
-        if addr_type in BASE_TYPES:
-            stake_path = list(path[:3]) + [2, 0]
-            stake_key = root_key.derive(stake_path)
-            stake_cred = Credential.from_key_hash(
-                stake_key.get_public_key().to_ed25519_key().to_hash()
+    if addr_type == AddressType.REWARD_KEY:
+        try:
+            derived_addr = RewardAddress.from_credentials(
+                network_id, _derived_credential(root_key, path)
             )
-            derived_addr = BaseAddress.from_credentials(network_id, derived_cred, stake_cred)
             return str(derived_addr) == str(addr)
-
-        elif addr_type in ENTERPRISE_TYPES:
-            derived_addr = EnterpriseAddress.from_credentials(network_id, derived_cred)
-            return str(derived_addr) == str(addr)
-
-        elif addr_type in REWARD_TYPES:
-            derived_addr = RewardAddress.from_credentials(network_id, derived_cred)
-            return str(derived_addr) == str(addr)
-
-    except Exception:
-        return False
+        except Exception:
+            return False
 
     return False
 
