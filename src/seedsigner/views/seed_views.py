@@ -236,7 +236,13 @@ class SeedFinalizeView(View):
 
         if button_data[selected_menu_num] == self.FINALIZE:
             from seedsigner.controller import Controller
-            seed_num = self.controller.storage.finalize_pending_seed()
+            from seedsigner.gui.screens.screen import LoadingScreenThread
+            loading_screen = LoadingScreenThread(text=_("Finalizing seed..."))
+            loading_screen.start()
+            try:
+                seed_num = self.controller.storage.finalize_pending_seed()
+            finally:
+                loading_screen.stop()
             if self.controller.resume_main_flow == Controller.FLOW__CARDANO_ACCOUNT_EXPORT:
                 from seedsigner.views.cardano_export_views import CardanoExportSelectSeedView
                 self.controller.resume_main_flow = None
@@ -364,7 +370,13 @@ class SeedReviewPassphraseView(View):
             return Destination(SeedAddPassphraseView)
 
         elif button_data[selected_menu_num] == self.DONE:
-            seed_num = self.controller.storage.finalize_pending_seed()
+            from seedsigner.gui.screens.screen import LoadingScreenThread
+            loading_screen = LoadingScreenThread(text=_("Finalizing seed..."))
+            loading_screen.start()
+            try:
+                seed_num = self.controller.storage.finalize_pending_seed()
+            finally:
+                loading_screen.stop()
             return Destination(SeedOptionsView, view_args={"seed_num": seed_num}, clear_history=True)
 
 

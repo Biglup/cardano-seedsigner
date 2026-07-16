@@ -52,3 +52,65 @@ def test_fingerprint_changes_with_passphrase():
 	seed.set_passphrase("test")
 	fp_with = seed.get_fingerprint()
 	assert fp_without != fp_with
+
+
+def test_cardano_root_key_is_cached():
+	"""Repeated access should return the same derived root key object."""
+	seed = Seed(mnemonic="obscure bone gas open exotic abuse virus bunker shuffle nasty ship dash".split())
+	assert seed._cardano_root_key is None
+	key = seed.cardano_root_key
+	assert key is not None
+	assert seed.cardano_root_key is key
+
+
+def test_cardano_root_key_invalidated_by_passphrase():
+	"""Setting a passphrase should drop the cache and change the derived key."""
+	seed = Seed(mnemonic="obscure bone gas open exotic abuse virus bunker shuffle nasty ship dash".split())
+	key_without = seed.cardano_root_key
+	seed.set_passphrase("test")
+	assert seed._cardano_root_key is None
+	key_with = seed.cardano_root_key
+	assert key_with.get_public_key().to_bytes() != key_without.get_public_key().to_bytes()
+	seed.set_passphrase("")
+	assert seed.cardano_root_key.get_public_key().to_bytes() == key_without.get_public_key().to_bytes()
+
+
+def test_root_key_from_seed_uses_cache():
+	"""The shared helper should serve the Seed's cached root key."""
+	from seedsigner.helpers.cardano_utils import root_key_from_seed
+	seed = Seed(mnemonic="obscure bone gas open exotic abuse virus bunker shuffle nasty ship dash".split())
+	assert root_key_from_seed(seed) is seed.cardano_root_key
+
+
+def test_set_passphrase_always_invalidates_cardano_root_key():
+	"""The cache should be dropped even with regenerate_seed=False."""
+	seed = Seed(mnemonic="obscure bone gas open exotic abuse virus bunker shuffle nasty ship dash".split())
+	seed.cardano_root_key
+	seed.set_passphrase("test", regenerate_seed=False)
+	assert seed._cardano_root_key is None
+
+
+def test_finalize_pending_seed_warms_cardano_root_key():
+	"""Finalizing a pending seed should eagerly derive the correct Cardano root key."""
+	from seedsigner.models.seed_storage import SeedStorage
+	storage = SeedStorage()
+	mnemonic = "obscure bone gas open exotic abuse virus bunker shuffle nasty ship dash".split()
+	seed = Seed(mnemonic=mnemonic)
+	storage.set_pending_seed(seed)
+	assert seed._cardano_root_key is None
+	storage.finalize_pending_seed()
+	assert seed._cardano_root_key is not None
+	fresh_key = Seed(mnemonic=mnemonic).cardano_root_key
+	assert seed._cardano_root_key.get_public_key().to_bytes() == fresh_key.get_public_key().to_bytes()
+
+
+def test_finalize_duplicate_pending_seed_keeps_existing():
+	"""Re-finalizing an equal seed should return the stored seed's index."""
+	from seedsigner.models.seed_storage import SeedStorage
+	storage = SeedStorage()
+	mnemonic = "obscure bone gas open exotic abuse virus bunker shuffle nasty ship dash".split()
+	storage.set_pending_seed(Seed(mnemonic=mnemonic))
+	assert storage.finalize_pending_seed() == 0
+	storage.set_pending_seed(Seed(mnemonic=mnemonic))
+	assert storage.finalize_pending_seed() == 0
+	assert storage.num_seeds() == 1
