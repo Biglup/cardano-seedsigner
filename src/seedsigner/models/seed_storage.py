@@ -24,6 +24,8 @@ class SeedStorage:
         if self.pending_seed in self.seeds:
             index = self.seeds.index(self.pending_seed)
         else:
+            # eagerly derive the Cardano root key so later flows hit the cache
+            self.pending_seed.cardano_root_key
             self.seeds.append(self.pending_seed)
             index = len(self.seeds) - 1
         self.pending_seed = None

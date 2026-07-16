@@ -8,17 +8,14 @@ shown on the message signing overview screen.
 
 
 def root_key_from_seed(seed):
-    """Derive the Cardano CIP-1852 BIP32 root private key from a loaded Seed.
+    """The Cardano CIP-1852 BIP32 root private key for a loaded Seed.
 
-    Single source of truth for seed -> root key (entropy + optional passphrase),
-    shared by change-output verification, message-address verification, and the
-    signing core, so the derivation can never drift between them.
+    Single source of truth for seed -> root key, shared by change-output
+    verification, message-address verification, and the signing core, so the
+    derivation can never drift between them. Delegates to
+    ``Seed.cardano_root_key``, which memoizes the expensive Icarus KDF.
     """
-    from cometa import Bip32PrivateKey, mnemonic_to_entropy
-
-    entropy = mnemonic_to_entropy(seed.mnemonic_list)
-    passphrase_bytes = seed.passphrase.encode("utf-8") if seed.passphrase else b""
-    return Bip32PrivateKey.from_bip39_entropy(passphrase_bytes, entropy)
+    return seed.cardano_root_key
 
 
 HARDENED_OFFSET = 0x80000000

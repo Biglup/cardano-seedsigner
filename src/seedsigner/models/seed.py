@@ -28,6 +28,7 @@ class Seed:
         self._mnemonic: List[str] = unicodedata.normalize("NFKD", " ".join(mnemonic).strip()).split()
 
         self._passphrase: str = ""
+        self._cardano_root_key = None
         self.set_passphrase(passphrase, regenerate_seed=False)
 
         self.seed_bytes: bytes = None
@@ -44,11 +45,27 @@ class Seed:
 
 
     def _generate_seed(self):
+        self._cardano_root_key = None
         try:
             self.seed_bytes = bip39.mnemonic_to_seed(self.mnemonic_str, password=self._passphrase, wordlist=self.wordlist)
         except Exception as e:
             logger.info(repr(e), exc_info=True)
             raise InvalidSeedException(repr(e))
+
+
+    @property
+    def cardano_root_key(self):
+        """The Cardano CIP-1852 BIP32 root private key, memoized because the
+        Icarus KDF is slow on device. ``set_passphrase`` and ``_generate_seed``
+        clear the cache so it can never serve a key for a stale passphrase.
+        """
+        if self._cardano_root_key is None:
+            from cometa import Bip32PrivateKey, mnemonic_to_entropy
+
+            entropy = mnemonic_to_entropy(self._mnemonic)
+            passphrase_bytes = self._passphrase.encode("utf-8") if self._passphrase else b""
+            self._cardano_root_key = Bip32PrivateKey.from_bip39_entropy(passphrase_bytes, entropy)
+        return self._cardano_root_key
 
 
     @property
@@ -92,6 +109,7 @@ class Seed:
 
 
     def set_passphrase(self, passphrase: str, regenerate_seed: bool = True):
+        self._cardano_root_key = None
         if passphrase:
             self._passphrase = unicodedata.normalize("NFKD", passphrase)
         else:

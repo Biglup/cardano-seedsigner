@@ -202,6 +202,9 @@ class LoadingScreenThread(BaseThread):
                 renderer.show_image()
             position += arc_sweep
 
+            # don't starve the worker thread this spinner is covering for
+            time.sleep(0.05)
+
 
 
 @dataclass
