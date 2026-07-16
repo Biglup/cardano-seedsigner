@@ -1,8 +1,16 @@
 name: Update download table
 
+# Not `release: published`: GITHUB_TOKEN-created releases emit no events, so
+# that trigger never fires; workflow_run on the Release workflow does.
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.0)"
+        required: true
 
 permissions:
   contents: write
@@ -13,6 +21,7 @@ concurrency:
 
 jobs:
   update-readme:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,7 +30,7 @@ jobs:
 
       - name: regenerate the download table
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
           REPO: ${{ github.repository }}
         run: |
           base="https://github.com/${REPO}/releases/download/${TAG}"
