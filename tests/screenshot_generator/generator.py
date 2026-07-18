@@ -156,6 +156,35 @@ def _build_cardano_network_mismatch_tx() -> CardanoParsedTx:
     return CardanoParsedTx(sign_request, verified_change_indices=[])
 
 
+def _build_cardano_verified_token_tx() -> CardanoParsedTx:
+    """Build a mainnet CardanoParsedTx sending and minting a curated asset.
+
+    Uses the real Minswap MIN policy so the output and mint pages render the
+    verified-asset display: ticker, decimals-scaled amount, Verified badge.
+    """
+    min_policy = "29d222ce763455e3d7a09a665ce554f00ac89d2e99a1a83d267170c6"
+    body = bytes.fromhex(
+        "a4"
+        "00" "81" "82" "5820" + "00" * 32 + "00"
+        "01" "81" "82" "581d61" + "11" * 28 +
+        "82" "1a3b9aca00"
+        "a1" "581c" + min_policy + "a1" "43" "4d494e" "1a002625a0"
+        "02" "1a0002bf20"
+        "09" "a1" "581c" + min_policy + "a1" "43" "4d494e" "1a002625a0"
+    )
+    sign_request = CardanoSignRequest(
+        request_id="verified-token",
+        origin="Eternl",
+        sign_data=body,
+        inputs=[SigningInput(tx_hash=b"\x00" * 32, index=0,
+                             xfp=bytes.fromhex(seed_12.get_fingerprint()),
+                             path=[2147485500, 2147485463, 2147483648, 0, 0])],
+        change_outputs=[],
+        network=NetworkId.MAINNET,
+    )
+    return CardanoParsedTx(sign_request, verified_change_indices=[])
+
+
 def _build_cardano_screenshot_configs():
     """Build screenshot configs for Cardano TX and message signing views."""
     parsed_tx = _build_cardano_parsed_tx()
@@ -193,6 +222,10 @@ def _build_cardano_screenshot_configs():
         # Sequential review — one sample page per section type (scroll_all captures full content)
         ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=0), screenshot_name="SeqReview_output_first", scroll_all=True),
         ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=1), screenshot_name="SeqReview_output_with_tokens", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=_build_cardano_verified_token_tx(), global_index=0),
+                         screenshot_name="SeqReview_output_verified_token", scroll_all=True),
+        ScreenshotConfig(seq, dict(parsed_tx=_build_cardano_verified_token_tx(), global_index=2),
+                         screenshot_name="SeqReview_mint_verified", scroll_all=True),
         ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=7), screenshot_name="SeqReview_fee", scroll_all=True),
         ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=8), screenshot_name="SeqReview_validity_start", scroll_all=True),
         ScreenshotConfig(seq, dict(parsed_tx=parsed_tx, global_index=9), screenshot_name="SeqReview_ttl", scroll_all=True),

@@ -54,11 +54,14 @@ class OutputReviewView(BaseSequentialSectionView):
         tokens = None
         ma = output.value.multi_asset
         if ma:
-            tokens = {}
+            from seedsigner.models.verified_assets import get_verified_asset
+            network = self.parsed_tx.network
+            tokens = []
             for policy_id, asset_map in ma.items():
                 for asset_name, qty in asset_map.items():
                     fingerprint = asset_fingerprint(policy_id, asset_name)
-                    tokens[fingerprint] = qty
+                    verified = get_verified_asset(network, policy_id, asset_name)
+                    tokens.append((fingerprint, qty, verified))
 
         datum_type, datum_hex = _extract_datum_info(output)
         script_ref_lang = _extract_script_ref_info(output)
