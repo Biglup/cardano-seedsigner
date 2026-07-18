@@ -72,7 +72,28 @@ BODY_CBOR_WITH_PLUTUS_PARAM_CHANGE = bytes.fromhex(
 )
 
 
-def _parsed_tx(sign_data):
+MIN_POLICY_HEX = "29d222ce763455e3d7a09a665ce554f00ac89d2e99a1a83d267170c6"
+
+BODY_CBOR_WITH_VERIFIED_MINT = bytes.fromhex(
+    "a4"
+    "00" "81" "82" "5820" + "00" * 32 + "00"
+    "01" "81" "82" "581d61" + "11" * 28 + "1a000f4240"
+    "02" "1a0002bf20"
+    "09" "a1" "581c" + MIN_POLICY_HEX +
+    "a1" "43" "4d494e" "1a002625a0"
+)
+
+BODY_CBOR_WITH_VERIFIED_TOKEN_OUTPUT = bytes.fromhex(
+    "a3"
+    "00" "81" "82" "5820" + "00" * 32 + "00"
+    "01" "81" "82" "581d61" + "11" * 28 +
+    "82" "1a000f4240"
+    "a1" "581c" + MIN_POLICY_HEX + "a1" "43" "4d494e" "1a002625a0"
+    "02" "1a0002bf20"
+)
+
+
+def _parsed_tx(sign_data, network=NetworkId.TESTNET):
     request = CardanoSignRequest(
         request_id="content-test",
         origin=None,
@@ -80,7 +101,7 @@ def _parsed_tx(sign_data):
         inputs=[SigningInput(tx_hash=ZERO_TX_HASH, index=0,
                              xfp=b"\x00" * 4, path=PATH_PAYMENT)],
         change_outputs=[],
-        network=NetworkId.TESTNET,
+        network=network,
     )
     return CardanoParsedTx(request, verified_change_indices=[])
 
@@ -135,6 +156,49 @@ def test_mint_positive_and_negative_keep_signed_coloring():
     assert ("value_large_yes", "+5") in content
     assert ("value_highlight_warn", "Burn") in content
     assert ("value_large_warn", "-5") in content
+
+
+def test_mint_of_verified_asset_shows_ticker_decimals_and_badge():
+    from seedsigner.views.tx_review.mint_view import MintReviewView
+
+    parsed = _parsed_tx(BODY_CBOR_WITH_VERIFIED_MINT, network=NetworkId.MAINNET)
+    content = _run_section_view(MintReviewView, parsed, "mint")["content"]
+    assert ("value_highlight", "MIN") in content
+    assert ("value_large_yes", "+2.5") in content
+    assert ("verified", "Verified") in content
+
+
+def test_mint_of_verified_asset_stays_raw_on_testnet():
+    from seedsigner.views.tx_review.mint_view import MintReviewView
+
+    parsed = _parsed_tx(BODY_CBOR_WITH_VERIFIED_MINT, network=NetworkId.TESTNET)
+    content = _run_section_view(MintReviewView, parsed, "mint")["content"]
+    assert ("value_highlight", "MIN") not in content
+    assert ("value_large_yes", "+2,500,000") in content
+    assert ("verified", "Verified") not in content
+
+
+def test_output_tokens_carry_verified_asset_on_mainnet_only():
+    from seedsigner.helpers.cardano_utils import asset_fingerprint
+    from seedsigner.views.tx_review.output_view import OutputReviewView
+
+    parsed = _parsed_tx(BODY_CBOR_WITH_VERIFIED_TOKEN_OUTPUT,
+                        network=NetworkId.MAINNET)
+    tokens = _run_section_view(OutputReviewView, parsed, "output")["tokens"]
+    assert len(tokens) == 1
+    fingerprint, qty, verified = tokens[0]
+    assert fingerprint.startswith("asset1")
+    assert qty == 2500000
+    assert verified is not None
+    assert verified.ticker == "MIN"
+    assert verified.decimals == 6
+
+    parsed = _parsed_tx(BODY_CBOR_WITH_VERIFIED_TOKEN_OUTPUT,
+                        network=NetworkId.TESTNET)
+    tokens = _run_section_view(OutputReviewView, parsed, "output")["tokens"]
+    fingerprint, qty, verified = tokens[0]
+    assert qty == 2500000
+    assert verified is None
 
 
 def test_pool_pledge_influence_renders_as_plain_decimal():

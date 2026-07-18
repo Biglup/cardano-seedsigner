@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from gettext import gettext as _
 
 from seedsigner.gui.components import GUIConstants, Fonts, SeedSignerIconConstants
+from seedsigner.models.verified_assets import format_asset_amount
 
 from .sequential_base_screen import CardanoSequentialBaseScreen
 from .utils import format_ada, wrap_highlighted_line, draw_highlighted_line
@@ -26,7 +27,9 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
     Fields:
         address: bech32 output address.
         amount: output value in lovelace.
-        tokens: {name: amount} map of native assets.
+        tokens: list of (fingerprint, amount, verified_asset) per native
+            asset, where verified_asset is a VerifiedAsset from the curated
+            list or None.
         is_change: whether the output verified as this wallet's change.
         datum_type: "Inline" or "Hash", None when the output has no datum.
         datum_hex: hex string of the datum hash or inline datum CBOR.
@@ -34,7 +37,7 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
     """
     address: str = ""
     amount: int = 0
-    tokens: dict = None
+    tokens: list = None
     is_change: bool = False
     datum_type: str = None
     datum_hex: str = None
@@ -48,7 +51,7 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
         calling super so _calculate_scroll can compute the total height.
         """
         if self.tokens:
-            self.token_list = list(self.tokens.items())
+            self.token_list = list(self.tokens)
         else:
             self.token_list = []
 
@@ -85,8 +88,10 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
         inline datum up to 64 chars is shown in full (a very small one
         entirely highlighted); a longer inline datum is truncated with an
         ellipsis in the middle. Head and tail highlight counts include the
-        separator space where one is inserted. Token amounts carry an
-        "Unknown decimals" warning.
+        separator space where one is inserted. A token on the curated
+        verified list shows its ticker, its amount scaled by the attested
+        decimals, and a Verified badge; any other token shows the raw
+        integer amount with an "Unknown decimals" warning.
         """
         self._lines = []
         self._token_ranges = []
@@ -131,11 +136,14 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
             self._lines.append(("spacer", ""))
             self._lines.append(("label", f"Tokens ({len(self.token_list)}):"))
 
-            for idx, (token_name, token_amount) in enumerate(self.token_list):
+            for idx, (token_name, token_amount, verified) in enumerate(self.token_list):
                 if idx > 0:
                     self._lines.append(("spacer", ""))
                     self._lines.append(("spacer", ""))
                 else:
+                    self._lines.append(("spacer_small", ""))
+                if verified:
+                    self._lines.append(("value_highlight", verified.ticker))
                     self._lines.append(("spacer_small", ""))
                 fingerprint = str(token_name) if str(token_name) else "(unnamed)"
                 fp_prefix_len = len("asset1") if fingerprint.startswith("asset1") else 0
@@ -151,8 +159,13 @@ class CardanoOutputSequentialScreen(CardanoSequentialBaseScreen):
                 token_end = len(self._lines)
                 self._token_ranges.append((token_start, token_end, len(fp_display), head_n, tail_n))
                 self._lines.append(("spacer_small", ""))
-                self._lines.append(("token_amount", f"{token_amount:,}"))
-                self._lines.append(("warning_small", _("Unknown decimals")))
+                if verified:
+                    self._lines.append(
+                        ("token_amount", format_asset_amount(token_amount, verified.decimals)))
+                    self._lines.append(("verified", _("Verified")))
+                else:
+                    self._lines.append(("token_amount", f"{token_amount:,}"))
+                    self._lines.append(("warning_small", _("Unknown decimals")))
 
         if self.datum_type:
             self._lines.append(("spacer", ""))
