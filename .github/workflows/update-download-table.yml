@@ -48,9 +48,9 @@ jobs:
             echo "| Board | Image | Signature |"
             echo "|-------|-------|-----------|"
             row "Pi Zero / Zero W" pi0
-            row "Pi Zero 2 W" pi02w
+            row "Pi Zero 2 W / Pi 3 Model B/B+" pi02w
             row "Pi 2 Model B" pi2
-            row "Pi 3 / Pi 4" pi4
+            row "Pi 4 Model B" pi4
             echo "| Checksums (all images) | [SHA256SUMS](${base}/SHA256SUMS) | [SHA256SUMS.asc](${base}/SHA256SUMS.asc) |"
             echo "<!-- END DOWNLOAD TABLE -->"
           } > table.md
