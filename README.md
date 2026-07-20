@@ -53,9 +53,9 @@ Latest release: **[v1.0.0](https://github.com/Biglup/cardano-seedsigner/releases
 | Board | Image | Signature |
 |-------|-------|-----------|
 | Pi Zero / Zero W | [cardano_seedsigner_os.v1.0.0.pi0.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi0.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi0.img.asc) |
-| Pi Zero 2 W | [cardano_seedsigner_os.v1.0.0.pi02w.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi02w.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi02w.img.asc) |
+| Pi Zero 2 W / Pi 3 Model B/B+ | [cardano_seedsigner_os.v1.0.0.pi02w.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi02w.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi02w.img.asc) |
 | Pi 2 Model B | [cardano_seedsigner_os.v1.0.0.pi2.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi2.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi2.img.asc) |
-| Pi 3 / Pi 4 | [cardano_seedsigner_os.v1.0.0.pi4.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi4.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi4.img.asc) |
+| Pi 4 Model B | [cardano_seedsigner_os.v1.0.0.pi4.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi4.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi4.img.asc) |
 | Checksums (all images) | [SHA256SUMS](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/SHA256SUMS) | [SHA256SUMS.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/SHA256SUMS.asc) |
 <!-- END DOWNLOAD TABLE -->
 
