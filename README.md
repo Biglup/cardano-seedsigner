@@ -48,18 +48,18 @@ You either solder the 40 GPIO pins or use solderless hammer headers, and the scr
 Get the image for your board from the [latest release](https://github.com/Biglup/cardano-seedsigner/releases/latest). Each release ships one image per board plus the files you need to verify it. The table below is regenerated automatically on every release.
 
 <!-- BEGIN DOWNLOAD TABLE -->
-Latest release: **[v1.0.0](https://github.com/Biglup/cardano-seedsigner/releases/tag/v1.0.0)**
+Latest release: **[v1.1.0](https://github.com/Biglup/cardano-seedsigner/releases/tag/v1.1.0)**
 
 | Board | Image | Signature |
 |-------|-------|-----------|
-| Raspberry Pi Zero 1.3 | [cardano_seedsigner_os.v1.0.0.pi0.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi0.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi0.img.asc) |
-| Raspberry Pi Zero W | [cardano_seedsigner_os.v1.0.0.pi0.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi0.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi0.img.asc) |
-| Raspberry Pi Zero 2 W | [cardano_seedsigner_os.v1.0.0.pi02w.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi02w.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi02w.img.asc) |
-| Raspberry Pi 1 Model B/B+ (*) | [cardano_seedsigner_os.v1.0.0.pi0.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi0.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi0.img.asc) |
-| Raspberry Pi 2 Model B | [cardano_seedsigner_os.v1.0.0.pi2.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi2.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi2.img.asc) |
-| Raspberry Pi 3 Model B/B+ | [cardano_seedsigner_os.v1.0.0.pi02w.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi02w.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi02w.img.asc) |
-| Raspberry Pi 4 Model B | [cardano_seedsigner_os.v1.0.0.pi4.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi4.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/cardano_seedsigner_os.v1.0.0.pi4.img.asc) |
-| Checksums (all images) | [SHA256SUMS](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/SHA256SUMS) | [SHA256SUMS.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.0.0/SHA256SUMS.asc) |
+| Raspberry Pi Zero 1.3 | [cardano_seedsigner_os.v1.1.0.pi0.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi0.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi0.img.asc) |
+| Raspberry Pi Zero W | [cardano_seedsigner_os.v1.1.0.pi0.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi0.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi0.img.asc) |
+| Raspberry Pi Zero 2 W | [cardano_seedsigner_os.v1.1.0.pi02w.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi02w.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi02w.img.asc) |
+| Raspberry Pi 1 Model B/B+ (*) | [cardano_seedsigner_os.v1.1.0.pi0.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi0.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi0.img.asc) |
+| Raspberry Pi 2 Model B | [cardano_seedsigner_os.v1.1.0.pi2.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi2.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi2.img.asc) |
+| Raspberry Pi 3 Model B/B+ | [cardano_seedsigner_os.v1.1.0.pi02w.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi02w.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi02w.img.asc) |
+| Raspberry Pi 4 Model B | [cardano_seedsigner_os.v1.1.0.pi4.img](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi4.img) | [.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/cardano_seedsigner_os.v1.1.0.pi4.img.asc) |
+| Checksums (all images) | [SHA256SUMS](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/SHA256SUMS) | [SHA256SUMS.asc](https://github.com/Biglup/cardano-seedsigner/releases/download/v1.1.0/SHA256SUMS.asc) |
 
 (*) The Pi 1 needs a hardware modification to the Waveshare LCD HAT, see the [upstream legacy hardware notes](https://github.com/SeedSigner/seedsigner/blob/dev/docs/legacy_hardware.md).
 <!-- END DOWNLOAD TABLE -->
