@@ -30,7 +30,7 @@ jobs:
     needs: verify-version
     uses: ./.github/workflows/build.yml
     with:
-      os-ref: v1.0.0
+      os-ref: v1.1.0
 
   release:
     name: sign and publish
